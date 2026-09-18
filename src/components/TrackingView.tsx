@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
-import { ACTIVITIES } from '../config';
 import { computeTracking } from '../tracking';
 import type { Bunk } from '../types';
 
 export default function TrackingView({ bunks }: { bunks: Bunk[] }) {
   const result = useMemo(() => computeTracking(bunks), [bunks]);
-  const leagueNames = ACTIVITIES.filter((a) => a.area === 'League').map((a) => a.label).join(', ');
 
   return (
     <section>
@@ -48,12 +46,6 @@ export default function TrackingView({ bunks }: { bunks: Bunk[] }) {
           </tfoot>
         </table>
       </div>
-      <ul>
-        <li>A double period counts once.</li>
-        <li>A block shared by several bunks counts once for each bunk.</li>
-        <li>Ropes covers High Ropes and Low Ropes. League covers {leagueNames}.</li>
-        <li>All-Camp Events and Village Days are not counted.</li>
-      </ul>
     </section>
   );
 }

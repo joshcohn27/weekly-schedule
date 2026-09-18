@@ -67,6 +67,5 @@ export function sampleSchedule(): Schedule {
   put(all, 1, [3], 'PM Hobbies');
 
   const days = DAYS.map(emptyDay);
-  days[0].evp = 'Open Night';
   return { bunks, days };
 }
