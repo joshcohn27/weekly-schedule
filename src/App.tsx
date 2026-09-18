@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import BuildGrid from './components/BuildGrid';
-import DayDetails from './components/DayDetails';
+// import DayDetails from './components/DayDetails';
 import ScheduleView from './components/ScheduleView';
 import TrackingView from './components/TrackingView';
 import { newBunk, sampleSchedule } from './sample';
 import { loadSchedule, saveSchedule } from './storage';
-import type { DayInfo, Schedule } from './types';
+import type { Schedule } from './types';
+// import type { DayInfo } from './types';
 
 type View = 'build' | 'schedule' | 'tracking';
 
@@ -53,9 +54,9 @@ export default function App() {
     });
   }, []);
 
-  const setDayField = useCallback((index: number, field: keyof DayInfo, value: string) => {
-    setSchedule((s) => ({ ...s, days: s.days.map((d, i) => (i === index ? { ...d, [field]: value } : d)) }));
-  }, []);
+  // const setDayField = useCallback((index: number, field: keyof DayInfo, value: string) => {
+  //   setSchedule((s) => ({ ...s, days: s.days.map((d, i) => (i === index ? { ...d, [field]: value } : d)) }));
+  // }, []);
 
   const resetToSample = () => {
     if (window.confirm('Replace everything with the sample schedule?')) setSchedule(sampleSchedule());
@@ -92,7 +93,7 @@ export default function App() {
               onRemove={removeBunk}
               onMove={moveBunk}
             />
-            <DayDetails days={schedule.days} onDay={setDayField} />
+            {/* <DayDetails days={schedule.days} onDay={setDayField} /> */}
           </>
         )}
         {view === 'schedule' && <ScheduleView bunks={schedule.bunks} days={schedule.days} />}
