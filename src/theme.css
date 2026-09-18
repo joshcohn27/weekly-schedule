@@ -1,0 +1,189 @@
+/* Very simple camp theme. Delete this file (and its import in main.tsx) to get the plain app back. */
+
+:root {
+  --forest: #2f5d3a;
+  --forest-dark: #22452a;
+  --lake: #d0e0e3;      /* header teal, same as the sheet's Bunk cell */
+  --sun: #fce5cd;       /* day header peach, same as the sheet */
+  --paper: #fbf7ee;
+  --ink: #23301f;
+  --line: #9aa59a;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Trebuchet MS', 'Segoe UI', Arial, sans-serif;
+  line-height: 1.4;
+}
+
+header {
+  background: var(--forest);
+  color: #fff;
+  padding: 16px 20px 0;
+}
+header h1 {
+  margin: 0 0 4px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.7rem;
+}
+header p {
+  margin: 0 0 12px;
+  opacity: 0.9;
+}
+
+nav button {
+  font: inherit;
+  font-weight: bold;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  border-bottom: 4px solid transparent;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+nav button[aria-pressed='true'] {
+  border-bottom-color: var(--sun);
+  background: var(--forest-dark);
+}
+
+main,
+footer {
+  padding: 16px 20px;
+}
+h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: var(--forest);
+  margin-top: 0;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+main button,
+footer button {
+  background: #fff;
+  color: var(--forest);
+  border: 2px solid var(--forest);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+main button:hover:not(:disabled),
+footer button:hover {
+  background: var(--forest);
+  color: #fff;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* tables */
+.scroll {
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+table {
+  border-collapse: collapse;
+  background: #fff;
+  font-size: 13px;
+}
+th,
+td {
+  border: 1px solid var(--line);
+  padding: 3px 6px;
+  text-align: center;
+  vertical-align: middle;
+}
+thead th {
+  background: var(--lake);
+}
+th.day {
+  background: var(--sun);
+  font-weight: normal;
+  min-width: 300px;
+}
+th.day div:first-child {
+  font-weight: bold;
+  font-size: 1.1em;
+}
+tfoot td {
+  text-align: left;
+}
+td.filled {
+  background: #fff;
+  font-weight: bold;
+}
+td.zero {
+  color: #b5bcb5;
+}
+tfoot th {
+  background: var(--lake);
+}
+
+/* bunk names use the sheet's village colors */
+th[data-village] {
+  min-width: 34px;
+}
+th[data-village='O'] { background: #ead1dc; }
+th[data-village='C'] { background: #d9ead3; }
+th[data-village='S'] { background: #fce5cd; }
+th[data-village='M'] { background: #cfe2f3; }
+th[data-village='T'] { background: #d9d2e9; }
+
+/* build grid */
+select {
+  font: inherit;
+  font-size: 12px;
+  width: 92px;
+}
+input {
+  font: inherit;
+  font-size: 13px;
+}
+fieldset {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  margin: 0 0 10px;
+}
+fieldset label {
+  display: inline-block;
+  margin: 3px 12px 3px 0;
+}
+legend {
+  font-weight: bold;
+  color: var(--forest);
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 0.4in;
+  }
+  header,
+  footer,
+  main button,
+  main p {
+    display: none;
+  }
+  main {
+    padding: 0;
+  }
+  table {
+    font-size: 9px;
+  }
+  th.day {
+    min-width: 0;
+  }
+  .scroll {
+    overflow: visible;
+  }
+}

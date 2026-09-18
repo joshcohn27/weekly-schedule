@@ -1,0 +1,108 @@
+import { memo } from 'react';
+import { DAYS, PERIODS_PER_DAY } from '../config';
+import type { Bunk } from '../types';
+import { OPTIONS } from './Options';
+
+interface SlotSelectProps {
+  bunkId: string;
+  slot: number;
+  value: string;
+  label: string;
+  onCell: (bunkId: string, slot: number, label: string) => void;
+}
+
+const SlotSelect = memo(function SlotSelect({ bunkId, slot, value, label, onCell }: SlotSelectProps) {
+  return (
+    <select aria-label={label} value={value} onChange={(e) => onCell(bunkId, slot, e.target.value)}>
+      {OPTIONS}
+    </select>
+  );
+});
+
+interface Props {
+  bunks: Bunk[];
+  onCell: (bunkId: string, slot: number, label: string) => void;
+  onBunk: (id: string, field: 'name' | 'grades' | 'count', value: string) => void;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
+}
+
+export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove }: Props) {
+  const periods = Array.from({ length: PERIODS_PER_DAY }, (_, i) => i);
+
+  return (
+    <section>
+      <h2>Build</h2>
+      <p>Pick an activity for each bunk and period. Matching neighbors merge automatically on the Schedule tab.</p>
+      <div className="scroll">
+        <table border={1}>
+          <thead>
+            <tr>
+              <th rowSpan={2}>Bunk</th>
+              <th rowSpan={2}>Grades</th>
+              <th rowSpan={2}>#</th>
+              {DAYS.map((d) => (
+                <th key={d} colSpan={PERIODS_PER_DAY}>
+                  {d}
+                </th>
+              ))}
+              <th rowSpan={2}>Move / remove</th>
+            </tr>
+            <tr>
+              {DAYS.flatMap((d) => periods.map((p) => <th key={`${d}${p}`}>P{p + 1}</th>))}
+            </tr>
+          </thead>
+          <tbody>
+            {bunks.map((b, r) => (
+              <tr key={b.id}>
+                <td>
+                  <input aria-label="Bunk name" size={6} value={b.name} onChange={(e) => onBunk(b.id, 'name', e.target.value)} />
+                </td>
+                <td>
+                  <input aria-label={`${b.name} grades`} size={7} value={b.grades} onChange={(e) => onBunk(b.id, 'grades', e.target.value)} />
+                </td>
+                <td>
+                  <input aria-label={`${b.name} camper count`} size={3} value={b.count} onChange={(e) => onBunk(b.id, 'count', e.target.value)} />
+                </td>
+                {DAYS.flatMap((d, di) =>
+                  periods.map((p) => {
+                    const slot = di * PERIODS_PER_DAY + p;
+                    return (
+                      <td key={slot}>
+                        <SlotSelect
+                          bunkId={b.id}
+                          slot={slot}
+                          value={b.slots[slot]}
+                          label={`${b.name || 'Bunk'} ${d} period ${p + 1}`}
+                          onCell={onCell}
+                        />
+                      </td>
+                    );
+                  }),
+                )}
+                <td>
+                  <button type="button" onClick={() => onMove(b.id, -1)} disabled={r === 0} aria-label={`Move ${b.name} up`}>
+                    Up
+                  </button>
+                  <button type="button" onClick={() => onMove(b.id, 1)} disabled={r === bunks.length - 1} aria-label={`Move ${b.name} down`}>
+                    Down
+                  </button>
+                  <button type="button" onClick={() => onRemove(b.id)} aria-label={`Remove ${b.name}`}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p>
+        <button type="button" onClick={onAdd}>
+          Add bunk
+        </button>
+      </p>
+      <p>Bunks that sit next to each other in this list can merge, so keep each village together.</p>
+    </section>
+  );
+}
