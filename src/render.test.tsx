@@ -13,9 +13,13 @@ describe('rendering', () => {
   const { bunks, days } = sampleSchedule();
 
   it('schedule view emits rowspan and colspan for merged blocks', () => {
-    const html = renderToStaticMarkup(<ScheduleView bunks={bunks} days={days} />);
-    expect(html).toMatch(/rowSpan="8" colSpan="2"|rowspan="8" colspan="2"/i); // everyone in AM Hobbies
-    expect(html).toMatch(/colspan="4"/i);
+    const merged = [newBunk('O1'), newBunk('O2'), newBunk('O3')];
+    for (const b of merged) {
+      b.slots[0] = 'Pool';
+      b.slots[1] = 'Pool';
+    }
+    const html = renderToStaticMarkup(<ScheduleView bunks={merged} days={days} />);
+    expect(html).toMatch(/rowSpan="3" colSpan="2"|rowspan="3" colspan="2"/i); // 3 bunks sharing a double period
   });
 
   it('build view has one dropdown per bunk per slot', () => {

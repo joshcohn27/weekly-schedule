@@ -199,14 +199,6 @@ export default function App() {
           <button type="button" onClick={resetWeek}>
             Reset {weekLabel(current)}
           </button>
-          {current > 0 && (
-            <>
-              {' '}
-              <button type="button" onClick={useLastWeekBunks} disabled={!previousWeek || previousWeek.bunks.length === 0}>
-                Use {weekLabel(current - 1)}'s bunks
-              </button>
-            </>
-          )}
         </div>
 
         {view === 'build' && (
@@ -218,6 +210,15 @@ export default function App() {
               onAdd={addBunk}
               onRemove={removeBunk}
               onMove={moveBunk}
+              usePreviousWeek={
+                current > 0
+                  ? {
+                      label: `Use ${weekLabel(current - 1)}'s bunks`,
+                      disabled: !previousWeek || previousWeek.bunks.length === 0,
+                      onClick: useLastWeekBunks,
+                    }
+                  : undefined
+              }
             />
             {/* <DayDetails days={schedule.days} onDay={setDayField} /> */}
           </>

@@ -67,6 +67,6 @@ describe('all-weeks download round trip', () => {
     const wb = buildAllWeeksWorkbook(weeks);
     const uploads = parseUploadedWorkbook(wb);
     expect(uploads.map((u) => u.weekNumber)).toEqual([1, 2, 3, 4]);
-    for (const u of uploads) expect(u.schedule.bunks).toHaveLength(8);
+    for (const u of uploads) expect(u.schedule.bunks).toHaveLength(sampleSchedule().bunks.length);
   });
 });

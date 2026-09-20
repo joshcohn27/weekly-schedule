@@ -26,9 +26,10 @@ interface Props {
   onAdd: () => void;
   onRemove: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
+  usePreviousWeek?: { label: string; disabled: boolean; onClick: () => void };
 }
 
-export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove }: Props) {
+export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, usePreviousWeek }: Props) {
   const periods = Array.from({ length: PERIODS_PER_DAY }, (_, i) => i);
 
   return (
@@ -100,7 +101,12 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
       <p>
         <button type="button" onClick={onAdd}>
           Add bunk
-        </button>
+        </button>{' '}
+        {usePreviousWeek && (
+          <button type="button" onClick={usePreviousWeek.onClick} disabled={usePreviousWeek.disabled}>
+            {usePreviousWeek.label}
+          </button>
+        )}
       </p>
       <p>Bunks that sit next to each other in this list can merge, so keep each village together.</p>
     </section>
