@@ -22,11 +22,12 @@ describe('rendering', () => {
     expect(html).toMatch(/rowSpan="3" colSpan="2"|rowspan="3" colspan="2"/i); // 3 bunks sharing a double period
   });
 
-  it('build view has one dropdown per bunk per slot', () => {
+  it('build view has one dropdown per bunk per slot, plus the fill-period toolbar', () => {
     const html = renderToStaticMarkup(
-      <BuildGrid bunks={bunks} onCell={noop} onBunk={noop} onAdd={noop} onRemove={noop} onMove={noop} />,
+      <BuildGrid bunks={bunks} onCell={noop} onBunk={noop} onAdd={noop} onRemove={noop} onMove={noop} onFillSlot={noop} />,
     );
-    expect((html.match(/<select/g) ?? []).length).toBe(bunks.length * 24);
+    // +3 for the "fill a period for all bunks" toolbar's day/period/activity selects
+    expect((html.match(/<select/g) ?? []).length).toBe(bunks.length * 24 + 3);
   });
 
   it('tracking view renders', () => {

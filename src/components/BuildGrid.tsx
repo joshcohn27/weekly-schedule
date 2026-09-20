@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { DAYS, PERIODS_PER_DAY } from '../config';
 import type { Bunk } from '../types';
 import { OPTIONS } from './Options';
@@ -26,16 +26,49 @@ interface Props {
   onAdd: () => void;
   onRemove: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
+  onFillSlot: (slot: number, label: string) => void;
   usePreviousWeek?: { label: string; disabled: boolean; onClick: () => void };
 }
 
-export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, usePreviousWeek }: Props) {
+export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, onFillSlot, usePreviousWeek }: Props) {
   const periods = Array.from({ length: PERIODS_PER_DAY }, (_, i) => i);
+  const [fillDay, setFillDay] = useState(0);
+  const [fillPeriod, setFillPeriod] = useState(0);
+  const [fillLabel, setFillLabel] = useState('');
 
   return (
     <section>
       <h2>Build</h2>
       <p>Pick an activity for each bunk and period. Matching neighbors merge automatically on the Schedule tab.</p>
+      <p>
+        Set a whole period at once (for an all-camp event; hobbies already fill everyone automatically):{' '}
+        <select aria-label="Fill day" value={fillDay} onChange={(e) => setFillDay(Number(e.target.value))}>
+          {DAYS.map((d, i) => (
+            <option key={d} value={i}>
+              {d}
+            </option>
+          ))}
+        </select>{' '}
+        <select aria-label="Fill period" value={fillPeriod} onChange={(e) => setFillPeriod(Number(e.target.value))}>
+          {periods.map((p) => (
+            <option key={p} value={p}>
+              Period {p + 1}
+            </option>
+          ))}
+        </select>{' '}
+        <select aria-label="Fill activity" value={fillLabel} onChange={(e) => setFillLabel(e.target.value)}>
+          {OPTIONS}
+        </select>{' '}
+        <button
+          type="button"
+          onClick={() => {
+            onFillSlot(fillDay * PERIODS_PER_DAY + fillPeriod, fillLabel);
+            setFillLabel('');
+          }}
+        >
+          Set for all bunks
+        </button>
+      </p>
       <div className="scroll">
         <table border={1}>
           <thead>

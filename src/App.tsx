@@ -3,7 +3,7 @@ import BuildGrid from './components/BuildGrid';
 // import DayDetails from './components/DayDetails';
 import ScheduleView from './components/ScheduleView';
 import TrackingView from './components/TrackingView';
-import { WEEK_COUNT } from './config';
+import { WEEK_COUNT, areaOf } from './config';
 import { downloadAllWeeks, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
 import { defaultWeeksState, loadWeeks, saveWeeks } from './storage';
@@ -47,11 +47,26 @@ export default function App() {
     }));
   }, []);
 
+  // Hobbies is always everyone at once, so picking it for one bunk fills the whole period;
+  // exceptions are then a manual edit on just that bunk, same as any other activity.
   const setCell = useCallback(
     (bunkId: string, slot: number, label: string) => {
       updateCurrentSchedule((s) => ({
         ...s,
-        bunks: s.bunks.map((b) => (b.id === bunkId ? { ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) } : b)),
+        bunks:
+          areaOf(label) === 'Hobbies'
+            ? s.bunks.map((b) => ({ ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) }))
+            : s.bunks.map((b) => (b.id === bunkId ? { ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) } : b)),
+      }));
+    },
+    [updateCurrentSchedule],
+  );
+
+  const fillSlotForAll = useCallback(
+    (slot: number, label: string) => {
+      updateCurrentSchedule((s) => ({
+        ...s,
+        bunks: s.bunks.map((b) => ({ ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) })),
       }));
     },
     [updateCurrentSchedule],
@@ -210,6 +225,7 @@ export default function App() {
               onAdd={addBunk}
               onRemove={removeBunk}
               onMove={moveBunk}
+              onFillSlot={fillSlotForAll}
               usePreviousWeek={
                 current > 0
                   ? {
