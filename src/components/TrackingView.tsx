@@ -1,14 +1,33 @@
-import { useMemo } from 'react';
-import { computeTracking } from '../tracking';
-import type { Bunk } from '../types';
+import { useMemo, useState } from 'react';
+import { computeSessionTracking, computeTracking } from '../tracking';
+import type { Bunk, Schedule } from '../types';
 
-export default function TrackingView({ bunks }: { bunks: Bunk[] }) {
-  const result = useMemo(() => computeTracking(bunks), [bunks]);
+interface Props {
+  bunks: Bunk[];
+  weekLabel: string;
+  schedules: Schedule[];
+}
+
+type Mode = 'week' | 'session';
+
+export default function TrackingView({ bunks, weekLabel, schedules }: Props) {
+  const [mode, setMode] = useState<Mode>('week');
+  const weekResult = useMemo(() => computeTracking(bunks), [bunks]);
+  const sessionResult = useMemo(() => computeSessionTracking(schedules), [schedules]);
+  const result = mode === 'week' ? weekResult : sessionResult;
 
   return (
     <section>
       <h2>Tracking</h2>
-      <p>How many times each bunk has each program area this week.</p>
+      <p>How many times each bunk has each program area.</p>
+      <div className="mode-toggle">
+        <button type="button" aria-pressed={mode === 'week'} onClick={() => setMode('week')}>
+          {weekLabel}
+        </button>
+        <button type="button" aria-pressed={mode === 'session'} onClick={() => setMode('session')}>
+          Whole session
+        </button>
+      </div>
       <div className="scroll">
         <table border={1}>
           <thead>

@@ -1,6 +1,7 @@
 export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
 export const PERIODS_PER_DAY = 4;
 export const SLOT_COUNT = DAYS.length * PERIODS_PER_DAY; // 24
+export const WEEK_COUNT = 4;
 
 export interface Activity {
   /** What shows in the dropdown and in the schedule. */

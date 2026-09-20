@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { newBunk } from './sample';
-import { computeTracking } from './tracking';
-import type { Bunk } from './types';
+import { emptyDay, newBunk } from './sample';
+import { computeSessionTracking, computeTracking } from './tracking';
+import type { Bunk, Schedule } from './types';
 
 const bunk = (name: string, fill: Record<number, string>): Bunk => {
   const b = newBunk(name);
@@ -55,5 +55,32 @@ describe('computeTracking', () => {
     const t = computeTracking([bunk('O1', { 0: 'Pool', 5: 'Music' }), bunk('O2', { 5: 'Music' })]);
     expect(t.rows.map((r) => r.total)).toEqual([2, 1]);
     expect(t.grandTotal).toBe(3);
+  });
+});
+
+describe('computeSessionTracking', () => {
+  const week = (bunks: Bunk[]): Schedule => ({ bunks, days: Array.from({ length: 6 }, emptyDay) });
+
+  it('sums a bunk that appears in multiple weeks by name', () => {
+    const week1 = week([bunk('O1', { 0: 'Pool' })]);
+    const week2 = week([bunk('O1', { 0: 'Pool', 1: 'Music' })]);
+    const t = computeSessionTracking([week1, week2]);
+    const row = t.rows.find((r) => r.bunk.name === 'O1')!;
+    expect(row.counts[t.areas.indexOf('Pool')]).toBe(2);
+    expect(row.counts[t.areas.indexOf('Music')]).toBe(1);
+    expect(row.total).toBe(3);
+  });
+
+  it('keeps bunks with different names as separate rows', () => {
+    const week1 = week([bunk('O1', { 0: 'Pool' })]);
+    const week2 = week([bunk('O2', { 0: 'Pool' })]);
+    const t = computeSessionTracking([week1, week2]);
+    expect(t.rows.map((r) => r.bunk.name).sort()).toEqual(['O1', 'O2']);
+    expect(t.grandTotal).toBe(2);
+  });
+
+  it('ignores empty weeks', () => {
+    const t = computeSessionTracking([week([]), week([bunk('O1', { 0: 'Pool' })])]);
+    expect(t.rows).toHaveLength(1);
   });
 });

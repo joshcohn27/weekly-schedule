@@ -22,6 +22,12 @@ export interface Schedule {
   days: DayInfo[];
 }
 
+/** Up to WEEK_COUNT weeks. A null slot is an unused week. */
+export interface WeeksState {
+  weeks: (Schedule | null)[];
+  current: number;
+}
+
 /** A rectangle of the schedule grid that displays as one merged cell. */
 export interface Block {
   row: number;

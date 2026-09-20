@@ -163,6 +163,26 @@ footer {
   margin-top: 16px;
 }
 
+.weekbar {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+}
+.weekbar select {
+  width: auto;
+  font-size: 13px;
+}
+
+.mode-toggle {
+  margin-bottom: 8px;
+}
+.mode-toggle button[aria-pressed='true'] {
+  background: var(--forest);
+  color: #fff;
+}
+
 @media print {
   @page {
     size: landscape;
@@ -171,7 +191,9 @@ footer {
   header,
   footer,
   main button,
-  main p {
+  main p,
+  .weekbar,
+  .mode-toggle {
     display: none;
   }
   main {

@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import BuildGrid from './components/BuildGrid';
 // import DayDetails from './components/DayDetails';
 import ScheduleView from './components/ScheduleView';
 import TrackingView from './components/TrackingView';
-import { newBunk, sampleSchedule } from './sample';
-import { loadSchedule, saveSchedule } from './storage';
-import type { Schedule } from './types';
+import { WEEK_COUNT } from './config';
+import { downloadAllWeeks, downloadWeek, readUploadedFile } from './excel';
+import { emptySchedule, newBunk, sampleSchedule } from './sample';
+import { defaultWeeksState, loadWeeks, saveWeeks } from './storage';
+import type { Schedule, WeeksState } from './types';
 // import type { DayInfo } from './types';
 
 type View = 'build' | 'schedule' | 'tracking';
@@ -16,56 +18,130 @@ const TABS: { id: View; label: string }[] = [
   { id: 'tracking', label: 'Tracking' },
 ];
 
+const weekLabel = (index: number): string => `Week ${index + 1}`;
+const isEmpty = (s: Schedule | null): boolean => !s || s.bunks.length === 0;
+
 export default function App() {
-  const [schedule, setSchedule] = useState<Schedule>(() => loadSchedule() ?? sampleSchedule());
+  const [weeksState, setWeeksState] = useState<WeeksState>(() => loadWeeks() ?? defaultWeeksState());
   const [view, setView] = useState<View>('build');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => saveSchedule(schedule), [schedule]);
+  useEffect(() => saveWeeks(weeksState), [weeksState]);
 
-  const setCell = useCallback((bunkId: string, slot: number, label: string) => {
-    setSchedule((s) => ({
-      ...s,
-      bunks: s.bunks.map((b) =>
-        b.id === bunkId ? { ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) } : b,
-      ),
+  const current = weeksState.current;
+  const schedule = weeksState.weeks[current] ?? emptySchedule();
+  const allSchedules = weeksState.weeks.filter((w): w is Schedule => w !== null);
+
+  const updateCurrentSchedule = useCallback((fn: (s: Schedule) => Schedule) => {
+    setWeeksState((ws) => ({
+      ...ws,
+      weeks: ws.weeks.map((w, i) => (i === ws.current ? fn(w ?? emptySchedule()) : w)),
     }));
   }, []);
 
-  const setBunkField = useCallback((id: string, field: 'name' | 'grades' | 'count', value: string) => {
-    setSchedule((s) => ({ ...s, bunks: s.bunks.map((b) => (b.id === id ? { ...b, [field]: value } : b)) }));
+  const switchWeek = useCallback((index: number) => {
+    setWeeksState((ws) => ({
+      current: index,
+      weeks: ws.weeks[index] === null ? ws.weeks.map((w, i) => (i === index ? emptySchedule() : w)) : ws.weeks,
+    }));
   }, []);
+
+  const setCell = useCallback(
+    (bunkId: string, slot: number, label: string) => {
+      updateCurrentSchedule((s) => ({
+        ...s,
+        bunks: s.bunks.map((b) => (b.id === bunkId ? { ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) } : b)),
+      }));
+    },
+    [updateCurrentSchedule],
+  );
+
+  const setBunkField = useCallback(
+    (id: string, field: 'name' | 'grades' | 'count', value: string) => {
+      updateCurrentSchedule((s) => ({ ...s, bunks: s.bunks.map((b) => (b.id === id ? { ...b, [field]: value } : b)) }));
+    },
+    [updateCurrentSchedule],
+  );
 
   const addBunk = useCallback(() => {
-    setSchedule((s) => ({ ...s, bunks: [...s.bunks, newBunk()] }));
-  }, []);
+    updateCurrentSchedule((s) => ({ ...s, bunks: [...s.bunks, newBunk()] }));
+  }, [updateCurrentSchedule]);
 
-  const removeBunk = useCallback((id: string) => {
-    setSchedule((s) => ({ ...s, bunks: s.bunks.filter((b) => b.id !== id) }));
-  }, []);
+  const removeBunk = useCallback(
+    (id: string) => {
+      updateCurrentSchedule((s) => ({ ...s, bunks: s.bunks.filter((b) => b.id !== id) }));
+    },
+    [updateCurrentSchedule],
+  );
 
-  const moveBunk = useCallback((id: string, direction: -1 | 1) => {
-    setSchedule((s) => {
-      const i = s.bunks.findIndex((b) => b.id === id);
-      const j = i + direction;
-      if (i < 0 || j < 0 || j >= s.bunks.length) return s;
-      const bunks = [...s.bunks];
-      [bunks[i], bunks[j]] = [bunks[j], bunks[i]];
-      return { ...s, bunks };
-    });
-  }, []);
+  const moveBunk = useCallback(
+    (id: string, direction: -1 | 1) => {
+      updateCurrentSchedule((s) => {
+        const i = s.bunks.findIndex((b) => b.id === id);
+        const j = i + direction;
+        if (i < 0 || j < 0 || j >= s.bunks.length) return s;
+        const bunks = [...s.bunks];
+        [bunks[i], bunks[j]] = [bunks[j], bunks[i]];
+        return { ...s, bunks };
+      });
+    },
+    [updateCurrentSchedule],
+  );
 
   // const setDayField = useCallback((index: number, field: keyof DayInfo, value: string) => {
-  //   setSchedule((s) => ({ ...s, days: s.days.map((d, i) => (i === index ? { ...d, [field]: value } : d)) }));
-  // }, []);
+  //   updateCurrentSchedule((s) => ({ ...s, days: s.days.map((d, i) => (i === index ? { ...d, [field]: value } : d)) }));
+  // }, [updateCurrentSchedule]);
 
   const resetToSample = () => {
-    if (window.confirm('Replace everything with the sample schedule?')) setSchedule(sampleSchedule());
+    if (window.confirm(`Replace ${weekLabel(current)} with the sample schedule?`)) updateCurrentSchedule(() => sampleSchedule());
   };
 
   const clearActivities = () => {
     if (window.confirm('Clear every activity? Bunks stay.')) {
-      setSchedule((s) => ({ ...s, bunks: s.bunks.map((b) => ({ ...b, slots: b.slots.map(() => '') })) }));
+      updateCurrentSchedule((s) => ({ ...s, bunks: s.bunks.map((b) => ({ ...b, slots: b.slots.map(() => '') })) }));
     }
+  };
+
+  const resetWeek = () => {
+    if (window.confirm(`Reset ${weekLabel(current)}? This clears all bunks and activities for this week.`)) {
+      updateCurrentSchedule(() => emptySchedule());
+    }
+  };
+
+  const handleDownload = () => downloadWeek(schedule, current + 1);
+  const handleDownloadAll = () => downloadAllWeeks(weeksState.weeks);
+
+  const handleUploadClick = () => fileInputRef.current?.click();
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const parsed = await readUploadedFile(file);
+    if (parsed.length === 0) {
+      window.alert("Couldn't read that file. Upload something downloaded from this app.");
+      return;
+    }
+
+    const inRange = parsed.filter((p) => p.weekNumber >= 1 && p.weekNumber <= WEEK_COUNT);
+    const overflow = parsed.length - inRange.length;
+    const overflowNote = overflow > 0 ? ` ${overflow} week(s) beyond ${weekLabel(WEEK_COUNT - 1)} in the file were skipped.` : '';
+    if (inRange.length === 0) {
+      window.alert(`Nothing to load.${overflowNote}`);
+      return;
+    }
+
+    const summary = inRange
+      .map((p) => `${weekLabel(p.weekNumber - 1)}${isEmpty(weeksState.weeks[p.weekNumber - 1]) ? '' : ' (overwrite)'}`)
+      .join(', ');
+    if (!window.confirm(`Load ${summary}?${overflowNote}`)) return;
+
+    setWeeksState((ws) => {
+      const weeks = [...ws.weeks];
+      for (const p of inRange) weeks[p.weekNumber - 1] = p.schedule;
+      return { weeks, current: inRange[0].weekNumber - 1 };
+    });
   };
 
   return (
@@ -83,6 +159,34 @@ export default function App() {
       </header>
 
       <main>
+        <div className="weekbar">
+          <label>
+            Week:{' '}
+            <select value={current} onChange={(e) => switchWeek(Number(e.target.value))}>
+              {Array.from({ length: WEEK_COUNT }, (_, i) => (
+                <option key={i} value={i}>
+                  {weekLabel(i)}
+                  {isEmpty(weeksState.weeks[i]) ? ' (empty)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>{' '}
+          <button type="button" onClick={handleDownload}>
+            Download {weekLabel(current)} (.xlsx)
+          </button>{' '}
+          <button type="button" onClick={handleDownloadAll}>
+            Download all weeks (.xlsx)
+          </button>{' '}
+          <button type="button" onClick={handleUploadClick}>
+            Upload
+          </button>
+          <input ref={fileInputRef} type="file" accept=".xlsx" hidden onChange={handleFileChange} />
+          {' '}
+          <button type="button" onClick={resetWeek}>
+            Reset {weekLabel(current)}
+          </button>
+        </div>
+
         {view === 'build' && (
           <>
             <BuildGrid
@@ -97,7 +201,7 @@ export default function App() {
           </>
         )}
         {view === 'schedule' && <ScheduleView bunks={schedule.bunks} days={schedule.days} />}
-        {view === 'tracking' && <TrackingView bunks={schedule.bunks} />}
+        {view === 'tracking' && <TrackingView bunks={schedule.bunks} weekLabel={weekLabel(current)} schedules={allSchedules} />}
       </main>
 
       <footer>

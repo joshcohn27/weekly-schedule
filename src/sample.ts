@@ -23,6 +23,8 @@ export const newBunk = (name = '', grades = '', count = ''): Bunk => ({
 
 export const slotIndex = (day: number, period: number): number => day * PERIODS_PER_DAY + period;
 
+export const emptySchedule = (): Schedule => ({ bunks: [], days: DAYS.map(emptyDay) });
+
 /** A small example so first-time visitors see auto-merge and tracking working. */
 export function sampleSchedule(): Schedule {
   const bunks = [
