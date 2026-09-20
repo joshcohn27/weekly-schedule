@@ -31,6 +31,7 @@ export default function App() {
   const current = weeksState.current;
   const schedule = weeksState.weeks[current] ?? emptySchedule();
   const allSchedules = weeksState.weeks.filter((w): w is Schedule => w !== null);
+  const previousWeek = current > 0 ? weeksState.weeks[current - 1] : null;
 
   const updateCurrentSchedule = useCallback((fn: (s: Schedule) => Schedule) => {
     setWeeksState((ws) => ({
@@ -106,6 +107,19 @@ export default function App() {
     if (window.confirm(`Reset ${weekLabel(current)}? This clears all bunks and activities for this week.`)) {
       updateCurrentSchedule(() => emptySchedule());
     }
+  };
+
+  const useLastWeekBunks = () => {
+    if (!previousWeek || previousWeek.bunks.length === 0) return;
+    const msg =
+      schedule.bunks.length > 0
+        ? `Replace ${weekLabel(current)}'s bunks with ${weekLabel(current - 1)}'s roster? Activities already set for this week will be cleared.`
+        : `Fill ${weekLabel(current)} with ${weekLabel(current - 1)}'s bunk roster (names, grades, counts, empty activities)?`;
+    if (!window.confirm(msg)) return;
+    updateCurrentSchedule((s) => ({
+      ...s,
+      bunks: previousWeek.bunks.map((b) => newBunk(b.name, b.grades, b.count)),
+    }));
   };
 
   const handleDownload = () => downloadWeek(schedule, current + 1);
@@ -185,6 +199,14 @@ export default function App() {
           <button type="button" onClick={resetWeek}>
             Reset {weekLabel(current)}
           </button>
+          {current > 0 && (
+            <>
+              {' '}
+              <button type="button" onClick={useLastWeekBunks} disabled={!previousWeek || previousWeek.bunks.length === 0}>
+                Use {weekLabel(current - 1)}'s bunks
+              </button>
+            </>
+          )}
         </div>
 
         {view === 'build' && (
