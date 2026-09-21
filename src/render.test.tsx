@@ -50,6 +50,16 @@ describe('rendering', () => {
     expect(renderToStaticMarkup(<App />)).toContain('Weekly Period Schedule Builder');
   });
 
+  it('schedule view makes filled blocks clickable and leaves empty cells alone', () => {
+    const two = [newBunk('O1'), newBunk('O2')];
+    two[0].slots[0] = 'Pool';
+    const html = renderToStaticMarkup(<ScheduleView bunks={two} days={days} />);
+    expect((html.match(/role="button"/g) ?? []).length).toBe(1);
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain('Click a block to highlight');
+    expect(html).not.toContain('class="filled hl');
+  });
+
   it('schedule view copes with zero bunks and an empty bunk', () => {
     expect(() => renderToStaticMarkup(<ScheduleView bunks={[]} days={days} />)).not.toThrow();
     expect(() => renderToStaticMarkup(<ScheduleView bunks={[newBunk()]} days={days} />)).not.toThrow();

@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { DAYS, PERIODS_PER_DAY } from '../config';
+import { highlightFor, isHighlighted, sameHighlight, type Highlight } from '../highlight';
 import { blocksByRow, computeBlocks } from '../merge';
 import type { Bunk, DayInfo } from '../types';
 
@@ -10,6 +11,9 @@ interface Props {
 
 export default function ScheduleView({ bunks, days }: Props) {
   const rows = useMemo(() => blocksByRow(computeBlocks(bunks), bunks.length), [bunks]);
+  /** The block that was clicked, and what it lights up elsewhere. */
+  const [picked, setPicked] = useState<{ row: number; col: number; highlight: Highlight } | null>(null);
+  const highlight = picked?.highlight ?? null;
   const periods = Array.from({ length: PERIODS_PER_DAY }, (_, i) => i);
   const half = PERIODS_PER_DAY / 2;
 
@@ -21,7 +25,8 @@ export default function ScheduleView({ bunks, days }: Props) {
           Print
         </button>
       </p>
-      <div className="scroll">
+      <p className="hint">Click a block to highlight every block in the same program area. Leagues light up within their village.</p>
+      <div className="scroll" onClick={() => setPicked(null)}>
         <table border={1} className="schedule">
           <thead>
             <tr>
@@ -50,11 +55,39 @@ export default function ScheduleView({ bunks, days }: Props) {
                 </th>
                 <td>{b.grades}</td>
                 <td>{b.count}</td>
-                {rows[r].map((blk) => (
-                  <td key={blk.col} rowSpan={blk.rowSpan} colSpan={blk.colSpan} className={blk.label ? 'filled' : undefined}>
-                    {blk.label}
-                  </td>
-                ))}
+                {rows[r].map((blk) => {
+                  if (!blk.label) return <td key={blk.col} rowSpan={blk.rowSpan} colSpan={blk.colSpan} />;
+                  const names = bunks.slice(r, r + blk.rowSpan).map((x) => x.name);
+                  const lit = isHighlighted(highlight, blk.label, names);
+                  const isPicked = picked?.row === r && picked.col === blk.col;
+                  const choose = () => {
+                    const next = highlightFor(blk.label, b.name);
+                    setPicked(next && !(isPicked && sameHighlight(next, highlight)) ? { row: r, col: blk.col, highlight: next } : null);
+                  };
+                  return (
+                    <td
+                      key={blk.col}
+                      rowSpan={blk.rowSpan}
+                      colSpan={blk.colSpan}
+                      className={`filled${lit ? ' hl' : ''}${isPicked ? ' picked' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isPicked}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        choose();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          choose();
+                        } else if (e.key === 'Escape') setPicked(null);
+                      }}
+                    >
+                      {blk.label}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
