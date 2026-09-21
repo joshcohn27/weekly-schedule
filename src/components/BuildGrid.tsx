@@ -2,7 +2,7 @@ import { memo, useMemo, useState } from 'react';
 import { PERIOD_CHOICES, periodsForChoice, villageOf } from '../autofill';
 import { DAYS, PERIODS_PER_DAY } from '../config';
 import type { Bunk } from '../types';
-import { OPTIONS } from './Options';
+import { ACTIVITY_LIST_ID, ActivityDatalist } from './Options';
 
 interface SlotSelectProps {
   bunkId: string;
@@ -14,9 +14,13 @@ interface SlotSelectProps {
 
 const SlotSelect = memo(function SlotSelect({ bunkId, slot, value, label, onCell }: SlotSelectProps) {
   return (
-    <select aria-label={label} value={value} onChange={(e) => onCell(bunkId, slot, e.target.value)}>
-      {OPTIONS}
-    </select>
+    <input
+      list={ACTIVITY_LIST_ID}
+      className="activity-input"
+      aria-label={label}
+      value={value}
+      onChange={(e) => onCell(bunkId, slot, e.target.value)}
+    />
   );
 });
 
@@ -41,8 +45,12 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
 
   return (
     <section>
+      {ActivityDatalist}
       <h2>Build</h2>
-      <p>Pick an activity for each bunk and period. Matching neighbors merge automatically on the Schedule tab.</p>
+      <p>
+        Pick an activity for each bunk and period, or type your own. Matching neighbors merge automatically on the Schedule
+        tab.
+      </p>
       <p>
         Set a whole period at once (hobbies already fill everyone automatically; leagues already fill their whole village):{' '}
         <select aria-label="Fill day" value={fillDay} onChange={(e) => setFillDay(Number(e.target.value))}>
@@ -67,9 +75,13 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
             </option>
           ))}
         </select>{' '}
-        <select aria-label="Fill activity" value={fillLabel} onChange={(e) => setFillLabel(e.target.value)}>
-          {OPTIONS}
-        </select>{' '}
+        <input
+          list={ACTIVITY_LIST_ID}
+          className="activity-input"
+          aria-label="Fill activity"
+          value={fillLabel}
+          onChange={(e) => setFillLabel(e.target.value)}
+        />{' '}
         <button
           type="button"
           onClick={() => {

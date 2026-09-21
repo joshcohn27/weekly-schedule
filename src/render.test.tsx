@@ -22,12 +22,17 @@ describe('rendering', () => {
     expect(html).toMatch(/rowSpan="3" colSpan="2"|rowspan="3" colspan="2"/i); // 3 bunks sharing a double period
   });
 
-  it('build view has one dropdown per bunk per slot, plus the fill-period toolbar', () => {
+  it('build view has one searchable activity input per bunk per slot, plus the fill toolbar', () => {
     const html = renderToStaticMarkup(
       <BuildGrid bunks={bunks} onCell={noop} onBunk={noop} onAdd={noop} onRemove={noop} onMove={noop} onFillSlots={noop} />,
     );
-    // +4 for the bulk-fill toolbar's day/period/village/activity selects
-    expect((html.match(/<select/g) ?? []).length).toBe(bunks.length * 24 + 4);
+    // +1 for the bulk-fill toolbar's own activity input
+    expect((html.match(/class="activity-input"/g) ?? []).length).toBe(bunks.length * 24 + 1);
+    // day/period/village pickers in the toolbar are still plain selects
+    expect((html.match(/<select/g) ?? []).length).toBe(3);
+    // the shared datalist backs every activity input with searchable, write-in-able suggestions
+    expect(html).toContain('<datalist id="activity-options"');
+    expect(html).toContain('AM Hobbies');
   });
 
   it('tracking view renders', () => {
@@ -51,11 +56,12 @@ describe('rendering', () => {
 });
 
 describe('normalize (saved data)', () => {
-  it('repairs short slot arrays and drops unknown activities', () => {
-    const s = normalize({ bunks: [{ id: 'a', name: 'O1', slots: ['Pool', 'Not A Thing'] }], days: [] })!;
+  it('repairs short slot arrays and keeps write-in activities', () => {
+    const s = normalize({ bunks: [{ id: 'a', name: 'O1', slots: ['Pool', 'Extra Craft Time'] }], days: [] })!;
     expect(s.bunks[0].slots).toHaveLength(24);
     expect(s.bunks[0].slots[0]).toBe('Pool');
-    expect(s.bunks[0].slots[1]).toBe('');
+    expect(s.bunks[0].slots[1]).toBe('Extra Craft Time');
+    expect(s.bunks[0].slots[2]).toBe('');
     expect(s.days).toHaveLength(6);
   });
 

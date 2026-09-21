@@ -29,15 +29,15 @@ describe('single-week download round trip', () => {
     expect(upload.schedule.days).toHaveLength(6);
   });
 
-  it('drops unknown activity labels on the way back in', () => {
+  it('keeps write-in activity labels on the way back in', () => {
     const s = emptySchedule();
     const bunk = newBunk('O1');
     bunk.slots[0] = 'Pool';
-    bunk.slots[1] = 'Not A Real Activity';
+    bunk.slots[1] = 'Extra Craft Time';
     s.bunks.push(bunk);
     const [upload] = parseUploadedWorkbook(buildWeekWorkbook(s, 1));
     expect(upload.schedule.bunks[0].slots[0]).toBe('Pool');
-    expect(upload.schedule.bunks[0].slots[1]).toBe('');
+    expect(upload.schedule.bunks[0].slots[1]).toBe('Extra Craft Time');
   });
 
   it('ignores the Tracking tab when reading a single-week file', () => {

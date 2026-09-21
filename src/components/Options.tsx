@@ -1,25 +1,13 @@
-import { OPTION_GROUPS } from '../config';
+import { ACTIVITIES } from '../config';
 
-/** Built once and shared by every dropdown so hundreds of selects stay cheap. */
-export const OPTIONS = (
-  <>
-    <option value="">-</option>
-    {OPTION_GROUPS.map((g) =>
-      g.group ? (
-        <optgroup key={g.group} label={g.group}>
-          {g.items.map((i) => (
-            <option key={i.label} value={i.label}>
-              {i.label}
-            </option>
-          ))}
-        </optgroup>
-      ) : (
-        g.items.map((i) => (
-          <option key={i.label} value={i.label}>
-            {i.label}
-          </option>
-        ))
-      ),
-    )}
-  </>
+/** Shared by every activity input so the browser's native type-to-search suggestions work everywhere. */
+export const ACTIVITY_LIST_ID = 'activity-options';
+
+/** Built once and shared by every activity input, same as the old <select>'s options were. */
+export const ActivityDatalist = (
+  <datalist id={ACTIVITY_LIST_ID}>
+    {ACTIVITIES.map((a) => (
+      <option key={a.label} value={a.label} />
+    ))}
+  </datalist>
 );

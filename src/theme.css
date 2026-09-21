@@ -143,6 +143,11 @@ input {
   font: inherit;
   font-size: 13px;
 }
+input.activity-input {
+  font-size: 12px;
+  width: 88px;
+  box-sizing: border-box;
+}
 fieldset {
   border: 1px solid var(--line);
   border-radius: 6px;

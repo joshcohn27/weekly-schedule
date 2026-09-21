@@ -1,4 +1,4 @@
-import { DAYS, SLOT_COUNT, WEEK_COUNT, isKnownLabel } from './config';
+import { DAYS, SLOT_COUNT, WEEK_COUNT } from './config';
 import { emptyDay, sampleSchedule, uid } from './sample';
 import type { Bunk, DayInfo, Schedule, WeeksState } from './types';
 
@@ -19,10 +19,8 @@ export function normalize(raw: unknown): Schedule | null {
       name: str(b?.name),
       grades: str(b?.grades),
       count: str(b?.count),
-      slots: Array.from({ length: SLOT_COUNT }, (_, i) => {
-        const label = str(slots[i]);
-        return isKnownLabel(label) ? label : '';
-      }),
+      // Any non-empty text is accepted: activities can be picked from the list or written in freehand.
+      slots: Array.from({ length: SLOT_COUNT }, (_, i) => str(slots[i])),
     };
   });
 
