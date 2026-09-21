@@ -3,7 +3,8 @@ import BuildGrid from './components/BuildGrid';
 // import DayDetails from './components/DayDetails';
 import ScheduleView from './components/ScheduleView';
 import TrackingView from './components/TrackingView';
-import { WEEK_COUNT, areaOf } from './config';
+import { bunkIdsForLabel, slotsForLabel, villageOf } from './autofill';
+import { WEEK_COUNT } from './config';
 import { downloadAllWeeks, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
 import { defaultWeeksState, loadWeeks, saveWeeks } from './storage';
@@ -47,26 +48,37 @@ export default function App() {
     }));
   }, []);
 
-  // Hobbies is always everyone at once, so picking it for one bunk fills the whole period;
-  // exceptions are then a manual edit on just that bunk, same as any other activity.
+  // Hobbies is always the whole camp, and a league is always the clicked bunk's whole village,
+  // both for their natural double/single period. A later edit to just one cell is a manual
+  // exception and only ever touches that one bunk/period, never cascading.
   const setCell = useCallback(
     (bunkId: string, slot: number, label: string) => {
-      updateCurrentSchedule((s) => ({
-        ...s,
-        bunks:
-          areaOf(label) === 'Hobbies'
-            ? s.bunks.map((b) => ({ ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) }))
-            : s.bunks.map((b) => (b.id === bunkId ? { ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) } : b)),
-      }));
+      updateCurrentSchedule((s) => {
+        if (!label) {
+          return { ...s, bunks: s.bunks.map((b) => (b.id === bunkId ? { ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) } : b)) };
+        }
+        const targetBunkIds = bunkIdsForLabel(label, bunkId, s.bunks);
+        const targetSlots = slotsForLabel(label, slot);
+        return {
+          ...s,
+          bunks: s.bunks.map((b) =>
+            targetBunkIds.has(b.id) ? { ...b, slots: b.slots.map((v, i) => (targetSlots.includes(i) ? label : v)) } : b,
+          ),
+        };
+      });
     },
     [updateCurrentSchedule],
   );
 
-  const fillSlotForAll = useCallback(
-    (slot: number, label: string) => {
+  const fillSlots = useCallback(
+    (slots: number[], label: string, village: string | null) => {
       updateCurrentSchedule((s) => ({
         ...s,
-        bunks: s.bunks.map((b) => ({ ...b, slots: b.slots.map((v, i) => (i === slot ? label : v)) })),
+        bunks: s.bunks.map((b) =>
+          !village || villageOf(b.name) === village
+            ? { ...b, slots: b.slots.map((v, i) => (slots.includes(i) ? label : v)) }
+            : b,
+        ),
       }));
     },
     [updateCurrentSchedule],
@@ -225,7 +237,7 @@ export default function App() {
               onAdd={addBunk}
               onRemove={removeBunk}
               onMove={moveBunk}
-              onFillSlot={fillSlotForAll}
+              onFillSlots={fillSlots}
               usePreviousWeek={
                 current > 0
                   ? {

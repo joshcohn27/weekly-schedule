@@ -24,10 +24,10 @@ describe('rendering', () => {
 
   it('build view has one dropdown per bunk per slot, plus the fill-period toolbar', () => {
     const html = renderToStaticMarkup(
-      <BuildGrid bunks={bunks} onCell={noop} onBunk={noop} onAdd={noop} onRemove={noop} onMove={noop} onFillSlot={noop} />,
+      <BuildGrid bunks={bunks} onCell={noop} onBunk={noop} onAdd={noop} onRemove={noop} onMove={noop} onFillSlots={noop} />,
     );
-    // +3 for the "fill a period for all bunks" toolbar's day/period/activity selects
-    expect((html.match(/<select/g) ?? []).length).toBe(bunks.length * 24 + 3);
+    // +4 for the bulk-fill toolbar's day/period/village/activity selects
+    expect((html.match(/<select/g) ?? []).length).toBe(bunks.length * 24 + 4);
   });
 
   it('tracking view renders', () => {

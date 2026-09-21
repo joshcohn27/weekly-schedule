@@ -1,4 +1,5 @@
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
+import { PERIOD_CHOICES, periodsForChoice, villageOf } from '../autofill';
 import { DAYS, PERIODS_PER_DAY } from '../config';
 import type { Bunk } from '../types';
 import { OPTIONS } from './Options';
@@ -26,22 +27,24 @@ interface Props {
   onAdd: () => void;
   onRemove: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
-  onFillSlot: (slot: number, label: string) => void;
+  onFillSlots: (slots: number[], label: string, village: string | null) => void;
   usePreviousWeek?: { label: string; disabled: boolean; onClick: () => void };
 }
 
-export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, onFillSlot, usePreviousWeek }: Props) {
+export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, onFillSlots, usePreviousWeek }: Props) {
   const periods = Array.from({ length: PERIODS_PER_DAY }, (_, i) => i);
   const [fillDay, setFillDay] = useState(0);
-  const [fillPeriod, setFillPeriod] = useState(0);
+  const [fillPeriodChoice, setFillPeriodChoice] = useState('0');
+  const [fillVillage, setFillVillage] = useState('');
   const [fillLabel, setFillLabel] = useState('');
+  const villages = useMemo(() => Array.from(new Set(bunks.map((b) => villageOf(b.name)))).filter(Boolean).sort(), [bunks]);
 
   return (
     <section>
       <h2>Build</h2>
       <p>Pick an activity for each bunk and period. Matching neighbors merge automatically on the Schedule tab.</p>
       <p>
-        Set a whole period at once (for an all-camp event; hobbies already fill everyone automatically):{' '}
+        Set a whole period at once (hobbies already fill everyone automatically; leagues already fill their whole village):{' '}
         <select aria-label="Fill day" value={fillDay} onChange={(e) => setFillDay(Number(e.target.value))}>
           {DAYS.map((d, i) => (
             <option key={d} value={i}>
@@ -49,10 +52,18 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
             </option>
           ))}
         </select>{' '}
-        <select aria-label="Fill period" value={fillPeriod} onChange={(e) => setFillPeriod(Number(e.target.value))}>
-          {periods.map((p) => (
-            <option key={p} value={p}>
-              Period {p + 1}
+        <select aria-label="Fill period" value={fillPeriodChoice} onChange={(e) => setFillPeriodChoice(e.target.value)}>
+          {PERIOD_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>{' '}
+        <select aria-label="Fill village" value={fillVillage} onChange={(e) => setFillVillage(e.target.value)}>
+          <option value="">All bunks</option>
+          {villages.map((v) => (
+            <option key={v} value={v}>
+              {v} village
             </option>
           ))}
         </select>{' '}
@@ -62,11 +73,12 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
         <button
           type="button"
           onClick={() => {
-            onFillSlot(fillDay * PERIODS_PER_DAY + fillPeriod, fillLabel);
+            const slots = periodsForChoice(fillPeriodChoice).map((p) => fillDay * PERIODS_PER_DAY + p);
+            onFillSlots(slots, fillLabel, fillVillage || null);
             setFillLabel('');
           }}
         >
-          Set for all bunks
+          Set for {fillVillage ? `${fillVillage} village` : 'all bunks'}
         </button>
       </p>
       <div className="scroll">
