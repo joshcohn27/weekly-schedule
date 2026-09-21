@@ -35,7 +35,8 @@ function buildWeekSheet(schedule: Schedule): XLSX.WorkSheet {
 
 /** Reads a week tab built by buildWeekSheet back into a Schedule. */
 function parseWeekSheet(sheet: XLSX.WorkSheet): Schedule | null {
-  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  // raw: false reads each cell as the text Excel shows, so a count typed as a number ("12") isn't dropped.
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
   const fieldRowIndex = rows.findIndex((row) => row[0] === 'Field');
   const scheduleRows = fieldRowIndex === -1 ? rows : rows.slice(0, fieldRowIndex);
   if (scheduleRows.length === 0 || scheduleRows[0][0] !== 'Bunk') return null;

@@ -1,6 +1,29 @@
+import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
 import { buildAllWeeksWorkbook, buildWeekWorkbook, parseUploadedWorkbook } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
+
+describe('numbers typed into Excel', () => {
+  it('keeps grades, counts and day info that Excel stores as numbers', () => {
+    const original = sampleSchedule();
+    const wb = buildWeekWorkbook(original, 1);
+    const ws = wb.Sheets['Week 1'] as Record<string, unknown>;
+    const tsRow = original.bunks.length + 5; // header + bunks + blank row + "Field" row, then RH & LOD, then TS
+    ws['B2'] = { t: 'n', v: 4 }; // O1 grades
+    ws['C2'] = { t: 'n', v: 12 }; // O1 count
+    ws[`B${tsRow}`] = { t: 'n', v: 7 }; // Sunday TS
+
+    // go through real file bytes, as an upload would
+    const reread = XLSX.read(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), { type: 'array' });
+    const [upload] = parseUploadedWorkbook(reread);
+
+    expect(upload.schedule.bunks[0].grades).toBe('4');
+    expect(upload.schedule.bunks[0].count).toBe('12');
+    expect(upload.schedule.days[0].ts).toBe('7');
+    // untouched cells are unchanged
+    expect(upload.schedule.bunks[1].count).toBe(original.bunks[1].count);
+  });
+});
 
 describe('single-week download round trip', () => {
   it('exports and re-imports a week unchanged, tagged with its week number', () => {
