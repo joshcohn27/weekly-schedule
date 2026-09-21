@@ -11,7 +11,7 @@ backup**: clearing site data or switching browsers loses anything that wasn't do
 
     npm install
     npm run dev        # local dev server
-    npm test           # merge, tracking, autofill, search, Excel and render tests
+    npm test           # merge, tracking, autofill, search, Excel, auto generate and render tests
     npm run build      # typecheck + production build into dist/
 
 ## Deploy to weekly.joshbcohn.com
@@ -59,6 +59,40 @@ replaces whatever was in the cells it fills, without asking.
 - You can edit the file in Excel or Sheets and upload it again. Keep the tab names and the header rows. Numbers typed
   into Grades or Count are fine.
 
+## Auto generate a week
+
+The **Auto generate Week N** button in the week bar builds a complete schedule for the selected week from the bunks on
+the Build tab. It is disabled until the week has bunks.
+
+- **What it builds:** a fixed calendar first (hobbies, the Sunday swim tests in week 1, the Tusc bike trips, the
+  Shabbat Prep rotation, one Tiyul per village), then Waterfront, league (Tusc plays triathlon training), ropes and
+  pool, then it fills every remaining period. It reads the other weeks you have loaded, matching bunks by name, so each
+  bunk's totals stay fair across the whole session (for example two ropes per bunk, low first and then high, and
+  Waterfront equal across villages). Bunks that share a period in the same activity, in one village or Seneca with
+  Mohawk, are always on the same "time number" for that activity.
+- **The confirm dialog** explains this, and asks two things. If the week already has activities: keep what is filled in
+  and only fill the empty cells (good when you already placed an All-Camp Event or Village Day; those cells count toward
+  the quotas, and a planned block that one of them makes impossible is skipped with a warning), or replace everything in
+  the week. And the session length: 4 weeks (Mohawk plays MNL) or 3 weeks (Mohawk plays MAL). Day details (RH & LOD,
+  birthdays, EVP, notes) are never touched.
+- **Regenerate as often as you like.** Every click uses a fresh random seed, so pressing the button again gives a
+  different valid schedule. The seed is shown next to the status line.
+- **Undo** puts the week back the way it was. It is kept in memory only, and goes away as soon as you edit a cell,
+  switch weeks or upload a file.
+- **The last week of a 4-week session** has its own calendar: hobbies only on Monday morning, Hobby Culmination on
+  Thursday morning, Packing Time on Thursday afternoon (Banquet Prep for Tusc), Tusc on the bike trip Sunday to Tuesday,
+  and Friday left empty. Those three new labels are not counted in Tracking.
+- **What to expect in the totals.** Ropes, Waterfront, league, pool, Music, Shabbat Prep and Tiyul come out exact. Mohawk
+  and Tusc are over-subscribed by design (league doubles, Waterfront, trips and a short last week), so they may end one
+  block short on Yoga, Ceramics, Teva, Israel, Judaics, Dance or Time with UH, or with Athletics and A&C two apart. O, C
+  and Seneca normally hit every target, and now and then miss one. Every shortfall is listed under **A few things could
+  not be met** after generating, so nothing is silent. Check the Tracking tab for the real totals.
+
+Everything it decides lives in `src/autogen/`. Targets, the Shabbat and Tiyul calendars, pool limits and the soft
+preference weights are in `src/autogen/config.ts`; the hard rules it must never break are checked by `validateWeek` in
+`src/autogen/validate.ts`. `npm test` covers the generator; `AUTOGEN_SEEDS=100 npm test` runs the hard-rule check over
+100 full sessions, and `AUTOGEN_REPORT=1 npm test` prints a per-bunk tracking table for a simulated session.
+
 ## How it is organized
 
     src/config.ts          days, periods, week count, the activity list, program areas, dropdown groups
@@ -70,6 +104,7 @@ replaces whatever was in the cells it fills, without asking.
     src/excel.ts           build workbooks, download, and read uploads
     src/storage.ts         load, save and repair the saved weeks (localStorage)
     src/sample.ts          default roster, blank schedule, helpers
+    src/autogen/           Auto generate: calendar, quota planner, placement, fill, and the rule checker
     src/components/        BuildGrid, ActivityPicker (the dropdown), ScheduleView, TrackingView, DayDetails
     src/theme.css          all styling, in one file
 
@@ -81,6 +116,7 @@ replaces whatever was in the cells it fills, without asking.
 - **Change what autofills or is always a double period:** `src/autofill.ts` (`ALWAYS_DOUBLE_PERIOD`, and the
   Hobbies / League rules in `bunkIdsForLabel` and `periodsForLabel`).
 - **Change the number of weeks, days or periods:** `WEEK_COUNT`, `DAYS` and `PERIODS_PER_DAY` in `src/config.ts`.
+- **Change what Auto generate aims for** (targets, rotations, weights): `src/autogen/config.ts`.
 - **Change the default roster:** `sampleSchedule()` in `src/sample.ts`.
 - **See the unstyled app:** comment out `import './theme.css'` in `src/main.tsx`.
 - **Day details** (RH & LOD, TS, DOD, birthdays, EVP, notes) have no on-screen editor right now: the section is
