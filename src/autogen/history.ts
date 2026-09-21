@@ -39,7 +39,23 @@ export function blocksOf(slots: readonly string[]): Block[] {
   return out;
 }
 
-export const isFilledWeek = (s: Schedule | null): s is Schedule => !!s && s.bunks.length > 0;
+/**
+ * Ordinal of the block covering this slot: 1 plus the blocks of the same program area the bunk has
+ * earlier in the session (earlier weeks, then earlier slots this week). Null for empty or uncounted cells.
+ */
+export function ordinalAt(slots: readonly string[], earlier: Record<string, number>, slot: number): number | null {
+  const label = slots[slot];
+  if (!label) return null;
+  const area = areaOf(label);
+  if (!area) return null;
+  let start = slot;
+  while (periodOf(start) > 0 && slots[start - 1] === label) start--;
+  let rank = 0;
+  for (const b of blocksOf(slots)) if (b.area === area && b.start < start) rank++;
+  return (earlier[area] ?? 0) + rank + 1;
+}
+
+export const isFilledWeek =(s: Schedule | null): s is Schedule => !!s && s.bunks.length > 0;
 
 /** Other loaded, non-empty weeks, with their 1-based week numbers. */
 export function otherWeeks(weeks: WeeksState, weekIndex: number): { week: number; schedule: Schedule }[] {
