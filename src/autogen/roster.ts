@@ -16,6 +16,8 @@ export interface Roster {
   campers: number[];
   young: boolean[];
   old: boolean[];
+  /** For each bunk, the other bunks it may share a slot and area with: same village, or S with M. */
+  relatedTo: number[][];
 }
 
 export function parseAge(grades: string, fallback: number): number {
@@ -53,15 +55,15 @@ export function buildRoster(bunks: Bunk[]): Roster {
     young = bunks.map((_, i) => pos[i] < byVillage[village[i]].length / 2);
     old = young.map((y) => !y);
   }
-  return { n, names: bunks.map((b) => b.name.trim()), village, villages, byVillage, pos, age, campers, young, old };
+  const relatedTo = bunks.map((_, a) => bunks.map((__, b) => b).filter((b) => relatedVillages(village[a], village[b]) && a !== b));
+  return { n, names: bunks.map((b) => b.name.trim()), village, villages, byVillage, pos, age, campers, young, old, relatedTo };
 }
+
+const relatedVillages = (va: string, vb: string): boolean => va === vb || (va === 'S' && vb === 'M') || (va === 'M' && vb === 'S');
 
 /** Bunks that may share a slot in the same area without breaking the equal-ordinal rule: same village, or S with M. */
 export function related(r: Roster, a: number, b: number): boolean {
-  if (a === b) return false;
-  const va = r.village[a];
-  const vb = r.village[b];
-  return va === vb || (va === 'S' && vb === 'M') || (va === 'M' && vb === 'S');
+  return a !== b && relatedVillages(r.village[a], r.village[b]);
 }
 
 /** Two bunks that may be scheduled together as a pair: related and within a year of each other. */

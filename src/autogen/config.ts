@@ -68,17 +68,20 @@ export const HALF_PERIODS: number[][] = [
 
 /** Age rank within this of the roster minimum or maximum counts as youngest or oldest (Time with UH). */
 export const UH_EARLY_MARGIN = 0.5;
+/** Villages that are over-subscribed by design: they may end a rare area one block short, and Athletics/A&C two apart, with a warning. */
+export const FLEXIBLE_VILLAGES = ['M', 'T'];
 /** Last-resort extra Time with UH blocks a bunk may get to fill an otherwise unfillable period. */
 export const UH_MAX_PER_SESSION = 2;
-/** Week 4 of a 4-week session has far fewer open periods, so quotas count it as this much of a normal week. */
-export const LAST_WEEK_CAPACITY = 0.5;
-export const LAST_WEEK_CAPACITY_T = 0.25;
+/** A week never counts as having less than this many spare periods when spreading quotas, so it is never fully shut out. */
+export const MIN_WEEK_CAPACITY = 0.1;
 /** Used for pool caps when a bunk has no camper count. */
 export const DEFAULT_CAMPERS = 12;
 /** Chance a pairable one-period block tries to find a partner. */
 export const PAIR_PROBABILITY = 0.65;
-/** Number of randomized attempts per generate; the lowest-scoring valid one wins. */
+/** Most randomized attempts per generate; the lowest-scoring valid one wins. */
 export const ATTEMPTS = 40;
+/** DEFAULT: stop early once this many attempts came out with no rule breaks, to keep generating fast. */
+export const ENOUGH_VALID_ATTEMPTS = 12;
 
 export const HOBBY_WED_PM_PROBABILITY = 0.65; // otherwise Tuesday AM
 export const HOBBY_SUNDAY_PROBABILITY = 0.2;

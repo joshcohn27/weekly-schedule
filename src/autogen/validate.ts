@@ -9,8 +9,20 @@ import {
   VILLAGE_LEVEL_LABELS,
   type SessionWeeks,
 } from './config';
-import { SLOTS, blocksOf, buildHistory, dayOf, halfSlots, isFilledWeek, ordinalAt, periodOf, slotAt, villageWeeksWithLabel } from './history';
-import { buildRoster, related } from './roster';
+import {
+  SLOTS,
+  blocksOf,
+  buildHistory,
+  dayOf,
+  halfSlots,
+  isFilledWeek,
+  ordinalAt,
+  periodOf,
+  slotAt,
+  villageWeeksWithLabel,
+  type BunkHistory,
+} from './history';
+import { buildRoster, type Roster } from './roster';
 
 export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12';
 
@@ -27,24 +39,34 @@ export interface ValidateOptions {
 }
 
 const ACTIVITY_LABELS = new Set(ACTIVITIES.map((a) => a.label));
-const POOL_LABELS = ['Pool', 'Swim Test', 'Tusc Triathlon Training'];
+const VILLAGE_LEVEL = new Set(VILLAGE_LEVEL_LABELS);
+const EXEMPT = new Set(ORDINAL_EXEMPT_LABELS);
+const POOL_LABELS = new Set(['Pool', 'Swim Test', 'Tusc Triathlon Training']);
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const where = (slot: number): string => `${DAY_NAMES[dayOf(slot)]} period ${periodOf(slot) + 1}`;
 
-/** Check one week against the hard rules H1 to H12. An empty list means the week is valid. */
-export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks: SessionWeeks, opts: ValidateOptions = {}): Violation[] {
-  const schedule = weeks.weeks[weekIndex - 1];
-  if (!isFilledWeek(schedule)) return [];
+export interface ValidationInput {
+  weeks: WeeksState;
+  weekIndex: number;
+  sessionWeeks: SessionWeeks;
+  roster: Roster;
+  hist: BunkHistory[];
+  /** The week being checked, grid[bunk][slot]. */
+  grid: string[][];
+  locked?: boolean[][];
+}
 
-  const roster = buildRoster(schedule.bunks);
-  const hist = buildHistory(weeks, weekIndex, roster.names);
-  const grid = schedule.bunks.map((b) => b.slots);
+/** Check a week that is already in hand (roster and history built) against the hard rules H1 to H12. */
+export function validateGrid(input: ValidationInput): Violation[] {
+  const { weeks, weekIndex, sessionWeeks, roster, hist, grid } = input;
   const n = roster.n;
-  const locked = (b: number, s: number): boolean => !!opts.locked?.[b]?.[s];
+  const locked = (b: number, s: number): boolean => !!input.locked?.[b]?.[s];
   const lockedAny = (b: number, start: number, len: number): boolean => {
     for (let k = 0; k < len; k++) if (locked(b, start + k)) return true;
     return false;
   };
+  const blocks = grid.map((row) => blocksOf(row));
+  const areas = grid.map((row) => row.map((l) => (l ? areaOf(l) : null)));
   const out: Violation[] = [];
   const add = (rule: Rule, message: string, bunk?: number, slot?: number) =>
     out.push({ rule, message, bunk: bunk === undefined ? undefined : roster.names[bunk], slot });
@@ -60,10 +82,9 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
 
   // H2: no program area twice on one day (Bike Trip days are exempt)
   for (let b = 0; b < n; b++) {
-    const blocks = blocksOf(grid[b]);
     for (let day = 0; day < 6; day++) {
-      const today = blocks.filter((k) => k.day === day);
-      if (today.some((k) => k.label === 'Bike Trip')) continue;
+      const today = blocks[b].filter((k) => k.day === day);
+      if (today.length < 2 || today.some((k) => k.label === 'Bike Trip')) continue;
       const seen = new Map<string, number>();
       for (const k of today) {
         if (!k.area || lockedAny(b, k.start, k.len)) continue;
@@ -74,12 +95,14 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
   }
 
   // H3: village-level blocks cover every bunk of the village at once
-  for (const label of VILLAGE_LEVEL_LABELS) {
-    for (const v of roster.villages) {
-      const members = roster.byVillage[v];
-      for (let s = 0; s < SLOTS; s++) {
+  for (const v of roster.villages) {
+    const members = roster.byVillage[v];
+    for (let s = 0; s < SLOTS; s++) {
+      const seen = new Set<string>();
+      for (const b of members) if (VILLAGE_LEVEL.has(grid[b][s])) seen.add(grid[b][s]);
+      for (const label of seen) {
         const has = members.filter((b) => grid[b][s] === label);
-        if (has.length === 0 || has.length === members.length) continue;
+        if (has.length === members.length) continue;
         const missing = members.filter((b) => grid[b][s] !== label && !locked(b, s));
         if (missing.length > 0 && has.some((b) => !locked(b, s))) {
           add('H3', `${label} on ${where(s)} covers only part of village ${v || '(no letter)'}.`, missing[0], s);
@@ -90,7 +113,7 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
 
   // H4: Waterfront is a double period on periods 1-2 or 3-4, one village per half-day
   for (let b = 0; b < n; b++) {
-    for (const k of blocksOf(grid[b])) {
+    for (const k of blocks[b]) {
       if (k.label !== 'Waterfront' || lockedAny(b, k.start, k.len)) continue;
       if (k.len !== 2 || periodOf(k.start) % 2 !== 0) add('H4', `${roster.names[b]} has a misaligned Waterfront on ${where(k.start)}.`, b, k.start);
     }
@@ -104,17 +127,18 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
   }
 
   // H5: bunks that share a slot and an area, in the same village or S with M, must be on the same ordinal
-  for (let s = 0; s < SLOTS; s++) {
-    for (let i = 0; i < n; i++) {
+  for (let i = 0; i < n; i++) {
+    for (let s = 0; s < SLOTS; s++) {
       const li = grid[i][s];
-      if (!li || !areaOf(li) || ORDINAL_EXEMPT_LABELS.includes(li)) continue;
-      for (let j = i + 1; j < n; j++) {
+      const ai = areas[i][s];
+      if (!li || !ai || EXEMPT.has(li)) continue;
+      for (const j of roster.relatedTo[i]) {
+        if (j < i) continue;
         const lj = grid[j][s];
-        if (!lj || areaOf(lj) !== areaOf(li) || ORDINAL_EXEMPT_LABELS.includes(lj) || !related(roster, i, j)) continue;
-        if (locked(i, s) || locked(j, s)) continue;
+        if (!lj || areas[j][s] !== ai || EXEMPT.has(lj) || locked(i, s) || locked(j, s)) continue;
         const oi = ordinalAt(grid[i], hist[i].earlier, s);
         const oj = ordinalAt(grid[j], hist[j].earlier, s);
-        if (oi !== oj) add('H5', `${roster.names[i]} (time ${oi}) and ${roster.names[j]} (time ${oj}) share ${areaOf(li)} on ${where(s)}.`, i, s);
+        if (oi !== oj) add('H5', `${roster.names[i]} (time ${oi}) and ${roster.names[j]} (time ${oj}) share ${ai} on ${where(s)}.`, i, s);
       }
     }
   }
@@ -122,7 +146,7 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
   // H6: Ropes are double periods, low first then high, and never more than two per session
   for (let b = 0; b < n; b++) {
     let total = (hist[b].earlier.Ropes ?? 0) + (hist[b].later.Ropes ?? 0);
-    for (const k of blocksOf(grid[b])) {
+    for (const k of blocks[b]) {
       if (k.area !== 'Ropes') continue;
       total++;
       if (lockedAny(b, k.start, k.len)) continue;
@@ -137,7 +161,7 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
   // H7: Judaics and Israel at most twice per bunk per session
   for (let b = 0; b < n; b++) {
     for (const area of ['Judaics', 'Israel Education']) {
-      const total = (hist[b].earlier[area] ?? 0) + (hist[b].later[area] ?? 0) + blocksOf(grid[b]).filter((k) => k.area === area).length;
+      const total = (hist[b].earlier[area] ?? 0) + (hist[b].later[area] ?? 0) + blocks[b].filter((k) => k.area === area).length;
       if (total > 2) add('H7', `${roster.names[b]} has ${area} ${total} times in the session.`, b);
     }
   }
@@ -162,17 +186,21 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
     if (has && !rotation.includes(v)) add('H8', `Village ${v} has Shabbat Prep in a week that is not on its calendar.`, members[0]);
   }
 
-  // H9: triathlon training only where nobody else is at the pool
+  // H9 and H10: the pool
   for (let s = 0; s < SLOTS; s++) {
-    const tri = grid.some((g) => g[s] === 'Tusc Triathlon Training');
-    if (tri && grid.some((g) => g[s] === 'Pool' || g[s] === 'Swim Test')) add('H9', `Triathlon training shares ${where(s)} with the pool.`, undefined, s);
-  }
-
-  // H10: pool capacity
-  for (let s = 0; s < SLOTS; s++) {
-    const at = [] as number[];
-    for (let b = 0; b < n; b++) if (POOL_LABELS.includes(grid[b][s])) at.push(b);
+    let tri = false;
+    let pool = false;
+    const at: number[] = [];
+    for (let b = 0; b < n; b++) {
+      const l = grid[b][s];
+      if (!POOL_LABELS.has(l)) continue;
+      at.push(b);
+      if (l === 'Tusc Triathlon Training') tri = true;
+      else pool = true;
+    }
     if (at.length === 0) continue;
+    if (tri && pool) add('H9', `Triathlon training shares ${where(s)} with the pool.`, undefined, s);
+
     const total = at.reduce((sum, b) => sum + roster.campers[b], 0);
     const swimOnly = at.every((b) => grid[b][s] === 'Swim Test') && new Set(at.map((b) => roster.village[b])).size === 1;
     if (total > POOL_MAX_CAMPERS && at.length > 1 && !swimOnly) add('H10', `${total} campers at the pool on ${where(s)}.`, at[0], s);
@@ -182,22 +210,18 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
   }
 
   // H11: hobbies and the last-week calendar
-  const hobbySlots = (b: number): number[] => {
-    const r: number[] = [];
-    for (let s = 0; s < SLOTS; s++) if (grid[b][s] === 'AM Hobbies' || grid[b][s] === 'PM Hobbies') r.push(s);
-    return r;
-  };
+  const isHobby = (l: string): boolean => l === 'AM Hobbies' || l === 'PM Hobbies';
   for (let b = 0; b < n; b++) {
-    for (const k of blocksOf(grid[b])) {
-      if (k.label !== 'AM Hobbies' && k.label !== 'PM Hobbies') continue;
-      if (lockedAny(b, k.start, k.len)) continue;
+    for (const k of blocks[b]) {
+      if (!isHobby(k.label) || lockedAny(b, k.start, k.len)) continue;
       const wantStart = k.label === 'AM Hobbies' ? 0 : 2;
       if (k.len !== 2 || periodOf(k.start) !== wantStart) add('H11', `${roster.names[b]} has ${k.label} on the wrong periods on ${where(k.start)}.`, b, k.start);
       if (weekIndex === 1 && k.day === 0) add('H11', `Hobbies on the first Sunday for ${roster.names[b]}.`, b, k.start);
     }
   }
   for (let s = 0; s < SLOTS; s++) {
-    const labels = new Set<string>(grid.map((g) => g[s]).filter((l) => l === 'AM Hobbies' || l === 'PM Hobbies'));
+    const labels = new Set<string>();
+    for (let b = 0; b < n; b++) if (isHobby(grid[b][s])) labels.add(grid[b][s]);
     if (labels.size === 0) continue;
     for (let b = 0; b < n; b++) {
       const exempt = lastWeek && roster.village[b] === 'T';
@@ -217,18 +241,19 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
         for (const s of halfSlots(day, half)) if (want(day, half) && grid[b][s] !== want(day, half) && !locked(b, s)) add('H11', `${roster.names[b]} should have ${want(day, half)} on ${where(s)}.`, b, s);
       }
       for (let p = 0; p < 4; p++) if (grid[b][slotAt(5, p)] !== '' && !locked(b, slotAt(5, p))) add('H11', `${roster.names[b]} has something on the last Friday.`, b, slotAt(5, p));
-      const extra = hobbySlots(b).filter((s) => !(dayOf(s) === 1 && periodOf(s) < 2));
-      if (extra.length > 0) add('H11', `${roster.names[b]} has hobbies outside Monday morning in the last week.`, b, extra[0]);
+      const extra = grid[b].findIndex((l, s) => isHobby(l) && !(dayOf(s) === 1 && periodOf(s) < 2));
+      if (extra >= 0) add('H11', `${roster.names[b]} has hobbies outside Monday morning in the last week.`, b, extra);
     }
-  } else {
-    const anyBunk = 0;
-    const halves = new Set(hobbySlots(anyBunk).map((s) => `${dayOf(s)}${periodOf(s) < 2 ? 'A' : 'P'}`));
-    const fri = halves.has('5A');
-    if (!fri && !locked(anyBunk, slotAt(5, 0))) add('H11', 'Friday morning hobbies are missing.', undefined, slotAt(5, 0));
+  } else if (n > 0) {
+    const halves = new Set<string>();
+    grid[0].forEach((l, s) => {
+      if (isHobby(l)) halves.add(`${dayOf(s)}${periodOf(s) < 2 ? 'A' : 'P'}`);
+    });
+    if (!halves.has('5A') && !locked(0, slotAt(5, 0))) add('H11', 'Friday morning hobbies are missing.', undefined, slotAt(5, 0));
     const allowed = new Set(['5A', '3P', '1A', '0A']);
     for (const h of halves) if (!allowed.has(h)) add('H11', `Hobbies on an unexpected half-day (${h}).`, undefined, undefined);
     if (halves.has('3P') && halves.has('1A')) add('H11', 'Both Tuesday morning and Wednesday afternoon hobbies.', undefined, undefined);
-    if (!halves.has('3P') && !halves.has('1A') && !locked(anyBunk, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
+    if (!halves.has('3P') && !halves.has('1A') && !locked(0, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
   }
 
   // H12: only known activity labels (cells already filled before generating may be write-ins)
@@ -239,4 +264,13 @@ export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks:
     }
   }
   return out;
+}
+
+/** Check one week against the hard rules H1 to H12. An empty list means the week is valid. */
+export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks: SessionWeeks, opts: ValidateOptions = {}): Violation[] {
+  const schedule = weeks.weeks[weekIndex - 1];
+  if (!isFilledWeek(schedule)) return [];
+  const roster = buildRoster(schedule.bunks);
+  const hist = buildHistory(weeks, weekIndex, roster.names);
+  return validateGrid({ weeks, weekIndex, sessionWeeks, roster, hist, grid: schedule.bunks.map((b) => b.slots), locked: opts.locked });
 }
