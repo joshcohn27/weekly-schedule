@@ -1,4 +1,4 @@
-import { CROSS_VILLAGE_PAIRABLE, DAY_OFF_AREAS, FLEXIBLE_VILLAGES, PAIR_PROBABILITY, SOLO_ONLY, UH_MAX_PER_SESSION, WET_LABELS } from './config';
+import { CROSS_VILLAGE_PAIRABLE, DAY_OFF_AREAS, PAIR_PROBABILITY, SOLO_ONLY, UH_MAX_PER_SESSION, WET_LABELS } from './config';
 import { areaOf } from '../config';
 import { dayOf, ordinalAt, periodOf } from './history';
 import { TOKEN_AREAS, TOKEN_LABEL, inWeekCount, sessionTargetOf, type Plan } from './planner';
@@ -61,7 +61,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
       dropped[area] = (dropped[area] ?? 0) + 1;
       planned--;
       c.unmet++;
-      if (lastWeek && !FLEXIBLE_VILLAGES.includes(c.roster.village[b])) c.structural++;
+      c.carried.push({ bunk: b, area });
     }
     if (free[b].length > planned) tok[b][FILL] = free[b].length - planned;
   }
@@ -130,7 +130,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
           if (any) {
             best = { key: '', area: any, label: labelOf(any), score: 0 };
             c.unmet++;
-            c.structural++; // an extra puts a bunk over a target, which no village may do
+            c.extras++; // an extra puts a bunk over a target
           }
         }
       }
@@ -170,7 +170,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
       const left = tok[b][area] ?? 0;
       if (left <= 0) continue;
       c.unmet += left;
-      if (lastWeek && !FLEXIBLE_VILLAGES.includes(c.roster.village[b])) c.structural += left;
+      for (let i = 0; i < left; i++) c.carried.push({ bunk: b, area });
     }
   }
   return ALL_SLOTS.every((s) => !fillable(c, s) || c.grid.every((row) => row[s] !== ''));

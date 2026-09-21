@@ -67,19 +67,13 @@ describe('session totals', () => {
     for (const run of sessions) expect(sessionIssues(run.weeks, 4, run.warnings).filter((i) => EXACT.includes(i.kind))).toEqual([]);
   });
 
-  it('meets the rarer-area and Athletics/A&C targets in nearly every session, and warns about every miss', () => {
-    // Mohawk and Tusc may be one short (Athletics/A&C two apart) by design and are checked strictly above via
-    // "Missing warning". O, C and S should be exact; a rare miss there is tolerated only with a warning naming the bunk.
-    const misses = sessions.flatMap((run) =>
-      sessionIssues(run.weeks, 4, run.warnings)
-        .filter((i) => !EXACT.includes(i.kind) && i.kind !== 'Village spread')
-        .map((i) => ({ i, run })),
-    );
-    for (const { i, run } of misses) {
-      const name = i.detail.split(' ')[0];
-      expect(run.warnings.some((w) => w.includes(name)), `${i.kind}: ${i.detail}`).toBe(true);
+  it('returns only weeks with no rule breaks and nothing that is not acceptable', () => {
+    for (const run of sessions) {
+      run.results.forEach((r, i) => {
+        expect(r.quality.hard, `week ${i + 1}`).toEqual([]);
+        expect(r.quality.major, `week ${i + 1}`).toEqual([]);
+      });
     }
-    expect(misses.length).toBeLessThanOrEqual(Math.ceil(SESSIONS * 0.6)); // well under one miss per two sessions
   });
 
   it('gives every bunk two ropes, low first and then high', () => {

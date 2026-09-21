@@ -1,18 +1,20 @@
 import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, planCalendar } from './calendar';
-import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, FLEXIBLE_VILLAGES, type SessionWeeks } from './config';
+import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, MAX_ROUNDS, MAX_TOTAL_MS, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { SLOTS, blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
 import { placeLeague, placePool, placeRopes, placeSolo, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_LABEL, planWeek, sessionTargetOf, type TokenArea } from './planner';
+import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
 import { buildRoster, type Roster } from './roster';
 import { softScore } from './score';
 import type { Ctx } from './state';
 import { buildDayMasks } from './state';
-import { validateGrid, type Violation } from './validate';
 
 export type { SessionWeeks } from './config';
+export { isBad, weekQuality } from './quality';
+export type { QualityInput, WeekQuality } from './quality';
 export { validateWeek } from './validate';
 export type { Violation } from './validate';
 
@@ -31,9 +33,13 @@ export interface AutoGenOptions {
 export interface AutoGenResult {
   /** The new week: bunks and day details unchanged, activities filled. */
   schedule: Schedule;
-  /** Plain sentences, empty when everything was met. */
+  /** Plain sentences about anything that was not met. For tests and the console only; never shown to the user. */
   warnings: string[];
   seed: number;
+  /** How the returned week was judged. A normal result has no hard and no major issues. */
+  quality: WeekQuality;
+  /** Rounds of attempts it took. */
+  rounds: number;
 }
 
 /**
@@ -61,97 +67,158 @@ function sessionWarnings(roster: Roster, hist: BunkHistory[], grid: string[][], 
   return out;
 }
 
+interface Found {
+  grid: string[][];
+  warnings: string[];
+  quality: WeekQuality;
+  score: number;
+}
+
 /**
- * Bunks whose Athletics and A&C ended too far apart: O, C and S must be level (A&C ahead by 0 or 1)
- * in the last week; Mohawk and Tusc may be two apart. Earlier weeks only avoid pile-ups.
+ * Searches for a good week, one round at a time. A round is up to ATTEMPTS randomized attempts (stopping early
+ * once enough clean ones exist); rounds repeat with new seeds until a week has no hard and no major issues,
+ * or MAX_ROUNDS / MAX_TOTAL_MS is reached, in which case the best week found so far is returned.
+ * Stepping one round at a time lets the UI stay responsive in between.
  */
-function athleticsAcMisses(roster: Roster, hist: BunkHistory[], grid: string[][], last: boolean): number {
-  let misses = 0;
-  for (let b = 0; b < roster.n; b++) {
-    const blocks = blocksOf(grid[b]);
-    const total = (area: string): number =>
-      (hist[b].earlier[area] ?? 0) + (hist[b].later[area] ?? 0) + blocks.filter((k) => k.area === area).length;
-    const gap = total('A&C') - total('Athletics');
-    const flexible = FLEXIBLE_VILLAGES.includes(roster.village[b]);
-    const off = last && !flexible ? gap !== 0 && gap !== 1 : Math.abs(gap) > (flexible ? 2 : 1);
-    if (off) misses++;
-  }
-  return misses;
-}
+class WeekSearch {
+  rounds = 0;
+  done = false;
+  private best: Found | null = null;
+  private readonly started = performance.now();
+  private readonly sessionWeeks: SessionWeeks;
+  private readonly source: Schedule | null;
+  private readonly roster: Roster;
+  private readonly hist: BunkHistory[];
+  private readonly start: string[][];
+  private readonly locked: boolean[][];
+  private readonly lastWeek: boolean;
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-
-function describe(v: Violation): string {
-  const when = v.slot === undefined ? '' : ` (${DAY_NAMES[Math.floor(v.slot / 4)]} period ${(v.slot % 4) + 1})`;
-  return `${v.message.replace(/\.$/, '')}${v.slot !== undefined && !v.message.includes(DAY_NAMES[Math.floor(v.slot / 4)]) ? when : ''}.`;
-}
-
-/** Build one week. Runs several randomized attempts and keeps the one with no rule breaks and the best soft score. */
-export function generateWeek(opts: AutoGenOptions): AutoGenResult {
-  const sessionWeeks: SessionWeeks = opts.sessionWeeks ?? 4;
-  const source = opts.weeks.weeks[opts.weekIndex - 1];
-  if (!isFilledWeek(source)) {
-    return { schedule: source ?? { bunks: [], days: [] }, warnings: ['Add bunks on the Build tab first.'], seed: opts.seed };
+  constructor(private readonly opts: AutoGenOptions) {
+    this.sessionWeeks = opts.sessionWeeks ?? 4;
+    const source = opts.weeks.weeks[opts.weekIndex - 1];
+    this.source = isFilledWeek(source) ? source : null;
+    const bunks = this.source?.bunks ?? [];
+    this.roster = buildRoster(bunks);
+    this.hist = buildHistory(opts.weeks, opts.weekIndex, this.roster.names);
+    this.start = bunks.map((b) => (opts.mode === 'replace-all' ? Array<string>(SLOTS).fill('') : [...b.slots]));
+    this.locked = this.start.map((row) => row.map((label) => label !== ''));
+    this.lastWeek = this.sessionWeeks === 4 && opts.weekIndex === 4;
+    if (!this.source) this.done = true;
   }
 
-  const roster = buildRoster(source.bunks);
-  const hist = buildHistory(opts.weeks, opts.weekIndex, roster.names);
-  const start: string[][] = source.bunks.map((b) => (opts.mode === 'replace-all' ? Array<string>(SLOTS).fill('') : [...b.slots]));
-  const locked = start.map((row) => row.map((label) => label !== ''));
+  step(): void {
+    if (this.done) return;
+    const found = this.runRound(this.rounds++);
+    if (!this.best || compareQuality(found.quality, this.best.quality) < 0) this.best = found;
+    if (!isBad(this.best.quality) || this.rounds >= MAX_ROUNDS || performance.now() - this.started >= MAX_TOTAL_MS) this.done = true;
+  }
 
-  const lastWeek = sessionWeeks === 4 && opts.weekIndex === 4;
-  const calendar = planCalendar(
-    { weeks: opts.weeks, weekIndex: opts.weekIndex, sessionWeeks, lastWeek, villages: roster.villages },
-    mulberry32(opts.seed ^ 0x51ed270b),
-  );
+  private runRound(round: number): Found {
+    const { opts, roster, hist, start, locked, lastWeek, sessionWeeks } = this;
+    const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
+    const calendar = planCalendar(
+      { weeks: opts.weeks, weekIndex: opts.weekIndex, sessionWeeks, lastWeek, villages: roster.villages },
+      mulberry32(roundSeed ^ 0x51ed270b),
+    );
 
-  let best: { grid: string[][]; warnings: string[]; violations: Violation[]; score: number } | null = null;
-  let valid = 0;
-  const lastOfSession = opts.weekIndex >= sessionWeeks;
-  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-    const c: Ctx = {
-      weeks: opts.weeks,
-      weekIndex: opts.weekIndex,
-      sessionWeeks,
-      roster,
-      hist,
-      grid: start.map((row) => [...row]),
-      locked,
-      rng: mulberry32(opts.seed + attempt * 0x9e3779b1),
-      warnings: [],
-      lastWeek,
-      tripDay: null,
-      unmet: 0,
-      structural: 0,
-      dayMask: buildDayMasks(start),
-      days: [0, 1, 2, 3, 4, 5].filter((d) => !(lastWeek && d === 5)),
-      calendar,
+    let best: Found | null = null;
+    let valid = 0;
+    for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+      const c: Ctx = {
+        weeks: opts.weeks,
+        weekIndex: opts.weekIndex,
+        sessionWeeks,
+        roster,
+        hist,
+        grid: start.map((row) => [...row]),
+        locked,
+        rng: mulberry32(roundSeed + attempt * 0x9e3779b1),
+        warnings: [],
+        lastWeek,
+        tripDay: null,
+        unmet: 0,
+        missing: [],
+        carried: [],
+        extras: 0,
+        dayMask: buildDayMasks(start),
+        days: [0, 1, 2, 3, 4, 5].filter((d) => !(lastWeek && d === 5)),
+        calendar,
+      };
+      placeCalendar(c);
+      const plan = planWeek(c);
+      placeWaterfront(c, plan);
+      placeLeague(c);
+      placeTri(c);
+      placeRopes(c, plan);
+      placePool(c, plan);
+      placeSolo(c, plan);
+      fillFlexible(c, plan);
+      relabelRopes(c);
+
+      const quality = weekQuality({
+        weeks: opts.weeks,
+        weekIndex: opts.weekIndex,
+        sessionWeeks,
+        roster,
+        hist,
+        grid: c.grid,
+        locked,
+        missing: c.missing,
+        carried: c.carried,
+        tiyulDue: calendar.tiyul,
+      });
+      // rule breaks first, then anything not acceptable, then the small stuff, then the soft preferences
+      const score = quality.hard.length * 1e6 + (quality.major.length + c.extras) * 1e4 + quality.minor.length * 50 + softScore(c);
+      if (!best || score < best.score) best = { grid: c.grid, warnings: c.warnings, quality, score };
+      if (quality.hard.length === 0) valid++;
+      if (valid >= ENOUGH_VALID_ATTEMPTS && best.score < 1e4) break;
+    }
+    return best as Found;
+  }
+
+  result(): AutoGenResult {
+    const { opts, source, roster, hist, sessionWeeks } = this;
+    if (!source || !this.best) {
+      return {
+        schedule: opts.weeks.weeks[opts.weekIndex - 1] ?? { bunks: [], days: [] },
+        warnings: ['Add bunks on the Build tab first.'],
+        seed: opts.seed,
+        quality: { hard: [], major: [], minor: [] },
+        rounds: 0,
+      };
+    }
+    const chosen = this.best;
+    if (isBad(chosen.quality)) {
+      console.debug('Auto generate could not find a fully clean week; returning the best one', {
+        week: opts.weekIndex,
+        rounds: this.rounds,
+        hard: chosen.quality.hard,
+        major: chosen.quality.major,
+      });
+    }
+    return {
+      schedule: { bunks: source.bunks.map((b, i) => ({ ...b, slots: chosen.grid[i] })), days: source.days },
+      warnings: [...new Set([...chosen.warnings, ...chosen.quality.hard, ...sessionWarnings(roster, hist, chosen.grid, opts.weekIndex, sessionWeeks)])],
+      seed: opts.seed,
+      quality: chosen.quality,
+      rounds: this.rounds,
     };
-    placeCalendar(c);
-    const plan = planWeek(c);
-    placeWaterfront(c, plan);
-    placeLeague(c);
-    placeTri(c);
-    placeRopes(c, plan);
-    placePool(c, plan);
-    placeSolo(c, plan);
-    fillFlexible(c, plan);
-    relabelRopes(c);
-
-    const violations = validateGrid({ weeks: opts.weeks, weekIndex: opts.weekIndex, sessionWeeks, roster, hist, grid: c.grid, locked });
-    const gapMisses = athleticsAcMisses(roster, hist, c.grid, lastOfSession);
-    // rule breaks first, then blocks that had to be exact but were not, then the soft preferences
-    const score = violations.length * 1e6 + (c.structural + (lastOfSession ? gapMisses : 0)) * 1e4 + (lastOfSession ? 0 : gapMisses * 300) + softScore(c);
-    if (!best || score < best.score) best = { grid: c.grid, warnings: c.warnings, violations, score };
-    if (violations.length === 0) valid++;
-    if (valid >= ENOUGH_VALID_ATTEMPTS && best.score < 1e4) break;
   }
+}
 
-  const chosen = best as NonNullable<typeof best>;
-  const warnings = [...chosen.warnings, ...chosen.violations.map(describe), ...sessionWarnings(roster, hist, chosen.grid, opts.weekIndex, sessionWeeks)];
-  return {
-    schedule: { bunks: source.bunks.map((b, i) => ({ ...b, slots: chosen.grid[i] })), days: source.days },
-    warnings: [...new Set(warnings)],
-    seed: opts.seed,
-  };
+/** Build one week. Keeps trying, quietly, until the week has no rule breaks and nothing that is not acceptable. */
+export function generateWeek(opts: AutoGenOptions): AutoGenResult {
+  const search = new WeekSearch(opts);
+  while (!search.done) search.step();
+  return search.result();
+}
+
+/** The same as generateWeek, but lets the browser breathe between rounds so the page stays responsive. */
+export async function generateWeekAsync(opts: AutoGenOptions): Promise<AutoGenResult> {
+  const search = new WeekSearch(opts);
+  while (!search.done) {
+    search.step();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+  return search.result();
 }

@@ -191,7 +191,7 @@ export function placeLeague(c: Ctx): void {
         }
       }
       if (!best) {
-        c.structural++;
+        c.missing.push(`Village ${v} got ${i} of ${LEAGUE_PER_WEEK} league periods.`);
         warn(c, `Village ${v} got ${i} of ${LEAGUE_PER_WEEK} league periods this week (there was not enough room).`);
         break;
       }
@@ -227,7 +227,7 @@ export function placeTri(c: Ctx): void {
       }
     }
     if (!best) {
-      c.structural++;
+      c.missing.push('Tusc got fewer triathlon training periods than planned.');
       warn(c, `Tusc got fewer triathlon training periods than planned this week (there was not enough pool-free time).`);
       continue;
     }
@@ -288,6 +288,8 @@ function placeMostConstrainedFirst<T>(
   options: (unit: number[]) => { value: T; score: number }[],
   apply: (unit: number[], value: T) => void,
   couldNot: (unit: number[]) => string,
+  /** A rare area that does not fit is carried over; anything else that does not fit makes the week not good enough. */
+  carryArea?: string,
 ): void {
   const remaining = [...units];
   while (remaining.length > 0) {
@@ -306,7 +308,8 @@ function placeMostConstrainedFirst<T>(
     const unit = remaining.splice(pick, 1)[0];
     if (pickOptions.length === 0) {
       c.unmet += unit.length;
-      c.structural += unit.length;
+      if (carryArea) for (const b of unit) c.carried.push({ bunk: b, area: carryArea });
+      else c.missing.push(couldNot(unit));
       warn(c, couldNot(unit));
       continue;
     }
@@ -385,6 +388,7 @@ export function placeSolo(c: Ctx, plan: Plan): void {
         plan[area][b]--;
       },
       ([b]) => `${c.roster.names[b]} could not fit ${label} this week.`,
+      area,
     );
   }
 }

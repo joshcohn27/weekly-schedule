@@ -43,8 +43,12 @@ export interface Ctx {
   tripDay: number | null;
   /** Planned blocks that could not be placed; each one costs the soft score. */
   unmet: number;
-  /** Ropes, Pool, league or triathlon blocks that could not be placed. These must be exact, so they outweigh every soft preference. */
-  structural: number;
+  /** Ropes, Pool, league or triathlon blocks that could not be placed. These must be there, so the week is judged not good enough. */
+  missing: string[];
+  /** Rare-area blocks planned but not placed this week. They carry over to later weeks. */
+  carried: { bunk: number; area: string }[];
+  /** Periods that had to be filled with an area the bunk was already at its target for. */
+  extras: number;
   /** Program areas each bunk already has on each day (bit flags), kept in step with the grid by put(). */
   dayMask: number[][];
   /** Days that have periods to fill this week. */

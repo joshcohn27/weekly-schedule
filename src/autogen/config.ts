@@ -83,6 +83,26 @@ export const ATTEMPTS = 40;
 /** DEFAULT: stop early once this many attempts came out with no rule breaks, to keep generating fast. */
 export const ENOUGH_VALID_ATTEMPTS = 12;
 
+// ---- Quality: when is a generated week good enough to hand back? ------------------------------
+
+/** The rarer areas: a bunk may fall a block short on these under the limits below. */
+export const RARE_AREAS = ['Yoga', 'Ceramics', 'Teva', 'Israel Education', 'Judaics', 'Dance', 'TW UH'];
+/** A rare area this many blocks short (or more) for one bunk is never acceptable. */
+export const RARE_SHORT_MAJOR_AT = 2;
+/** O, C and S bunks may each be one block short on a rare area, but only this many bunks in a week. */
+export const RARE_OCS_MAX_SHORT_BUNKS = 2;
+/** A Mohawk or Tusc bunk with this many rare-area blocks short in one week is not acceptable. */
+export const RARE_MT_MAX_SHORT_PER_BUNK = 1;
+/** Athletics and A&C may differ by this much per bunk (O, C, S) or (M, T). Exactly at the limit is fine, beyond it is not. */
+export const GAP_MAX_OCS = 1;
+export const GAP_MAX_MT = 2;
+/** Before the last week of a session a gap can still be levelled out, so it may go this much past the limit. */
+export const GAP_SLACK_BEFORE_LAST_WEEK = 1;
+/** Rounds of attempts before giving up on a perfect week and returning the best one found. Each round is up to ATTEMPTS. */
+export const MAX_ROUNDS = 8;
+/** Wall-clock cap for all rounds together. Only reached on a very slow machine; it makes the round count depend on speed. */
+export const MAX_TOTAL_MS = 6000;
+
 export const HOBBY_WED_PM_PROBABILITY = 0.65; // otherwise Tuesday AM
 export const HOBBY_SUNDAY_PROBABILITY = 0.2;
 
