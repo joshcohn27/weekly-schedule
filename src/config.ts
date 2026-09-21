@@ -46,6 +46,10 @@ export const ACTIVITIES: Activity[] = [
   a('Time with UH', 'TW UH'),
   a('All-Camp Event', null),
   a('Village Day', null),
+  // Only emitted by Auto generate, in the last week of a 4-week session.
+  a('Hobby Culmination', null),
+  a('Packing Time', null),
+  a('Banquet Prep', null),
 ];
 
 /** Program areas in tracking-column order. */
