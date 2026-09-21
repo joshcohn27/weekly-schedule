@@ -223,9 +223,10 @@ export function validateGrid(input: ValidationInput): Violation[] {
     const labels = new Set<string>();
     for (let b = 0; b < n; b++) if (isHobby(grid[b][s])) labels.add(grid[b][s]);
     if (labels.size === 0) continue;
+    const partner = s % 2 === 0 ? s + 1 : s - 1; // the other period of the same half-day
     for (let b = 0; b < n; b++) {
       const exempt = lastWeek && roster.village[b] === 'T';
-      if (!labels.has(grid[b][s]) && !exempt && !locked(b, s)) add('H11', `${roster.names[b]} is missing hobbies on ${where(s)}.`, b, s);
+      if (!labels.has(grid[b][s]) && !exempt && !locked(b, s) && !locked(b, partner)) add('H11', `${roster.names[b]} is missing hobbies on ${where(s)}.`, b, s);
     }
   }
   if (lastWeek) {
@@ -246,14 +247,16 @@ export function validateGrid(input: ValidationInput): Violation[] {
     }
   } else if (n > 0) {
     const halves = new Set<string>();
-    grid[0].forEach((l, s) => {
-      if (isHobby(l)) halves.add(`${dayOf(s)}${periodOf(s) < 2 ? 'A' : 'P'}`);
-    });
+    for (const row of grid) {
+      row.forEach((l, s) => {
+        if (isHobby(l)) halves.add(`${dayOf(s)}${periodOf(s) < 2 ? 'A' : 'P'}`);
+      });
+    }
     if (!halves.has('5A') && !locked(0, slotAt(5, 0))) add('H11', 'Friday morning hobbies are missing.', undefined, slotAt(5, 0));
-    const allowed = new Set(['5A', '3P', '1A', '0A']);
+    const allowed = new Set(['5A', '3P', '2A', '0A']);
     for (const h of halves) if (!allowed.has(h)) add('H11', `Hobbies on an unexpected half-day (${h}).`, undefined, undefined);
-    if (halves.has('3P') && halves.has('1A')) add('H11', 'Both Tuesday morning and Wednesday afternoon hobbies.', undefined, undefined);
-    if (!halves.has('3P') && !halves.has('1A') && !locked(0, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
+    if (halves.has('3P') && halves.has('2A')) add('H11', 'Both Tuesday morning and Wednesday afternoon hobbies.', undefined, undefined);
+    if (!halves.has('3P') && !halves.has('2A') && !locked(0, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
   }
 
   // H12: only known activity labels (cells already filled before generating may be write-ins)

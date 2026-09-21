@@ -114,17 +114,25 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
         } else if (!canPlace(b, s, day, area, label)) continue;
         let score = -3 * tok[b][key] + c.rng() * 1.5;
         if (dayOff[area] === day) score += 1;
-        if (SOLO_ONLY.includes(area) && c.grid.some((row) => row[s] === label)) score += 4;
+        if (SOLO_ONLY.includes(area) && c.grid.some((row) => row[s] === label)) score += 40; // one bunk at a time
         if (area === 'Athletics' && WET_LABELS.includes(prev)) score += 1.5;
         if (!best || score < best.score) best = { key, area, label, score };
       }
 
       if (!best) {
-        // last resort: an extra Athletics or A&C, then an extra Time with UH
+        // last resort, so no period is left empty: an extra Athletics or A&C, then Time with UH, then any other single-period area
         const first = preferred(b);
         const extra = [first, other(first)].find((a) => canPlace(b, s, day, a, a));
         if (extra) best = { key: '', area: extra, label: extra, score: 0 };
         else if (uhTotal(b) < UH_MAX_PER_SESSION && canPlace(b, s, day, 'TW UH', 'Time with UH')) best = { key: '', area: 'TW UH', label: 'Time with UH', score: 0 };
+        else {
+          const any = ['Music', 'Dance', 'Yoga', 'Ceramics', 'Teva'].find((a) => canPlace(b, s, day, a, labelOf(a)));
+          if (any) {
+            best = { key: '', area: any, label: labelOf(any), score: 0 };
+            c.unmet++;
+            c.structural++; // an extra puts a bunk over a target, which no village may do
+          }
+        }
       }
       if (!best) continue; // left empty; the validator reports it and the attempt loses
 
@@ -198,6 +206,7 @@ function rebalanceAthleticsAc(c: Ctx): void {
       let flipped = false;
       for (const s of shuffle(c.rng, ALL_SLOTS)) {
         if (c.grid[b][s] !== from || c.locked[b][s]) continue;
+        if (c.weekIndex === 1 && s === 3 && c.roster.village[b] === 'M') continue; // Mohawk's fixed Sunday Athletics
         const day = dayOf(s);
         const p = periodOf(s);
         const neighbour = (q: number): boolean => q >= 0 && q < 4 && c.grid[b][s - p + q] === from;

@@ -8,7 +8,7 @@ import {
   leagueLabelFor,
 } from './config';
 import { blocksOf, halfSlots, slotAt } from './history';
-import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
+import { TOKEN_AREAS, TOKEN_LABEL, inWeekCount, type Plan } from './planner';
 import { chance, shuffle } from './rng';
 import { pairable } from './roster';
 import {
@@ -351,6 +351,41 @@ export function relabelRopes(c: Ctx): void {
       if (!c.locked[b][k.start]) for (let i = 0; i < k.len; i++) c.grid[b][k.start + i] = label;
       ord++;
     }
+  }
+}
+
+// ---- Judaics and Israel: one bunk at a time -------------------------------------------------------
+
+/** Give each planned Judaics and Israel block a period no other bunk has that area in, before the general fill. */
+export function placeSolo(c: Ctx, plan: Plan): void {
+  for (const area of ['Judaics', 'Israel Education'] as const) {
+    const label = TOKEN_LABEL[area];
+    const units: number[][] = [];
+    plan[area].forEach((k, b) => {
+      for (let i = 0; i < k; i++) units.push([b]);
+    });
+    placeMostConstrainedFirst<number>(
+      c,
+      units,
+      ([b]) => {
+        const out: { value: number; score: number }[] = [];
+        for (const day of c.days) {
+          if (areaOnDay(c, b, day, area)) continue;
+          for (let p = 0; p < 4; p++) {
+            const s = slotAt(day, p);
+            if (!isFree(c, b, s) || !h5ok(c, b, [s], label)) continue;
+            const alone = !slotHas(c, s, label);
+            out.push({ value: s, score: c.rng() + (alone ? 0 : 100) + 0.4 * leftover(c, [b], day, 1) });
+          }
+        }
+        return out;
+      },
+      ([b], s) => {
+        put(c, b, [s], label);
+        plan[area][b]--;
+      },
+      ([b]) => `${c.roster.names[b]} could not fit ${label} this week.`,
+    );
   }
 }
 

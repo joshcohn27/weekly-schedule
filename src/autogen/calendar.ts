@@ -40,7 +40,7 @@ export function planCalendar(
   if (input.lastWeek) hobbies = [[1, 0]]; // Monday morning only
   else {
     hobbies = [[5, 0]]; // Friday morning always
-    hobbies.push(chance(rng, HOBBY_WED_PM_PROBABILITY) ? [3, 1] : [1, 0]);
+    hobbies.push(chance(rng, HOBBY_WED_PM_PROBABILITY) ? [3, 1] : [2, 0]); // Wednesday afternoon, or Tuesday morning
     if (input.weekIndex > 1 && chance(rng, HOBBY_SUNDAY_PROBABILITY)) hobbies.push([0, 0]);
   }
 
@@ -153,7 +153,9 @@ function placeTiyul(c: Ctx): void {
       return !!other && !((other === 'O' && v === 'C') || (other === 'C' && v === 'O'));
     });
 
-  for (const v of c.calendar.tiyul) {
+  // S and M need two consecutive half-days, so they choose before O and C take single ones
+  const order = [...c.calendar.tiyul].sort((a, b) => Number(b === 'S' || b === 'M') - Number(a === 'S' || a === 'M'));
+  for (const v of order) {
     if (!c.roster.byVillage[v]) continue;
     const overnight = v === 'S' || v === 'M';
     const candidates: { halves: [number, number][]; slots: number[][] }[] = [];

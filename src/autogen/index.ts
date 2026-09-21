@@ -3,7 +3,7 @@ import { placeCalendar, planCalendar } from './calendar';
 import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, FLEXIBLE_VILLAGES, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { SLOTS, blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
-import { placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
+import { placeLeague, placePool, placeRopes, placeSolo, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_LABEL, planWeek, sessionTargetOf, type TokenArea } from './planner';
 import { mulberry32 } from './rng';
 import { buildRoster, type Roster } from './roster';
@@ -73,7 +73,8 @@ function athleticsAcMisses(roster: Roster, hist: BunkHistory[], grid: string[][]
       (hist[b].earlier[area] ?? 0) + (hist[b].later[area] ?? 0) + blocks.filter((k) => k.area === area).length;
     const gap = total('A&C') - total('Athletics');
     const flexible = FLEXIBLE_VILLAGES.includes(roster.village[b]);
-    if (last && !flexible ? gap !== 0 && gap !== 1 : Math.abs(gap) > 2) misses++;
+    const off = last && !flexible ? gap !== 0 && gap !== 1 : Math.abs(gap) > (flexible ? 2 : 1);
+    if (off) misses++;
   }
   return misses;
 }
@@ -133,6 +134,7 @@ export function generateWeek(opts: AutoGenOptions): AutoGenResult {
     placeTri(c);
     placeRopes(c, plan);
     placePool(c, plan);
+    placeSolo(c, plan);
     fillFlexible(c, plan);
     relabelRopes(c);
 
