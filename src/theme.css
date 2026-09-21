@@ -145,8 +145,57 @@ input {
 }
 input.activity-input {
   font-size: 12px;
-  width: 88px;
+  width: 92px;
   box-sizing: border-box;
+  padding: 2px 16px 2px 3px;
+  border: 1px solid #8a948a;
+  border-radius: 3px;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E") no-repeat right 4px center;
+}
+
+/* the open activity list (rendered in a portal, so it is never clipped by the scrolling grid) */
+.combo-panel {
+  position: fixed;
+  z-index: 1000;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 2px solid var(--forest);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+}
+.combo-group {
+  position: sticky;
+  top: 0;
+  padding: 2px 8px;
+  background: var(--lake);
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: bold;
+}
+.combo-option {
+  padding: 3px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.combo-option.grouped {
+  padding-left: 18px;
+}
+.combo-option:hover,
+.combo-option[data-active='true'] {
+  background: var(--sun);
+}
+.combo-option.current {
+  font-weight: bold;
+}
+.combo-note {
+  color: #6b7a6b;
+  font-weight: normal;
+}
+.combo-empty {
+  padding: 6px 10px;
+  color: #6b7a6b;
 }
 fieldset {
   border: 1px solid var(--line);

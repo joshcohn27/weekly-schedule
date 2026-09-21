@@ -58,3 +58,19 @@ export const AREAS: string[] = (() => {
 const AREA_BY_LABEL = new Map(ACTIVITIES.map((act) => [act.label, act.area]));
 
 export const areaOf = (label: string): string | null => AREA_BY_LABEL.get(label) ?? null;
+
+export interface OptionGroup {
+  group: string | null;
+  items: Activity[];
+}
+
+/** Dropdown layout: areas with several labels get a heading, the rest are plain options. */
+export const OPTION_GROUPS: OptionGroup[] = (() => {
+  const out: OptionGroup[] = [];
+  for (const area of AREAS) {
+    const items = ACTIVITIES.filter((act) => act.area === area);
+    out.push({ group: items.length > 1 ? area : null, items });
+  }
+  out.push({ group: 'Not counted in tracking', items: ACTIVITIES.filter((act) => act.area === null) });
+  return out;
+})();

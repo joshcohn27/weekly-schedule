@@ -1,8 +1,9 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { PERIOD_CHOICES, periodsForChoice, villageOf } from '../autofill';
 import { DAYS, PERIODS_PER_DAY } from '../config';
+import { slotUsage } from '../slotUsage';
 import type { Bunk } from '../types';
-import { ACTIVITY_LIST_ID, ActivityDatalist } from './Options';
+import ActivityPicker from './ActivityPicker';
 
 interface SlotSelectProps {
   bunkId: string;
@@ -10,16 +11,16 @@ interface SlotSelectProps {
   value: string;
   label: string;
   onCell: (bunkId: string, slot: number, label: string) => void;
+  usage: (slot: number, bunkId: string) => Map<string, string>;
 }
 
-const SlotSelect = memo(function SlotSelect({ bunkId, slot, value, label, onCell }: SlotSelectProps) {
+const SlotSelect = memo(function SlotSelect({ bunkId, slot, value, label, onCell, usage }: SlotSelectProps) {
   return (
-    <input
-      list={ACTIVITY_LIST_ID}
-      className="activity-input"
-      aria-label={label}
+    <ActivityPicker
       value={value}
-      onChange={(e) => onCell(bunkId, slot, e.target.value)}
+      label={label}
+      onCommit={(chosen) => onCell(bunkId, slot, chosen)}
+      usage={() => usage(slot, bunkId)}
     />
   );
 });
@@ -42,10 +43,13 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
   const [fillVillage, setFillVillage] = useState('');
   const [fillLabel, setFillLabel] = useState('');
   const villages = useMemo(() => Array.from(new Set(bunks.map((b) => villageOf(b.name)))).filter(Boolean).sort(), [bunks]);
+  // Read through a ref so every cell keeps the same callback and stays memoized as bunks change.
+  const bunksRef = useRef(bunks);
+  bunksRef.current = bunks;
+  const usage = useCallback((slot: number, bunkId: string) => slotUsage(bunksRef.current, slot, bunkId), []);
 
   return (
     <section>
-      {ActivityDatalist}
       <h2>Build</h2>
       <p>
         Pick an activity for each bunk and period, or type your own. Matching neighbors merge automatically on the Schedule
@@ -75,13 +79,7 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
             </option>
           ))}
         </select>{' '}
-        <input
-          list={ACTIVITY_LIST_ID}
-          className="activity-input"
-          aria-label="Fill activity"
-          value={fillLabel}
-          onChange={(e) => setFillLabel(e.target.value)}
-        />{' '}
+        <ActivityPicker value={fillLabel} label="Fill activity" onCommit={setFillLabel} />{' '}
         <button
           type="button"
           onClick={() => {
@@ -134,6 +132,7 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
                           value={b.slots[slot]}
                           label={`${b.name || 'Bunk'} ${d} period ${p + 1}`}
                           onCell={onCell}
+                          usage={usage}
                         />
                       </td>
                     );

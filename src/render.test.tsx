@@ -28,11 +28,11 @@ describe('rendering', () => {
     );
     // +1 for the bulk-fill toolbar's own activity input
     expect((html.match(/class="activity-input"/g) ?? []).length).toBe(bunks.length * 24 + 1);
+    expect((html.match(/role="combobox"/g) ?? []).length).toBe(bunks.length * 24 + 1);
     // day/period/village pickers in the toolbar are still plain selects
     expect((html.match(/<select/g) ?? []).length).toBe(3);
-    // the shared datalist backs every activity input with searchable, write-in-able suggestions
-    expect(html).toContain('<datalist id="activity-options"');
-    expect(html).toContain('AM Hobbies');
+    // the option list only exists while a cell is open
+    expect(html).not.toContain('combo-panel');
   });
 
   it('tracking view renders', () => {
