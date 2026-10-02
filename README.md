@@ -4,6 +4,10 @@ React + TypeScript + Vite. Build a camp's weekly period schedule (Sunday to Frid
 4 weeks at a time. Pick activities from a searchable dropdown (or write your own), and matching neighbors merge
 automatically on the Schedule tab. A Tracking tab counts program areas per bunk, for one week or the whole session.
 
+Live site: https://weekly.joshbcohn.com
+
+This is a scheduling tool I built for camp staff to plan the weekly period schedule.
+
 There is no backend. Everything is saved in the browser (localStorage), so **download your weeks to Excel as a
 backup**: clearing site data or switching browsers loses anything that wasn't downloaded.
 
@@ -14,10 +18,10 @@ backup**: clearing site data or switching browsers loses anything that wasn't do
     npm test           # merge, tracking, autofill, search, Excel, auto generate and render tests
     npm run build      # typecheck + production build into dist/
 
-## Deploy to weekly.joshbcohn.com
+## Deployment
 
-Upload the contents of `dist/` the same way as your other subdomains. It is a single page with no routing,
-so no rewrite rules are needed.
+Hosted on Vercel at weekly.joshbcohn.com. It is a single page with no routing, so no rewrite rules are needed.
+The build output is the `dist/` folder from `npm run build`.
 
 ## Using it
 
