@@ -4,6 +4,7 @@ import {
   FILL_MAX_STEPS,
   FILL_NOISE,
   FILL_POLISH_STEPS,
+  FILL_STALL_STEPS,
   FLEXIBLE_VILLAGES,
   GAP_MAX_MT,
   GAP_MAX_OCS,
@@ -188,20 +189,17 @@ class FillSearch {
     if (g.length < 2) return 0;
     const r = this.c.roster;
     let cost = HARD * groupBreaks(r, area, g, (b) => this.ord[b][s], this.c.relax);
-    let matched = 0;
     let far = false;
     for (let i = 0; i < g.length; i++) {
       for (let j = i + 1; j < g.length; j++) {
         const level = shareLevel(r, g[i], g[j], area);
-        if (level > 0) matched++;
         if (level === 1) far = true;
       }
     }
-    if (area === 'Athletics') {
-      cost += g.length === 2 ? WEIGHTS.athleticsPair : WEIGHTS.athleticsThird;
-      if (matched === 0) cost += WEIGHTS.athleticsUnrelated;
-      if (matched >= 2) cost += WEIGHTS.trio;
-    } else if (area !== 'A&C') cost += WEIGHTS.sharedPreferredOne;
+    if (area === 'Athletics' || area === 'A&C') {
+      if (g.length === 3) cost += WEIGHTS.thirdBunk;
+      if (area === 'Athletics' && g.some((x) => this.ord[x][s] !== this.ord[g[0]][s])) cost += WEIGHTS.athleticsUnequal;
+    } else cost += WEIGHTS.sharedPreferredOne;
     if (far) cost += WEIGHTS.pairFarAge;
     return cost;
   }
@@ -342,6 +340,8 @@ class FillSearch {
     };
     this.syncAll();
     let clean = false;
+    let fewest = Infinity;
+    let fewestAt = 0;
     for (let step = 0; step < FILL_MAX_STEPS; step++) {
       const bad: [number, number][] = [];
       for (let b = 0; b < this.n; b++) for (const s of this.cells[b]) if (this.broken(b, s)) bad.push([b, s]);
@@ -349,6 +349,10 @@ class FillSearch {
         clean = true;
         break;
       }
+      if (bad.length < fewest) {
+        fewest = bad.length;
+        fewestAt = step;
+      } else if (step - fewestAt > FILL_STALL_STEPS) break;
       const [b, s] = bad[Math.floor(c.rng() * bad.length)];
       const best = this.bestMove(b, s);
       if (best && (best.delta < -0.5 || c.rng() < FILL_NOISE)) take(b, best.move);

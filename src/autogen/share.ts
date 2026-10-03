@@ -1,19 +1,17 @@
 import { areaOf } from '../config';
 import { SLOT_CAP, VILLAGE_LEVEL_LABELS } from './config';
-import { isConsecutiveTrio, shareLevel, type Roster } from './roster';
+import { isConsecutiveTrio, isSameAgeGroup, shareLevel, type Roster } from './roster';
 
 /**
- * Which last-resort groupings the generator may use right now. The validator always allows both, because
- * they are legal; the generator only turns them on after it has failed to find a good week without them.
+ * Which last-resort grouping the generator may use right now. The validator always allows it, because it is legal;
+ * the generator only turns it on after it has failed to find a good week without it.
  */
 export interface Relax {
-  /** Athletics may hold unrelated bunks: two singles, a matched pair plus a single, or three singles. */
-  singles: boolean;
-  /** Three consecutive bunks of one village may share Ropes or Athletics. */
+  /** Three consecutive bunks of one village may share Ropes. */
   trio: boolean;
 }
-export const STRICT: Relax = { singles: false, trio: false };
-export const OPEN: Relax = { singles: true, trio: true };
+export const STRICT: Relax = { trio: false };
+export const OPEN: Relax = { trio: true };
 
 export type ShareRule = 'H5' | 'H13' | 'H14';
 export interface ShareProblem {
@@ -48,9 +46,10 @@ export const isFixedMohawkAthletics = (weekIndex: number, village: string, slot:
 /**
  * Check the bunks that are in one program area in one period (rules H13, H14 and the equal ordinal of H5).
  *  - No more than SLOT_CAP bunks (Ropes: two, or three as a trio).
- *  - Two bunks share only when shareLevel says they may, except unrelated Athletics singles.
- *  - Three: Athletics as a pair plus a single or three singles, or a consecutive trio at Ropes or Athletics.
- *  - Bunks that may share must be on the same ordinal.
+ *  - Athletics: two or three bunks, any bunks. The same ordinal is preferred there, never required.
+ *  - A&C: two bunks that may share, or three bunks of the same age; always on the same ordinal.
+ *  - Ropes: two bunks that may share, or as a last resort three in a row in one village.
+ *  - Everything else: two bunks only when shareLevel says they may, on the same ordinal.
  */
 export function slotGroupProblems(
   r: Roster,
@@ -75,24 +74,22 @@ export function slotGroupProblems(
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) if (shareLevel(r, group[i], group[j], area) > 0) matched.push([group[i], group[j]]);
   }
-  const trio = group.length === 3 && isConsecutiveTrio(r, group);
   const bad = (why: string) => out.push({ rule: 'H13', message: `${names} share ${area}${at}, but ${why}.` });
+  // who must be on the same ordinal: bunks that may share, and all three of a group of three at A&C
+  let sameVisit = matched;
 
-  if (group.length === 2) {
-    if (matched.length === 0) {
-      if (area !== 'Athletics') bad('they are not allowed to be together');
-      else if (!relax.singles) bad('unrelated bunks only share Athletics as a last resort');
-    }
+  if (area === 'Athletics') {
+    sameVisit = []; // any two or three bunks may be at Athletics together, on any visit
+  } else if (group.length === 2) {
+    if (matched.length === 0) bad('they are not allowed to be together');
   } else if (area === 'Ropes') {
-    if (!trio) bad('three at Ropes must be three in a row in one village');
+    if (!isConsecutiveTrio(r, group)) bad('three at Ropes must be three in a row in one village');
     else if (!relax.trio) bad('a group of three at Ropes is only a last resort');
-  } else if (area === 'Athletics') {
-    if (matched.length <= 1) {
-      if (!relax.singles) bad('a third bunk at Athletics is only a last resort');
-    } else if (!trio) bad('three at Athletics must be unrelated, a pair plus one, or three in a row in one village');
-    else if (!relax.trio) bad('three in a row at Athletics is only a last resort');
+  } else if (area === 'A&C') {
+    if (!isSameAgeGroup(r, group)) bad('three at A&C must all be the same age');
+    sameVisit = [[group[0], group[1]], [group[1], group[2]]];
   }
-  for (const [a, b] of matched) {
+  for (const [a, b] of sameVisit) {
     const oa = ordinal(a);
     const ob = ordinal(b);
     if (oa !== null && ob !== null && oa !== ob) {
@@ -111,26 +108,25 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
   const cap = SLOT_CAP[area];
   if (cap === undefined) return 0;
   if (group.length > (area === 'Ropes' ? 3 : cap)) return 1;
-  let breaks = 0;
+  if (area === 'Athletics') return 0;
+  const differ = (a: number, b: number): number => {
+    const oa = ordinal(a);
+    const ob = ordinal(b);
+    return oa > 0 && ob > 0 && oa !== ob ? 1 : 0;
+  };
+  if (area === 'A&C' && group.length === 3) {
+    return (isSameAgeGroup(r, group) ? 0 : 1) + differ(group[0], group[1]) + differ(group[1], group[2]);
+  }
   let matched = 0;
+  let unequal = 0;
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) {
       if (shareLevel(r, group[i], group[j], area) === 0) continue;
       matched++;
-      const oa = ordinal(group[i]);
-      const ob = ordinal(group[j]);
-      if (oa > 0 && ob > 0 && oa !== ob) breaks++;
+      unequal += differ(group[i], group[j]);
     }
   }
-  const trio = group.length === 3 && isConsecutiveTrio(r, group);
-  if (group.length === 2) {
-    if (matched === 0 && (area !== 'Athletics' || !relax.singles)) breaks++;
-  } else if (area === 'Ropes') {
-    if (!trio || !relax.trio) breaks++;
-  } else if (area === 'Athletics') {
-    if (matched <= 1) {
-      if (!relax.singles) breaks++;
-    } else if (!trio || !relax.trio) breaks++;
-  }
-  return breaks;
+  if (group.length === 2) return unequal + (matched === 0 ? 1 : 0);
+  // three at Ropes
+  return unequal + (isConsecutiveTrio(r, group) && relax.trio ? 0 : 1);
 }

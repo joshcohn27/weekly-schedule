@@ -59,10 +59,10 @@ export const AGE_ALLOWED = 1;
 export const POOL_AGE_MAX = 0.5;
 /** Areas where an O bunk may share with a C bunk, or an S bunk with an M bunk. Pool is S with M only. */
 export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Pool'];
-/** H14: most bunks camp-wide in one period. Athletics is 3 as a last resort, and the generator wants 2 (see SLOT_PREFERRED). Ropes is one group of 2 (3 as a trio). */
+/** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Ropes is one group of 2 (3 as a trio). */
 export const SLOT_CAP: Record<string, number> = {
   Athletics: 3,
-  'A&C': 2,
+  'A&C': 3,
   Music: 2,
   Teva: 2,
   Dance: 2,
@@ -73,8 +73,6 @@ export const SLOT_CAP: Record<string, number> = {
   'TW UH': 1,
   Ropes: 2,
 };
-/** Where the generator prefers to stay: one bunk where two are allowed, and two at Athletics. */
-export const SLOT_PREFERRED: Record<string, number> = { Athletics: 2, Music: 1, Teva: 1, Dance: 1 };
 /** H15: most bunks of one village at this area in one day. */
 export const DAY_CAP: Record<string, number> = {
   Athletics: 2,
@@ -118,8 +116,13 @@ export const HALF_PERIODS: number[][] = [
 export const UH_EARLY_MARGIN = 0.5;
 /** Villages that are over-subscribed by design: they may end a rare area one block short, and Athletics/A&C two apart, with a warning. */
 export const FLEXIBLE_VILLAGES = ['M', 'T'];
-/** Last-resort extra Time with UH blocks a bunk may get to fill an otherwise unfillable period. */
-export const UH_MAX_PER_SESSION = 2;
+/** Time with UH is planned once a session; a bunk may get it up to this many times when its periods cannot be filled otherwise. */
+export const UH_MAX_PER_SESSION = 3;
+/** Periods with activities in a normal week (hobbies take two half-days) and in the last week of a 4-week session. */
+export const NORMAL_WEEK_PERIODS = 20;
+export const LAST_WEEK_PERIODS = 14;
+/** A bunk away on trips for at least this many periods of a week is not expected to get its weekly Music. */
+export const AWAY_PERIODS_NO_MUSIC = 12;
 /** A week never counts as having less than this many spare periods when spreading quotas, so it is never fully shut out. */
 export const MIN_WEEK_CAPACITY = 0.1;
 /** The last week of a 4-week session is short and crowded, so it takes this share of what a bunk still needs compared with its room. */
@@ -150,19 +153,16 @@ export const GAP_MAX_OCS = 1;
 export const GAP_MAX_MT = 2;
 /** Before the last week of a session a gap can still be levelled out, so it may go this much past the limit. */
 export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
-/**
- * Attempts (counted over the whole search) made at the strictest setting before the last-resort rules open up.
- * From SINGLES_AFTER on, Athletics may hold unrelated bunks (up to 3 in a period); from TRIO_AFTER on, three consecutive
- * bunks of one village may share Ropes or Athletics.
- */
-export const SINGLES_AFTER = 0;
+/** Attempts (counted over the whole search) made before three consecutive bunks of one village may share Ropes. */
 export const TRIO_AFTER = 64;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
 export const SYNC_MAX_MS = 10000;
 
 /** Steps the fill search may take on one attempt before giving up, and steps spent on preferences once nothing breaks a rule. */
-export const FILL_MAX_STEPS = 1500;
+export const FILL_MAX_STEPS = 6000;
 export const FILL_POLISH_STEPS = 150;
+/** The fill search gives up on an attempt after this many steps without getting any closer. */
+export const FILL_STALL_STEPS = 1500;
 /** Chance the fill search takes its best move even when it does not help, to get out of a dead end. */
 export const FILL_NOISE = 0.08;
 
@@ -179,13 +179,11 @@ export const WEIGHTS = {
   extraWetInDay: 25,
   /** A second bunk in Music, Teva or Dance, where one is preferred. */
   sharedPreferredOne: 6,
-  /** A second bunk at Athletics (one bunk is best). */
-  athleticsPair: 8,
-  /** A third bunk at Athletics: a pair plus a single, or three unrelated singles. */
-  athleticsThird: 60,
-  /** Unrelated bunks together at Athletics. */
-  athleticsUnrelated: 100,
-  /** Three consecutive bunks together at Athletics or Ropes. */
+  /** A third bunk at Athletics or A&C: fine, but two is a little better. */
+  thirdBunk: 2,
+  /** Bunks at Athletics together who are on different visits. */
+  athleticsUnequal: 1.5,
+  /** Three consecutive bunks together at Ropes. */
   trio: 150,
   /** A pair that is more than half a grade apart. */
   pairFarAge: 3,

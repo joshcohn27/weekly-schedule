@@ -1,6 +1,6 @@
 import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, planCalendar } from './calendar';
-import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, SINGLES_AFTER, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, type SessionWeeks } from './config';
+import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
 import { placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
@@ -152,7 +152,7 @@ class WeekSearch {
         unmet: 0,
         missing: [],
         carried: [],
-        relax: { singles: round * ATTEMPTS + attempt >= SINGLES_AFTER, trio: round * ATTEMPTS + attempt >= TRIO_AFTER },
+        relax: { trio: round * ATTEMPTS + attempt >= TRIO_AFTER },
         dayMask: buildDayMasks(start),
         days: [0, 1, 2, 3, 4, 5].filter((d) => !(lastWeek && d === 5)),
         calendar,

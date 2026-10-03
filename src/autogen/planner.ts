@@ -1,5 +1,8 @@
 import {
   BUILT_WEEK_MAX_EMPTY,
+  DAY_CAP,
+  LAST_WEEK_PERIODS,
+  NORMAL_WEEK_PERIODS,
   FLEXIBLE_LATER_WEEK_SHARE,
   FLEXIBLE_VILLAGES,
   DANCE_TARGETS,
@@ -134,7 +137,7 @@ function remainingWeeks(c: Ctx): number[] {
  * Spread what each bunk still needs over the weeks left, weighting a short last week less. The
  * fractional part is drawn once for the whole roster, so the load per week stays even.
  */
-function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => number, cap: (b: number) => number | null): Drawn {
+function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => number, cap: (b: number) => number | null, nowShare?: number[]): Drawn {
   const n = c.roster.n;
   const k = new Array<number>(n).fill(0);
   const min = new Array<number>(n).fill(0);
@@ -154,7 +157,7 @@ function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => 
       continue;
     }
     const wSum = weeks.reduce((sum, w) => sum + capacityWeight(c, b, w), 0);
-    const rawShare = wSum > 0 ? (need * capacityWeight(c, b, c.weekIndex)) / wSum : need / weeks.length;
+    const rawShare = nowShare ? need * nowShare[b] : wSum > 0 ? (need * capacityWeight(c, b, c.weekIndex)) / wSum : need / weeks.length;
     const share = need - rawShare < LATER_WEEKS_NEGLIGIBLE ? need : rawShare;
     const forced = Math.floor(need / weeks.length);
     let floorPart = Math.max(Math.floor(share), forced);
@@ -171,6 +174,46 @@ function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => 
   return { k, min };
 }
 
+const RARE = ['Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga', 'Dance', 'TW UH'];
+/** Periods in a week that have activities: Friday of the last week has none, and Thursday and Monday morning are spoken for. */
+const periodsIn = (c: Ctx, week: number): number => (c.sessionWeeks === 4 && week === 4 ? LAST_WEEK_PERIODS : NORMAL_WEEK_PERIODS);
+
+/**
+ * What share of the rare areas a bunk still needs should be done this week. The periods left over after them can only be
+ * Athletics, A&C or Time with UH, and every period of the camp has room for only so many of those, so the leftover is spread
+ * over the weeks in step with how many periods each week has; the rare areas take the rest of this week's room.
+ */
+function shareForThisWeek(c: Ctx, rareNeed: (b: number) => number): number[] {
+  const weeks = remainingWeeks(c);
+  return Array.from({ length: c.roster.n }, (_, b) => {
+    const need = rareNeed(b);
+    if (need <= 0) return 0;
+    const spare = weeks.map((w) => Math.max(0, expectedSpare(c, b, w)));
+    const now = spare[weeks.indexOf(c.weekIndex)];
+    const leftover = Math.max(0, spare.reduce((a, x) => a + x, 0) - need);
+    const periods = weeks.map((w, i) => (spare[i] >= MIN_WEEK_CAPACITY ? periodsIn(c, w) : 0));
+    const allPeriods = periods.reduce((a, x) => a + x, 0);
+    const leftoverNow = allPeriods > 0 ? Math.min(now, (leftover * periods[weeks.indexOf(c.weekIndex)]) / allPeriods) : now;
+    return Math.max(0, Math.min(1, (now - leftoverNow) / need));
+  });
+}
+
+/**
+ * A village only gets so many bunks at Music a day. When its bunks have too few free days this week for everyone
+ * (Tusc back from the bike trip with one day left), the Music that cannot fit is not planned at all.
+ */
+function limitMusicToRoom(c: Ctx, music: number[]): void {
+  const cap = DAY_CAP.Music;
+  for (const v of c.roster.villages) {
+    const want = c.roster.byVillage[v].filter((b) => music[b] > 0);
+    let room = 0;
+    for (const day of c.days) room += Math.min(cap, want.filter((b) => [0, 1, 2, 3].some((p) => c.grid[b][day * 4 + p] === '')).length);
+    // the bunks that have had the least Music keep theirs
+    const order = [...want].sort((x, y) => counted(c, c.grid.map(areaCounts), x, 'Music') - counted(c, c.grid.map(areaCounts), y, 'Music') || c.rng() - 0.5);
+    for (const b of order.slice(Math.max(0, room))) music[b] = 0;
+  }
+}
+
 /** A week's draw for one area: how many per bunk, and how many of those cannot be put off to a later week. */
 interface Drawn {
   k: number[];
@@ -183,8 +226,8 @@ export function planWeek(c: Ctx): Plan {
   const mins = {} as Plan;
   const inWeek = c.grid.map(areaCounts);
   const capOf = (target: number) => Math.max(1, Math.ceil(target / c.sessionWeeks));
-  const draw = (area: PlanArea, key: string, target: (b: number) => number, cap: (b: number) => number | null) => {
-    const d = lottery(c, inWeek, key, target, cap);
+  const draw = (area: PlanArea, key: string, target: (b: number) => number, cap: (b: number) => number | null, nowShare?: number[]) => {
+    const d = lottery(c, inWeek, key, target, cap, nowShare);
     plan[area] = d.k;
     mins[area] = d.min;
   };
@@ -217,15 +260,18 @@ export function planWeek(c: Ctx): Plan {
   mins.Pool = plan.Pool.map((k, b) => (POOL_TARGETS[c.roster.village[b]]?.perWeek !== undefined ? k : poolMins[b]));
 
   plan.Music = Array.from({ length: n }, (_, b) => Math.max(0, MUSIC_PER_WEEK - (inWeek[b].Music ?? 0)));
+  limitMusicToRoom(c, plan.Music);
   mins.Music = plan.Music.slice();
 
-  for (const area of ['Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga'] as const) draw(area, area, () => SESSION_TARGETS[area], () => null);
-
   const danceTarget = (b: number) => DANCE_TARGETS[c.roster.village[b]] ?? DANCE_TARGET_OTHER;
-  draw('Dance', 'Dance', danceTarget, (b) => capOf(danceTarget(b)));
+  const rareTarget = (b: number, area: string): number => (area === 'Dance' ? danceTarget(b) : SESSION_TARGETS[area]);
+  const nowShare = shareForThisWeek(c, (b) => RARE.reduce((sum, a) => sum + Math.max(0, rareTarget(b, a) - counted(c, inWeek, b, a)), 0));
+
+  for (const area of ['Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga'] as const) draw(area, area, () => SESSION_TARGETS[area], () => null, nowShare);
+  draw('Dance', 'Dance', danceTarget, (b) => capOf(danceTarget(b)), nowShare);
 
   // Time with the Unit Head: the youngest and oldest bunks go first (week 1, or week 2 at the latest).
-  draw('TW UH', 'TW UH', () => SESSION_TARGETS['TW UH'], () => null);
+  draw('TW UH', 'TW UH', () => SESSION_TARGETS['TW UH'], () => null, nowShare);
   plan['TW UH'] = plan['TW UH'].map((count, b) => {
     const need = Math.max(0, SESSION_TARGETS['TW UH'] - counted(c, inWeek, b, 'TW UH'));
     if (c.weekIndex <= 2 && (c.roster.young[b] || c.roster.old[b])) return need > 0 ? 1 : 0;

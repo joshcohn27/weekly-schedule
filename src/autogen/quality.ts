@@ -1,5 +1,6 @@
 import type { WeeksState } from '../types';
 import {
+  AWAY_PERIODS_NO_MUSIC,
   FLEXIBLE_VILLAGES,
   GAP_MAX_MT,
   GAP_MAX_OCS,
@@ -13,6 +14,7 @@ import {
   RARE_OCS_MAX_SHORT_BUNKS,
   RARE_SHORT_MAJOR_AT,
   SHABBAT_ROTATION,
+  TRIP_LABELS,
   WATERFRONT_PER_WEEK,
   type SessionWeeks,
 } from './config';
@@ -74,7 +76,8 @@ export function weekQuality(input: QualityInput): WeekQuality {
   const first = (v: string): number => roster.byVillage[v][0];
 
   // Music every week, for every bunk
-  for (let b = 0; b < n; b++) if (count(b, 'Music') < MUSIC_PER_WEEK) major.push(`${roster.names[b]} has no Music this week.`);
+  const away = (b: number): boolean => grid[b].filter((l) => TRIP_LABELS.includes(l)).length >= AWAY_PERIODS_NO_MUSIC;
+  for (let b = 0; b < n; b++) if (count(b, 'Music') < MUSIC_PER_WEEK && !away(b)) major.push(`${roster.names[b]} has no Music this week.`);
 
   for (const v of roster.villages) {
     const f = first(v);

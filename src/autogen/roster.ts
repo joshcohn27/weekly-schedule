@@ -97,6 +97,22 @@ export function isConsecutiveTrio(r: Roster, group: readonly number[]): boolean 
   );
 }
 
+/**
+ * Bunks that are all the same age: every two within half a grade, and all from villages that mix (one village, O with C, or S with M).
+ * This is who may be three at A&C. They need not be next to each other in the list.
+ */
+export function isSameAgeGroup(r: Roster, group: readonly number[]): boolean {
+  for (let i = 0; i < group.length; i++) {
+    for (let j = i + 1; j < group.length; j++) {
+      const va = r.village[group[i]];
+      const vb = r.village[group[j]];
+      if (va !== vb && !crossVillages(va, vb)) return false;
+      if (Math.abs(r.age[group[i]] - r.age[group[j]]) > AGE_PREFERRED) return false;
+    }
+  }
+  return true;
+}
+
 /** A run of bunks that are consecutive in one village's list (in any order). */
 export function isRun(r: Roster, group: readonly number[]): boolean {
   if (group.length <= 1) return true;

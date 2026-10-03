@@ -3,7 +3,7 @@ import { SLOTS, blocksOf, dayOf } from './history';
 import { shareLevel } from './roster';
 import { groupAt, type Ctx } from './state';
 
-/** What one period's group of bunks in one area costs by preference: one bunk where two are allowed, two at Athletics, the same age, no trios. */
+/** What one period's group of bunks in one area costs by preference: one bunk at Music, Teva and Dance, the same age, no trios at Ropes. */
 export function groupSoft(c: Ctx, s: number, area: string): number {
   const g = groupAt(c, s, area);
   if (g.length < 2) return 0;
@@ -11,10 +11,8 @@ export function groupSoft(c: Ctx, s: number, area: string): number {
   const pairs: number[] = [];
   for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) pairs.push(shareLevel(r, g[i], g[j], area));
   let score = 0;
-  if (area === 'Athletics') {
-    score += g.length === 2 ? WEIGHTS.athleticsPair : WEIGHTS.athleticsThird;
-    if (pairs.every((p) => p === 0)) score += WEIGHTS.athleticsUnrelated;
-    if (pairs.filter((p) => p > 0).length >= 2) score += WEIGHTS.trio;
+  if (area === 'Athletics' || area === 'A&C') {
+    if (g.length === 3) score += WEIGHTS.thirdBunk;
   } else if (area === 'Ropes') {
     if (g.length === 3) score += WEIGHTS.trio;
   } else score += WEIGHTS.sharedPreferredOne;
@@ -27,7 +25,7 @@ function sharingScore(c: Ctx): number {
   let score = 0;
   const r = c.roster;
   for (let s = 0; s < SLOTS; s++) {
-    for (const area of ['Athletics', 'Music', 'Teva', 'Dance', 'Ropes'] as const) score += groupSoft(c, s, area);
+    for (const area of ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Ropes'] as const) score += groupSoft(c, s, area);
     const seniors = [...(r.byVillage.S ?? []), ...(r.byVillage.M ?? [])].filter((b) => c.grid[b][s] === 'Pool');
     if (seniors.length > 0 && (seniors.length < 2 || seniors.length > 5)) score += WEIGHTS.poolGroupSize;
   }
