@@ -123,9 +123,9 @@ export const UH_MAX_PER_SESSION = 2;
 /** A week never counts as having less than this many spare periods when spreading quotas, so it is never fully shut out. */
 export const MIN_WEEK_CAPACITY = 0.1;
 /** The last week of a 4-week session is short and crowded, so it takes this share of what a bunk still needs compared with its room. */
-export const LAST_WEEK_SHARE = 0.1;
+export const LAST_WEEK_SHARE = 1;
 /** Mohawk and Tusc have the least room, so a week further ahead counts for this much less when spreading what they still need. */
-export const FLEXIBLE_LATER_WEEK_SHARE = 0.5;
+export const FLEXIBLE_LATER_WEEK_SHARE = 1;
 /** If the weeks after this one could take less than this many blocks of an area, the whole need is planned now instead of being left to a lottery. */
 export const LATER_WEEKS_NEGLIGIBLE = 0.25;
 /** Used for pool caps when a bunk has no camper count. */
@@ -133,7 +133,7 @@ export const DEFAULT_CAMPERS = 12;
 /** Most randomized attempts per generate; the lowest-scoring valid one wins. */
 export const ATTEMPTS = 40;
 /** DEFAULT: stop early once this many attempts came out with no rule breaks, to keep generating fast. */
-export const ENOUGH_VALID_ATTEMPTS = 12;
+export const ENOUGH_VALID_ATTEMPTS = 3;
 
 // ---- Quality: when is a generated week good enough to hand back? ------------------------------
 
@@ -160,6 +160,12 @@ export const TRIO_AFTER = 64;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
 export const SYNC_MAX_MS = 10000;
 
+/** Steps the fill search may take on one attempt before giving up, and steps spent on preferences once nothing breaks a rule. */
+export const FILL_MAX_STEPS = 1500;
+export const FILL_POLISH_STEPS = 150;
+/** Chance the fill search takes its best move even when it does not help, to get out of a dead end. */
+export const FILL_NOISE = 0.08;
+
 export const HOBBY_WED_PM_PROBABILITY = 0.65; // otherwise Tuesday AM
 export const HOBBY_SUNDAY_PROBABILITY = 0.2;
 
@@ -185,4 +191,8 @@ export const WEIGHTS = {
   pairFarAge: 3,
   /** Pool group smaller than 2 bunks for S and M, or bigger than 5. */
   poolGroupSize: 4,
+  /** Each block a bunk's Athletics and A&C are further apart than allowed. Not a rule break, but never acceptable. */
+  gapOver: 300,
+  /** Athletics ahead of A&C (when they differ, A&C should be the higher one). */
+  athleticsAhead: 2,
 };

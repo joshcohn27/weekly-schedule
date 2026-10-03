@@ -101,3 +101,36 @@ export function slotGroupProblems(
   }
   return out;
 }
+
+/**
+ * The number of problems slotGroupProblems would report, without building the messages. The fill search calls this
+ * many thousands of times. `ordinal` returns 0 when a bunk has no ordinal there.
+ */
+export function groupBreaks(r: Roster, area: string, group: readonly number[], ordinal: (bunk: number) => number, relax: Relax): number {
+  if (group.length <= 1) return 0;
+  const cap = SLOT_CAP[area];
+  if (cap === undefined) return 0;
+  if (group.length > (area === 'Ropes' ? 3 : cap)) return 1;
+  let breaks = 0;
+  let matched = 0;
+  for (let i = 0; i < group.length; i++) {
+    for (let j = i + 1; j < group.length; j++) {
+      if (shareLevel(r, group[i], group[j], area) === 0) continue;
+      matched++;
+      const oa = ordinal(group[i]);
+      const ob = ordinal(group[j]);
+      if (oa > 0 && ob > 0 && oa !== ob) breaks++;
+    }
+  }
+  const trio = group.length === 3 && isConsecutiveTrio(r, group);
+  if (group.length === 2) {
+    if (matched === 0 && (area !== 'Athletics' || !relax.singles)) breaks++;
+  } else if (area === 'Ropes') {
+    if (!trio || !relax.trio) breaks++;
+  } else if (area === 'Athletics') {
+    if (matched <= 1) {
+      if (!relax.singles) breaks++;
+    } else if (!trio || !relax.trio) breaks++;
+  }
+  return breaks;
+}
