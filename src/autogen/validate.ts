@@ -1,12 +1,13 @@
-import { ACTIVITIES, areaOf } from '../config';
+import { ACTIVITIES } from '../config';
 import type { WeeksState } from '../types';
 import {
-  ORDINAL_EXEMPT_LABELS,
+  DAY_CAP,
+  POOL_LESSONS,
   POOL_MAX_CAMPERS,
-  POOL_YOUNG_MAX_CAMPERS,
   SHABBAT_ROTATION,
   TIYUL_WEEKS,
   VILLAGE_LEVEL_LABELS,
+  WEEK_BLOCK_MAX,
   type SessionWeeks,
 } from './config';
 import {
@@ -22,9 +23,10 @@ import {
   villageWeeksWithLabel,
   type BunkHistory,
 } from './history';
-import { buildRoster, type Roster } from './roster';
+import { buildRoster, isRun, shareLevel, type Roster } from './roster';
+import { OPEN, isFixedMohawkAthletics, sharedArea, slotGroupProblems } from './share';
 
-export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12';
+export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16';
 
 export interface Violation {
   rule: Rule;
@@ -40,7 +42,6 @@ export interface ValidateOptions {
 
 const ACTIVITY_LABELS = new Set(ACTIVITIES.map((a) => a.label));
 const VILLAGE_LEVEL = new Set(VILLAGE_LEVEL_LABELS);
-const EXEMPT = new Set(ORDINAL_EXEMPT_LABELS);
 const POOL_LABELS = new Set(['Pool', 'Swim Test', 'Tusc Triathlon Training']);
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const where = (slot: number): string => `${DAY_NAMES[dayOf(slot)]} period ${periodOf(slot) + 1}`;
@@ -56,7 +57,7 @@ export interface ValidationInput {
   locked?: boolean[][];
 }
 
-/** Check a week that is already in hand (roster and history built) against the hard rules H1 to H12. */
+/** Check a week that is already in hand (roster and history built) against the hard rules H1 to H16. */
 export function validateGrid(input: ValidationInput): Violation[] {
   const { weeks, weekIndex, sessionWeeks, roster, hist, grid } = input;
   const n = roster.n;
@@ -66,12 +67,12 @@ export function validateGrid(input: ValidationInput): Violation[] {
     return false;
   };
   const blocks = grid.map((row) => blocksOf(row));
-  const areas = grid.map((row) => row.map((l) => (l ? areaOf(l) : null)));
   const out: Violation[] = [];
   const add = (rule: Rule, message: string, bunk?: number, slot?: number) =>
     out.push({ rule, message, bunk: bunk === undefined ? undefined : roster.names[bunk], slot });
 
   const lastWeek = sessionWeeks === 4 && weekIndex === 4;
+  const weekIsLocked = (b: number): boolean => !!input.locked?.[b]?.some(Boolean);
 
   // H1: every period filled (Friday of the last week of a 4-week session stays empty)
   for (let b = 0; b < n; b++) {
@@ -126,20 +127,38 @@ export function validateGrid(input: ValidationInput): Violation[] {
     }
   }
 
-  // H5: bunks that share a slot and an area, in the same village or S with M, must be on the same ordinal
-  for (let i = 0; i < n; i++) {
-    for (let s = 0; s < SLOTS; s++) {
-      const li = grid[i][s];
-      const ai = areas[i][s];
-      if (!li || !ai || EXEMPT.has(li)) continue;
-      for (const j of roster.relatedTo[i]) {
-        if (j < i) continue;
-        const lj = grid[j][s];
-        if (!lj || areas[j][s] !== ai || EXEMPT.has(lj) || locked(i, s) || locked(j, s)) continue;
-        const oi = ordinalAt(grid[i], hist[i].earlier, s);
-        const oj = ordinalAt(grid[j], hist[j].earlier, s);
-        if (oi !== oj) add('H5', `${roster.names[i]} (time ${oi}) and ${roster.names[j]} (time ${oj}) share ${ai} on ${where(s)}.`, i, s);
+  // H5, H13, H14: who may share a period and an area, how many, and on the same ordinal.
+  // Cells that were filled before generating, and Mohawk's fixed Sunday Athletics, are left out of the groups.
+  for (let s = 0; s < SLOTS; s++) {
+    const groups = new Map<string, number[]>();
+    for (let b = 0; b < n; b++) {
+      const label = grid[b][s];
+      const area = sharedArea(label);
+      if (!area || locked(b, s) || isFixedMohawkAthletics(weekIndex, roster.village[b], s, label)) continue;
+      groups.set(area, [...(groups.get(area) ?? []), b]);
+    }
+    for (const [area, group] of groups) {
+      for (const p of slotGroupProblems(roster, area, group, (b) => ordinalAt(grid[b], hist[b].earlier, s), OPEN, `on ${where(s)}`)) add(p.rule, p.message, group[0], s);
+    }
+  }
+
+  // H15: at most so many bunks of one village at an area in a day, and so many Athletics and A&C blocks a bunk a week
+  for (const v of roster.villages) {
+    for (let day = 0; day < 6; day++) {
+      for (const [area, cap] of Object.entries(DAY_CAP)) {
+        const here = roster.byVillage[v].filter((b) =>
+          blocks[b].some(
+            (k) => k.day === day && k.area === area && !lockedAny(b, k.start, k.len) && !isFixedMohawkAthletics(weekIndex, v, k.start, k.label),
+          ),
+        );
+        if (here.length > cap) add('H15', `${here.length} bunks of village ${v} have ${area} on ${DAY_NAMES[day]}, and the most is ${cap}.`, here[0], slotAt(day, 0));
       }
+    }
+  }
+  for (let b = 0; b < n; b++) {
+    for (const [area, max] of Object.entries(WEEK_BLOCK_MAX)) {
+      const count = blocks[b].filter((k) => k.area === area && !lockedAny(b, k.start, k.len) && !isFixedMohawkAthletics(weekIndex, roster.village[b], k.start, k.label)).length;
+      if (count > max) add('H15', `${roster.names[b]} has ${count} ${area} blocks this week, and the most is ${max}.`, b);
     }
   }
 
@@ -186,27 +205,65 @@ export function validateGrid(input: ValidationInput): Violation[] {
     if (has && !rotation.includes(v)) add('H8', `Village ${v} has Shabbat Prep in a week that is not on its calendar.`, members[0]);
   }
 
-  // H9 and H10: the pool
+  // H9, H10 and H16: the pool. One group per period; Tusc training only when nobody is swimming.
   for (let s = 0; s < SLOTS; s++) {
     let tri = false;
-    let pool = false;
     const at: number[] = [];
+    const pool: number[] = [];
+    const test: number[] = [];
     for (let b = 0; b < n; b++) {
       const l = grid[b][s];
       if (!POOL_LABELS.has(l)) continue;
       at.push(b);
       if (l === 'Tusc Triathlon Training') tri = true;
-      else pool = true;
+      else if (l === 'Swim Test') test.push(b);
+      else pool.push(b);
     }
     if (at.length === 0) continue;
-    if (tri && pool) add('H9', `Triathlon training shares ${where(s)} with the pool.`, undefined, s);
+    if (tri && (pool.length > 0 || test.length > 0)) add('H9', `Triathlon training shares ${where(s)} with the pool.`, undefined, s);
+    if (pool.length === 0 && test.length === 0) continue;
 
-    const total = at.reduce((sum, b) => sum + roster.campers[b], 0);
-    const swimOnly = at.every((b) => grid[b][s] === 'Swim Test') && new Set(at.map((b) => roster.village[b])).size === 1;
-    if (total > POOL_MAX_CAMPERS && at.length > 1 && !swimOnly) add('H10', `${total} campers at the pool on ${where(s)}.`, at[0], s);
-    const young = at.filter((b) => grid[b][s] === 'Pool' && (roster.village[b] === 'O' || roster.village[b] === 'C'));
-    const youngTotal = young.reduce((sum, b) => sum + roster.campers[b], 0);
-    if (youngTotal > POOL_YOUNG_MAX_CAMPERS && young.length > 1) add('H10', `${youngTotal} O and C campers at the pool on ${where(s)}.`, young[0], s);
+    const wholeVillage = (group: number[]): boolean => {
+      const v = roster.village[group[0]];
+      return group.every((b) => roster.village[b] === v) && group.length === roster.byVillage[v].length;
+    };
+    const campers = pool.reduce((sum, b) => sum + roster.campers[b], 0);
+    if (campers > POOL_MAX_CAMPERS && pool.length > 0 && !wholeVillage(pool)) add('H10', `${campers} campers at the pool on ${where(s)}.`, pool[0], s);
+
+    if (pool.length > 0 && test.length > 0) add('H16', `The Swim Test shares ${where(s)} with a pool group.`, pool[0], s);
+    if (new Set(test.map((b) => roster.village[b])).size > 1) add('H16', `More than one village has the Swim Test on ${where(s)}.`, test[0], s);
+    if (pool.length === 0 || pool.some((b) => locked(b, s))) continue;
+
+    const names = pool.map((b) => roster.names[b]).join(', ');
+    const vs = [...new Set(pool.map((b) => roster.village[b]))];
+    const problem = (why: string) => add('H16', `${names} are at the pool together on ${where(s)}, but ${why}.`, pool[0], s);
+    if (vs.includes('T')) {
+      if (vs.length > 1) problem('Tusc never goes to the pool with another village');
+      else if (pool.length !== roster.byVillage.T.length) problem('every Tusc bunk goes to the pool together');
+    } else if (vs.length === 1) {
+      if (!isRun(roster, pool)) problem('a pool group is bunks in a row in the village list');
+      if (pool.length > 1 && (vs[0] === 'O' || vs[0] === 'C')) {
+        const lesson = pool.some((b) => (hist[b].earlierLabels.Pool ?? 0) + blocks[b].filter((k) => k.label === 'Pool' && k.start < s).length < POOL_LESSONS);
+        if (lesson) problem('a lesson is one bunk alone');
+      }
+    } else if (vs.length === 2 && vs.includes('S') && vs.includes('M')) {
+      const sBunks = pool.filter((b) => roster.village[b] === 'S');
+      const mBunks = pool.filter((b) => roster.village[b] === 'M');
+      if (!isRun(roster, sBunks) || !isRun(roster, mBunks)) problem('each village at the pool is bunks in a row in its list');
+      if (sBunks.some((a) => mBunks.some((m) => shareLevel(roster, a, m, 'Pool') === 0))) problem('S and M only swim together at the same age');
+    } else {
+      problem('these villages never share the pool');
+    }
+    const ords = pool.map((b) => ordinalAt(grid[b], hist[b].earlier, s));
+    if (ords.some((o) => o !== ords[0])) add('H5', `${names} are at the pool together on ${where(s)} on different times (${ords.join(', ')}).`, pool[0], s);
+  }
+  // H16: every O and C bunk swims exactly once a week, at the pool or with the Swim Test
+  for (let b = 0; b < n; b++) {
+    if (roster.village[b] !== 'O' && roster.village[b] !== 'C') continue;
+    const swims = blocks[b].filter((k) => k.label === 'Pool' || k.label === 'Swim Test');
+    if (swims.length !== 1 && !swims.some((k) => lockedAny(b, k.start, k.len)) && !(weekIsLocked(b))) {
+      add('H16', `${roster.names[b]} swims ${swims.length} times this week, and it should be once.`, b);
+    }
   }
 
   // H11: hobbies and the last-week calendar
@@ -269,7 +326,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
   return out;
 }
 
-/** Check one week against the hard rules H1 to H12. An empty list means the week is valid. */
+/** Check one week against the hard rules H1 to H16. An empty list means the week is valid. */
 export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks: SessionWeeks, opts: ValidateOptions = {}): Violation[] {
   const schedule = weeks.weeks[weekIndex - 1];
   if (!isFilledWeek(schedule)) return [];

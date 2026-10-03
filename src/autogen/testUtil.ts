@@ -95,7 +95,7 @@ export function sessionIssues(weeks: WeeksState, sessionWeeks: 3 | 4 = 4, warnin
     ['Yoga', 2],
     ['Music', sessionWeeks],
   ];
-  const danceTarget: Record<string, number> = { O: 4, S: 4, C: 2, T: 2, M: 1 };
+  const danceTarget: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1 };
   for (const b of first.bunks) {
     const v = village(b);
     const flexible = v === 'M' || v === 'T';

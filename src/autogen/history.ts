@@ -55,7 +55,10 @@ export function ordinalAt(slots: readonly string[], earlier: Record<string, numb
   return (earlier[area] ?? 0) + rank + 1;
 }
 
-export const isFilledWeek =(s: Schedule | null): s is Schedule => !!s && s.bunks.length > 0;
+export const isFilledWeek = (s: Schedule | null): s is Schedule => !!s && s.bunks.length > 0;
+
+/** A week that has bunks and at least one activity in it: the planner treats it as already done. */
+export const hasActivities = (s: Schedule | null): s is Schedule => isFilledWeek(s) && s.bunks.some((b) => b.slots.some((l) => l !== ''));
 
 /** Other loaded, non-empty weeks, with their 1-based week numbers. */
 export function otherWeeks(weeks: WeeksState, weekIndex: number): { week: number; schedule: Schedule }[] {
@@ -69,6 +72,8 @@ export function otherWeeks(weeks: WeeksState, weekIndex: number): { week: number
 export interface BunkHistory {
   /** Blocks per program area in weeks before this one: the base for ordinals. */
   earlier: Record<string, number>;
+  /** Blocks per exact label in weeks before this one (regular Pool blocks are lessons, the Swim Test is not). */
+  earlierLabels: Record<string, number>;
   /** Blocks per program area in weeks after this one (they still count toward how much a bunk needs). */
   later: Record<string, number>;
 }
@@ -79,7 +84,7 @@ const bump = (rec: Record<string, number>, key: string, by = 1) => {
 
 /** Match bunks across weeks by name and count their blocks per program area. */
 export function buildHistory(weeks: WeeksState, weekIndex: number, names: string[]): BunkHistory[] {
-  const hist: BunkHistory[] = names.map(() => ({ earlier: {}, later: {} }));
+  const hist: BunkHistory[] = names.map(() => ({ earlier: {}, earlierLabels: {}, later: {} }));
   for (const { week, schedule } of otherWeeks(weeks, weekIndex)) {
     const byName = new Map<string, string[]>();
     for (const b of schedule.bunks) if (b.name.trim()) byName.set(b.name.trim(), b.slots);
@@ -88,6 +93,7 @@ export function buildHistory(weeks: WeeksState, weekIndex: number, names: string
       if (!name || !slots) return;
       for (const blk of blocksOf(slots)) {
         if (blk.area) bump(week < weekIndex ? hist[i].earlier : hist[i].later, blk.area);
+        if (week < weekIndex) bump(hist[i].earlierLabels, blk.label);
       }
     });
   }

@@ -1,13 +1,13 @@
 import { AREAS, areaOf } from '../config';
 import type { WeeksState } from '../types';
-import { ORDINAL_EXEMPT_LABELS, type SessionWeeks } from './config';
+import { DAY_CAP, WEEK_BLOCK_MAX, type SessionWeeks } from './config';
 import { SLOTS, blocksOf, dayOf, ordinalAt, slotAt, type BunkHistory } from './history';
 import type { Rng } from './rng';
 import type { CalendarPlan } from './calendar';
 import type { Roster } from './roster';
+import { isFixedMohawkAthletics, sharedArea, slotGroupProblems, type Relax } from './share';
 
 const AREA_BIT = new Map<string, number>(AREAS.map((a, i) => [a, 1 << i]));
-const EXEMPT = new Set(ORDINAL_EXEMPT_LABELS);
 const bitOf = (label: string): number => {
   const area = areaOf(label);
   return area ? (AREA_BIT.get(area) ?? 0) : 0;
@@ -47,8 +47,8 @@ export interface Ctx {
   missing: string[];
   /** Rare-area blocks planned but not placed this week. They carry over to later weeks. */
   carried: { bunk: number; area: string }[];
-  /** Periods that had to be filled with an area the bunk was already at its target for. */
-  extras: number;
+  /** Which last-resort groupings this attempt may use. */
+  relax: Relax;
   /** Program areas each bunk already has on each day (bit flags), kept in step with the grid by put(). */
   dayMask: number[][];
   /** Days that have periods to fill this week. */
@@ -93,40 +93,102 @@ export function blocksBefore(row: readonly string[], area: string, start: number
   return n;
 }
 
-/**
- * Equal-ordinal rule (H5): would putting this label on these slots put the bunk on a different
- * "time number" than a related bunk already in the same area at the same slot?
- */
-export function h5ok(c: Ctx, b: number, slots: readonly number[], label: string): boolean {
-  if (EXEMPT.has(label)) return true;
-  const area = areaOf(label);
-  if (!area) return true;
-  let mine: number | null = null;
-  for (const y of c.roster.relatedTo[b]) {
-    for (const s of slots) {
-      const ly = c.grid[y][s];
-      if (!ly || EXEMPT.has(ly) || c.locked[y][s] || areaOf(ly) !== area) continue;
-      if (mine === null) mine = (c.hist[b].earlier[area] ?? 0) + blocksBefore(c.grid[b], area, slots[0]) + 1;
-      if (ordinalAt(c.grid[y], c.hist[y].earlier, s) !== mine) return false;
+/** The bunks in one program area in one period, leaving out cells filled by hand and Mohawk's fixed Sunday Athletics. */
+export function groupAt(c: Ctx, s: number, area: string): number[] {
+  const out: number[] = [];
+  for (let b = 0; b < c.roster.n; b++) {
+    const label = c.grid[b][s];
+    if (!label || c.locked[b][s] || sharedArea(label) !== area) continue;
+    if (isFixedMohawkAthletics(c.weekIndex, c.roster.village[b], s, label)) continue;
+    out.push(b);
+  }
+  return out;
+}
+
+const ordinalIn = (c: Ctx, b: number, s: number): number | null => ordinalAt(c.grid[b], c.hist[b].earlier, s);
+
+/** Does this bunk (as the grid stands now) break the sharing rules, a day cap or a weekly cap in this area? */
+function areaProblemFor(c: Ctx, b: number, area: string): boolean {
+  const row = c.grid[b];
+  const village = c.roster.village[b];
+  const mine = c.locked[b];
+  let firstDay = -1;
+  let manyDays = false;
+  let blocks = 0;
+  let prev = '';
+  for (let s = 0; s < SLOTS; s++) {
+    const label = row[s];
+    if (label === '' || mine[s] || sharedArea(label) !== area || isFixedMohawkAthletics(c.weekIndex, village, s, label)) {
+      prev = '';
+      continue;
+    }
+    if (label !== prev || s % 4 === 0) blocks++;
+    prev = label;
+    const day = dayOf(s);
+    if (firstDay < 0) firstDay = day;
+    else if (day !== firstDay) manyDays = true;
+    const group = groupAt(c, s, area);
+    if (group.length > 1 && slotGroupProblems(c.roster, area, group, (x) => ordinalIn(c, x, s), c.relax).length > 0) return true;
+  }
+  const max = WEEK_BLOCK_MAX[area];
+  if (max !== undefined && blocks > max) return true;
+  const cap = DAY_CAP[area];
+  if (cap !== undefined && firstDay >= 0) {
+    const members = c.roster.byVillage[village];
+    for (let day = manyDays ? 0 : firstDay; day < (manyDays ? 6 : firstDay + 1); day++) {
+      if (manyDays && !row.slice(day * 4, day * 4 + 4).some((l) => l !== '' && sharedArea(l) === area)) continue;
+      let here = 0;
+      for (const j of members) {
+        for (let p = 0; p < 4; p++) {
+          const s = day * 4 + p;
+          const label = c.grid[j][s];
+          if (label !== '' && !c.locked[j][s] && sharedArea(label) === area && !isFixedMohawkAthletics(c.weekIndex, village, s, label)) {
+            here++;
+            break;
+          }
+        }
+      }
+      if (here > cap) return true;
     }
   }
-  return true;
+  return false;
+}
+
+/**
+ * Would this bunk having the label on these slots keep every sharing rule (H13), slot cap (H14),
+ * day and weekly cap (H15) and the equal ordinal (H5)? It also checks the bunk's other blocks in the
+ * area, because adding a block earlier in the week moves the ordinal of the ones after it.
+ */
+export function okPlace(c: Ctx, b: number, slots: readonly number[], label: string): boolean {
+  const area = sharedArea(label);
+  if (!area) return true;
+  const saved = slots.map((s) => c.grid[b][s]);
+  for (const s of slots) c.grid[b][s] = label;
+  const ok = !areaProblemFor(c, b, area);
+  slots.forEach((s, i) => {
+    c.grid[b][s] = saved[i];
+  });
+  return ok;
+}
+
+/** Same check after relabelling cells that are already in the grid (they are changed and then put back if it fails). */
+export function tryRelabel(c: Ctx, b: number, slots: readonly number[], to: string): boolean {
+  const from = c.grid[b][slots[0]];
+  const areaFrom = sharedArea(from);
+  const areaTo = sharedArea(to);
+  for (const s of slots) c.grid[b][s] = to;
+  const bad = (areaTo !== null && areaProblemFor(c, b, areaTo)) || (areaFrom !== null && areaProblemFor(c, b, areaFrom));
+  if (bad) for (const s of slots) c.grid[b][s] = from;
+  return !bad;
 }
 
 export const POOL_SLOT_LABELS = ['Pool', 'Swim Test', 'Tusc Triathlon Training'];
 
-export function poolLoad(c: Ctx, s: number): { total: number; young: number; count: number } {
-  let total = 0;
-  let young = 0;
+/** How many bunks are at the pool (or Tusc training in the water) in a period. */
+export function poolLoad(c: Ctx, s: number): { count: number } {
   let count = 0;
-  for (let b = 0; b < c.roster.n; b++) {
-    const l = c.grid[b][s];
-    if (!POOL_SLOT_LABELS.includes(l)) continue;
-    total += c.roster.campers[b];
-    count++;
-    if (l === 'Pool' && (c.roster.village[b] === 'O' || c.roster.village[b] === 'C')) young += c.roster.campers[b];
-  }
-  return { total, young, count };
+  for (let b = 0; b < c.roster.n; b++) if (POOL_SLOT_LABELS.includes(c.grid[b][s])) count++;
+  return { count };
 }
 
 export const slotHas = (c: Ctx, s: number, label: string): boolean => c.grid.some((row) => row[s] === label);

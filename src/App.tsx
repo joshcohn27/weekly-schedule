@@ -170,6 +170,7 @@ export default function App() {
       const before = schedule;
       const seed = Math.floor(Math.random() * 2 ** 31);
       const result = await generateWeekAsync({ weeks: weeksState, weekIndex: weekIndex + 1, mode, sessionWeeks, seed });
+      if (!result) return;
       // Nothing about shortfalls is ever shown; this is only for whoever has the console open.
       console.debug('Auto generate', {
         week: weekIndex + 1,

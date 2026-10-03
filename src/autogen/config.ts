@@ -19,7 +19,7 @@ export const SESSION_TARGETS: Record<string, number> = {
   Yoga: 2,
   'TW UH': 1,
 };
-export const DANCE_TARGETS: Record<string, number> = { O: 4, S: 4, C: 2, T: 2, M: 1 }; // area 'Dance'
+export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1 }; // area 'Dance'
 /** DEFAULT: a village letter not listed above gets this many Dance blocks per session. */
 export const DANCE_TARGET_OTHER = 2;
 export const POOL_TARGETS: Record<string, { perWeek?: number; perSession?: number }> = {
@@ -43,12 +43,56 @@ export const SHABBAT_ROTATION: Record<SessionWeeks, Record<number, string[]>> = 
   4: { 1: ['M'], 2: ['O', 'C'], 3: ['S', 'T'] },
   3: { 1: ['S', 'M'], 2: ['O', 'C'], 3: ['T'] },
 };
-export const POOL_MAX_CAMPERS = 80;
-export const POOL_YOUNG_MAX_CAMPERS = 16; // O and C combined, per period
 export const AC_ATHLETICS_MAX_GAP = 1;
-export const CROSS_VILLAGE_PAIRABLE = ['Pool', 'Athletics', 'A&C', 'Music', 'Dance', 'Yoga', 'Ceramics', 'Teva'];
-export const SOLO_ONLY = ['Judaics', 'Israel Education'];
-export const DAY_OFF_AREAS = ['Athletics', 'A&C', 'Music', 'Judaics', 'Israel Education', 'Ceramics', 'Yoga', 'Dance', 'Teva'];
+
+// ---- Who may share a period and an area (H13), and how many (H14, H15) --------------------------
+
+/** Age rank (mean of the numbers in Grades) within this counts as the same age. */
+export const AGE_PREFERRED = 0.5;
+/** Within this many grades two bunks may share, but the generator likes a closer match better. */
+export const AGE_ALLOWED = 1;
+/** S with M at the pool must be the same age. */
+export const POOL_AGE_MAX = 0.5;
+/** Areas where an O bunk may share with a C bunk, or an S bunk with an M bunk. Pool is S with M only. */
+export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Pool'];
+/** H14: most bunks camp-wide in one period. Athletics is 3 as a last resort, and the generator wants 2 (see SLOT_PREFERRED). Ropes is one group of 2 (3 as a trio). */
+export const SLOT_CAP: Record<string, number> = {
+  Athletics: 3,
+  'A&C': 2,
+  Music: 2,
+  Teva: 2,
+  Dance: 2,
+  Yoga: 1,
+  Ceramics: 1,
+  Judaics: 1,
+  'Israel Education': 1,
+  'TW UH': 1,
+  Ropes: 2,
+};
+/** Where the generator prefers to stay: one bunk where two are allowed, and two at Athletics. */
+export const SLOT_PREFERRED: Record<string, number> = { Athletics: 2, Music: 1, Teva: 1, Dance: 1 };
+/** H15: most bunks of one village at this area in one day. */
+export const DAY_CAP: Record<string, number> = {
+  Athletics: 2,
+  'A&C': 2,
+  Music: 2,
+  Teva: 2,
+  Dance: 2,
+  Yoga: 1,
+  Ceramics: 1,
+  Judaics: 1,
+  'Israel Education': 1,
+  'TW UH': 1,
+};
+/** H15: most blocks of this area one bunk may have in a week. */
+export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 2, 'A&C': 2 };
+
+// ---- Pool (H16) ---------------------------------------------------------------------------------
+
+/** Total campers at the pool in one period, except a whole village. */
+export const POOL_MAX_CAMPERS = 80;
+/** An O or C bunk's first this many regular Pool blocks are lessons, one bunk alone. The Swim Test is not a lesson. */
+export const POOL_LESSONS = 2;
 
 export const WET_LABELS = ['Pool', 'Swim Test', 'Waterfront', 'Tusc Triathlon Training'];
 export const ACTIVE_LABELS = ['Athletics', ...ALL_LEAGUE_LABELS, 'Low Ropes', 'High Ropes', 'Tiyul'];
@@ -74,10 +118,14 @@ export const FLEXIBLE_VILLAGES = ['M', 'T'];
 export const UH_MAX_PER_SESSION = 2;
 /** A week never counts as having less than this many spare periods when spreading quotas, so it is never fully shut out. */
 export const MIN_WEEK_CAPACITY = 0.1;
+/** The last week of a 4-week session is short and crowded, so it takes this share of what a bunk still needs compared with its room. */
+export const LAST_WEEK_SHARE = 0.1;
+/** Mohawk and Tusc have the least room, so a week further ahead counts for this much less when spreading what they still need. */
+export const FLEXIBLE_LATER_WEEK_SHARE = 0.5;
+/** If the weeks after this one could take less than this many blocks of an area, the whole need is planned now instead of being left to a lottery. */
+export const LATER_WEEKS_NEGLIGIBLE = 0.25;
 /** Used for pool caps when a bunk has no camper count. */
 export const DEFAULT_CAMPERS = 12;
-/** Chance a pairable one-period block tries to find a partner. */
-export const PAIR_PROBABILITY = 0.65;
 /** Most randomized attempts per generate; the lowest-scoring valid one wins. */
 export const ATTEMPTS = 40;
 /** DEFAULT: stop early once this many attempts came out with no rule breaks, to keep generating fast. */
@@ -97,11 +145,16 @@ export const RARE_MT_MAX_SHORT_PER_BUNK = 1;
 export const GAP_MAX_OCS = 1;
 export const GAP_MAX_MT = 2;
 /** Before the last week of a session a gap can still be levelled out, so it may go this much past the limit. */
-export const GAP_SLACK_BEFORE_LAST_WEEK = 1;
-/** Rounds of attempts before giving up on a perfect week and returning the best one found. Each round is up to ATTEMPTS. */
-export const MAX_ROUNDS = 8;
-/** Wall-clock cap for all rounds together. Only reached on a very slow machine; it makes the round count depend on speed. */
-export const MAX_TOTAL_MS = 6000;
+export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
+/**
+ * Attempts (counted over the whole search) made at the strictest setting before the last-resort rules open up.
+ * From SINGLES_AFTER on, Athletics may hold unrelated bunks (up to 3 in a period); from TRIO_AFTER on, three consecutive
+ * bunks of one village may share Ropes or Athletics.
+ */
+export const SINGLES_AFTER = 0;
+export const TRIO_AFTER = 64;
+/** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
+export const SYNC_MAX_MS = 10000;
 
 export const HOBBY_WED_PM_PROBABILITY = 0.65; // otherwise Tuesday AM
 export const HOBBY_SUNDAY_PROBABILITY = 0.2;
@@ -110,11 +163,22 @@ export const HOBBY_SUNDAY_PROBABILITY = 0.2;
 
 export const WEIGHTS = {
   fairnessPerBlock: 50,
-  soloClash: 40,
-  missingDayOff: 10,
   wetThenActive: 15,
   athleticsBeforePoolBonus: 5,
   poolBeforeAthletics: 15,
   extraWetInDay: 25,
-  pairReward: 2,
+  /** A second bunk in Music, Teva or Dance, where one is preferred. */
+  sharedPreferredOne: 6,
+  /** A second bunk at Athletics (one bunk is best). */
+  athleticsPair: 8,
+  /** A third bunk at Athletics: a pair plus a single, or three unrelated singles. */
+  athleticsThird: 60,
+  /** Unrelated bunks together at Athletics. */
+  athleticsUnrelated: 100,
+  /** Three consecutive bunks together at Athletics or Ropes. */
+  trio: 150,
+  /** A pair that is more than half a grade apart. */
+  pairFarAge: 3,
+  /** Pool group smaller than 2 bunks for S and M, or bigger than 5. */
+  poolGroupSize: 4,
 };

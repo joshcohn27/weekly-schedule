@@ -1,9 +1,9 @@
 import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, planCalendar } from './calendar';
-import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, MAX_ROUNDS, MAX_TOTAL_MS, type SessionWeeks } from './config';
+import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, SINGLES_AFTER, SYNC_MAX_MS, TRIO_AFTER, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { SLOTS, blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
-import { placeLeague, placePool, placeRopes, placeSolo, placeTri, placeWaterfront, relabelRopes } from './place';
+import { placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_LABEL, planWeek, sessionTargetOf, type TokenArea } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
@@ -28,6 +28,12 @@ export interface AutoGenOptions {
   sessionWeeks?: SessionWeeks;
   /** The UI passes a fresh random seed every click. */
   seed: number;
+  /** Stop after this many rounds and return the best week so far. The browser leaves this unset: it keeps going until the week is good. */
+  maxRounds?: number;
+  /** Stop after this many milliseconds and return the best week so far. generateWeek defaults to SYNC_MAX_MS; generateWeekAsync to no limit. */
+  maxMs?: number;
+  /** Abort a generateWeekAsync run (the Cancel button). It then resolves to null. */
+  signal?: AbortSignal;
 }
 
 export interface AutoGenResult {
@@ -92,8 +98,10 @@ class WeekSearch {
   private readonly start: string[][];
   private readonly locked: boolean[][];
   private readonly lastWeek: boolean;
+  private readonly maxMs: number;
 
-  constructor(private readonly opts: AutoGenOptions) {
+  constructor(private readonly opts: AutoGenOptions, defaultMaxMs: number) {
+    this.maxMs = opts.maxMs ?? defaultMaxMs;
     this.sessionWeeks = opts.sessionWeeks ?? 4;
     const source = opts.weeks.weeks[opts.weekIndex - 1];
     this.source = isFilledWeek(source) ? source : null;
@@ -110,7 +118,8 @@ class WeekSearch {
     if (this.done) return;
     const found = this.runRound(this.rounds++);
     if (!this.best || compareQuality(found.quality, this.best.quality) < 0) this.best = found;
-    if (!isBad(this.best.quality) || this.rounds >= MAX_ROUNDS || performance.now() - this.started >= MAX_TOTAL_MS) this.done = true;
+    const { maxRounds } = this.opts;
+    if (!isBad(this.best.quality) || (maxRounds !== undefined && this.rounds >= maxRounds) || performance.now() - this.started >= this.maxMs) this.done = true;
   }
 
   private runRound(round: number): Found {
@@ -139,7 +148,7 @@ class WeekSearch {
         unmet: 0,
         missing: [],
         carried: [],
-        extras: 0,
+        relax: { singles: round * ATTEMPTS + attempt >= SINGLES_AFTER, trio: round * ATTEMPTS + attempt >= TRIO_AFTER },
         dayMask: buildDayMasks(start),
         days: [0, 1, 2, 3, 4, 5].filter((d) => !(lastWeek && d === 5)),
         calendar,
@@ -151,7 +160,6 @@ class WeekSearch {
       placeTri(c);
       placeRopes(c, plan);
       placePool(c, plan);
-      placeSolo(c, plan);
       fillFlexible(c, plan);
       relabelRopes(c);
 
@@ -168,7 +176,7 @@ class WeekSearch {
         tiyulDue: calendar.tiyul,
       });
       // rule breaks first, then anything not acceptable, then the small stuff, then the soft preferences
-      const score = quality.hard.length * 1e6 + (quality.major.length + c.extras) * 1e4 + quality.minor.length * 50 + softScore(c);
+      const score = quality.hard.length * 1e6 + quality.major.length * 1e4 + quality.minor.length * 50 + softScore(c);
       if (!best || score < best.score) best = { grid: c.grid, warnings: c.warnings, quality, score };
       if (quality.hard.length === 0) valid++;
       if (valid >= ENOUGH_VALID_ATTEMPTS && best.score < 1e4) break;
@@ -206,19 +214,23 @@ class WeekSearch {
   }
 }
 
-/** Build one week. Keeps trying, quietly, until the week has no rule breaks and nothing that is not acceptable. */
+/** Build one week. Keeps trying, quietly, until the week has no rule breaks and nothing that is not acceptable (or maxRounds / maxMs is reached). */
 export function generateWeek(opts: AutoGenOptions): AutoGenResult {
-  const search = new WeekSearch(opts);
+  const search = new WeekSearch(opts, SYNC_MAX_MS);
   while (!search.done) search.step();
   return search.result();
 }
 
-/** The same as generateWeek, but lets the browser breathe between rounds so the page stays responsive. */
-export async function generateWeekAsync(opts: AutoGenOptions): Promise<AutoGenResult> {
-  const search = new WeekSearch(opts);
+/**
+ * The same as generateWeek, but lets the browser breathe between rounds so the page stays responsive, and (unless maxMs or
+ * maxRounds is given) never gives up: it keeps going until the week is good. Resolves to null when the signal aborts it.
+ */
+export async function generateWeekAsync(opts: AutoGenOptions): Promise<AutoGenResult | null> {
+  const search = new WeekSearch(opts, Infinity);
   while (!search.done) {
+    if (opts.signal?.aborted) return null;
     search.step();
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
-  return search.result();
+  return opts.signal?.aborted ? null : search.result();
 }

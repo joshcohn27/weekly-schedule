@@ -14,6 +14,8 @@ const env: Env = (globalThis as unknown as { process?: { env?: Env } }).process?
 /** Full sessions generated and checked. Set AUTOGEN_SEEDS=100 for the long run of the hard-rule check. */
 const SESSIONS = 25;
 const HARD_RULE_SEEDS = Math.max(SESSIONS, Number(env.AUTOGEN_SEEDS ?? SESSIONS));
+/** Sessions whose every returned week must be free of hard and major issues. */
+const QUALITY_SESSIONS = 100;
 const RULES: Rule[] = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12'];
 const KNOWN = new Set(ACTIVITIES.map((a) => a.label));
 
@@ -75,6 +77,17 @@ describe('session totals', () => {
       });
     }
   });
+
+  it('returns no hard and no major issue for any week of 100 full sessions', () => {
+    const problems: string[] = [];
+    const judge = (run: SessionRun, seed: number) =>
+      run.results.forEach((r, i) => {
+        for (const m of [...r.quality.hard, ...r.quality.major]) problems.push(`session ${seed} week ${i + 1}: ${m}`);
+      });
+    sessions.forEach((run, i) => judge(run, i + 1));
+    for (let seed = SESSIONS + 1; seed <= QUALITY_SESSIONS; seed++) judge(runSession(sampleSchedule(), seed), seed);
+    expect(problems).toEqual([]);
+  }, 1_800_000);
 
   it('gives every bunk two ropes, low first and then high', () => {
     for (const run of sessions) {
@@ -262,12 +275,20 @@ describe('what the generator writes', () => {
     expect(out.warnings[0]).toMatch(/Add bunks/);
   });
 
-  it('is deterministic: the same seed and input give the same week and warnings', () => {
+  it('is deterministic: the same seed and input give the same week, warnings, quality and number of rounds', () => {
     const weeks: WeeksState = { current: 0, weeks: [sampleSchedule(), null, null, null] };
-    const a = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed: 42 });
-    const b = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed: 42 });
-    expect(b).toEqual(a);
-  });
+    for (const seed of [42, 43, 44]) {
+      const a = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed });
+      const b = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed });
+      expect(b).toEqual(a);
+      expect(b.rounds).toBe(a.rounds);
+      expect(b.quality).toEqual(a.quality);
+    }
+    const first = runSession(sampleSchedule(), 8);
+    const again = runSession(sampleSchedule(), 8);
+    expect(again.results.map((r) => r.rounds)).toEqual(first.results.map((r) => r.rounds));
+    expect(again.results.map((r) => r.schedule.bunks.map((b) => b.slots))).toEqual(first.results.map((r) => r.schedule.bunks.map((b) => b.slots)));
+  }, 60_000);
 
   it('gives noticeably different weeks for different seeds, both valid', () => {
     const fixed = /Hobbies|Swim Test|Shabbat Prep|Tiyul|Bike Trip/;
@@ -363,6 +384,25 @@ describe('fill-empty mode', () => {
     expect(out.warnings.some((w) => /Sunday period 4 Athletics for village M/.test(w))).toBe(true);
     expect(out.warnings.some((w) => /Hobbies on Friday morning could not be placed for O1/.test(w))).toBe(true);
   });
+});
+
+describe('when no good week exists', () => {
+  it('gives up after the round cap and still returns the best week without throwing', () => {
+    // O1 is completely filled in by hand, so it can never get its Music: no round can come back clean.
+    const w1 = blankCopy(sampleSchedule());
+    row(w1, 'O1').fill('Talent Show');
+    const weeks: WeeksState = { current: 0, weeks: [w1, null, null, null] };
+    let out: ReturnType<typeof generateWeek> | undefined;
+    const t0 = performance.now();
+    expect(() => (out = generateWeek({ weeks, weekIndex: 1, mode: 'fill-empty', seed: 3, maxRounds: 2 }))).not.toThrow();
+    const ms = performance.now() - t0;
+    const res = out as ReturnType<typeof generateWeek>;
+    expect(res.quality.major).toContain('O1 has no Music this week.');
+    expect(res.rounds).toBe(2);
+    expect(ms).toBeLessThan(15_000);
+    expect(row(res.schedule, 'O1').every((l) => l === 'Talent Show')).toBe(true);
+    for (const b of res.schedule.bunks) if (b.name !== 'O1') expect(b.slots.every((l) => l !== '')).toBe(true);
+  }, 60_000);
 });
 
 describe.skipIf(!env.AUTOGEN_REPORT)('fairness report (AUTOGEN_REPORT=1)', () => {

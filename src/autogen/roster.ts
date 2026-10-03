@@ -1,6 +1,6 @@
 import { villageOf } from '../autofill';
 import type { Bunk } from '../types';
-import { DEFAULT_CAMPERS, UH_EARLY_MARGIN } from './config';
+import { AGE_ALLOWED, AGE_PREFERRED, CROSS_VILLAGE_AREAS, DEFAULT_CAMPERS, POOL_AGE_MAX, UH_EARLY_MARGIN } from './config';
 
 export interface Roster {
   n: number;
@@ -16,8 +16,6 @@ export interface Roster {
   campers: number[];
   young: boolean[];
   old: boolean[];
-  /** For each bunk, the other bunks it may share a slot and area with: same village, or S with M. */
-  relatedTo: number[][];
 }
 
 export function parseAge(grades: string, fallback: number): number {
@@ -55,18 +53,55 @@ export function buildRoster(bunks: Bunk[]): Roster {
     young = bunks.map((_, i) => pos[i] < byVillage[village[i]].length / 2);
     old = young.map((y) => !y);
   }
-  const relatedTo = bunks.map((_, a) => bunks.map((__, b) => b).filter((b) => relatedVillages(village[a], village[b]) && a !== b));
-  return { n, names: bunks.map((b) => b.name.trim()), village, villages, byVillage, pos, age, campers, young, old, relatedTo };
+  return { n, names: bunks.map((b) => b.name.trim()), village, villages, byVillage, pos, age, campers, young, old };
 }
 
-const relatedVillages = (va: string, vb: string): boolean => va === vb || (va === 'S' && vb === 'M') || (va === 'M' && vb === 'S');
+const crossVillages = (va: string, vb: string): boolean =>
+  (va === 'O' && vb === 'C') || (va === 'C' && vb === 'O') || (va === 'S' && vb === 'M') || (va === 'M' && vb === 'S');
 
-/** Bunks that may share a slot in the same area without breaking the equal-ordinal rule: same village, or S with M. */
-export function related(r: Roster, a: number, b: number): boolean {
-  return a !== b && relatedVillages(r.village[a], r.village[b]);
+/**
+ * May these two bunks share a period and program area (rule H13)? 0 means no, 1 means allowed, 2 means preferred (same age).
+ *  - Tusc with Tusc, any two.
+ *  - Same village: only bunks next to each other in the village's list, within a grade of each other.
+ *  - O with C and S with M in the areas listed in CROSS_VILLAGE_AREAS, within a grade (S with M at the pool: the same age).
+ * Anything else never shares.
+ */
+export function shareLevel(r: Roster, a: number, b: number, area: string): 0 | 1 | 2 {
+  if (a === b) return 0;
+  const va = r.village[a];
+  const vb = r.village[b];
+  const diff = Math.abs(r.age[a] - r.age[b]);
+  if (va === vb) {
+    if (va === 'T') return 2;
+    if (Math.abs(r.pos[a] - r.pos[b]) !== 1 || diff > AGE_ALLOWED) return 0;
+    return diff <= AGE_PREFERRED ? 2 : 1;
+  }
+  if (!crossVillages(va, vb) || !CROSS_VILLAGE_AREAS.includes(area)) return 0;
+  const atPool = area === 'Pool';
+  if (atPool && !(va === 'S' || va === 'M')) return 0;
+  if (diff > (atPool ? POOL_AGE_MAX : AGE_ALLOWED)) return 0;
+  return diff <= AGE_PREFERRED ? 2 : 1;
 }
 
-/** Two bunks that may be scheduled together as a pair: related and within a year of each other. */
-export function pairable(r: Roster, a: number, b: number): boolean {
-  return related(r, a, b) && Math.abs(r.age[a] - r.age[b]) <= 1;
+/** Three bunks of one village in a row in the list, each within a grade of the next. The only group of three that is ever allowed (Ropes and Athletics). */
+export function isConsecutiveTrio(r: Roster, group: readonly number[]): boolean {
+  if (group.length !== 3) return false;
+  const v = r.village[group[0]];
+  if (!group.every((b) => r.village[b] === v)) return false;
+  const sorted = [...group].sort((x, y) => r.pos[x] - r.pos[y]);
+  return (
+    r.pos[sorted[1]] === r.pos[sorted[0]] + 1 &&
+    r.pos[sorted[2]] === r.pos[sorted[1]] + 1 &&
+    Math.abs(r.age[sorted[1]] - r.age[sorted[0]]) <= AGE_ALLOWED &&
+    Math.abs(r.age[sorted[2]] - r.age[sorted[1]]) <= AGE_ALLOWED
+  );
+}
+
+/** A run of bunks that are consecutive in one village's list (in any order). */
+export function isRun(r: Roster, group: readonly number[]): boolean {
+  if (group.length <= 1) return true;
+  const v = r.village[group[0]];
+  if (!group.every((b) => r.village[b] === v)) return false;
+  const pos = group.map((b) => r.pos[b]).sort((x, y) => x - y);
+  return pos.every((p, i) => i === 0 || p === pos[i - 1] + 1);
 }

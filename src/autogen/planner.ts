@@ -1,7 +1,11 @@
 import {
+  FLEXIBLE_LATER_WEEK_SHARE,
+  FLEXIBLE_VILLAGES,
   DANCE_TARGETS,
   DANCE_TARGET_OTHER,
   LEAGUE_PER_WEEK,
+  LAST_WEEK_SHARE,
+  LATER_WEEKS_NEGLIGIBLE,
   MIN_WEEK_CAPACITY,
   MUSIC_PER_WEEK,
   POOL_TARGETS,
@@ -11,7 +15,8 @@ import {
   TIYUL_WEEKS,
   WATERFRONT_PER_WEEK,
 } from './config';
-import { blocksOf, isFilledWeek, villageWeeksWithLabel } from './history';
+import { blocksOf, hasActivities, villageWeeksWithLabel } from './history';
+import { ropeGroups } from './groups';
 import { weightedSample } from './rng';
 import type { Ctx } from './state';
 
@@ -70,7 +75,7 @@ function tiyulCells(c: Ctx, v: string, week: number): number {
   if (done > 0) return 0;
   if (week === c.weekIndex) return c.calendar.tiyul.includes(v) ? cells : 0;
   if (c.calendar.tiyul.includes(v)) return 0; // it happens this week, so not later
-  const later = list.filter((w) => w > c.weekIndex && !isFilledWeek(c.weeks.weeks[w - 1]));
+  const later = list.filter((w) => w > c.weekIndex && !hasActivities(c.weeks.weeks[w - 1]));
   return later.includes(week) ? cells / later.length : 0; // certain if this is the only week left
 }
 
@@ -104,13 +109,16 @@ export function expectedSpare(c: Ctx, b: number, week: number): number {
 /** A week with (almost) no room gets no share, so what a bunk needs is done in the weeks that have room. */
 const capacityWeight = (c: Ctx, b: number, week: number): number => {
   const spare = expectedSpare(c, b, week);
-  return spare < MIN_WEEK_CAPACITY ? 0 : spare;
+  if (spare < MIN_WEEK_CAPACITY) return 0;
+  let weight = c.sessionWeeks === 4 && week === 4 ? spare * LAST_WEEK_SHARE : spare;
+  if (week > c.weekIndex && FLEXIBLE_VILLAGES.includes(c.roster.village[b])) weight *= FLEXIBLE_LATER_WEEK_SHARE ** (week - c.weekIndex);
+  return weight;
 };
 
 /** This week, plus every later week of the session that is not already loaded. */
 function remainingWeeks(c: Ctx): number[] {
   const out: number[] = [];
-  for (let w = c.weekIndex; w <= c.sessionWeeks; w++) if (w === c.weekIndex || !isFilledWeek(c.weeks.weeks[w - 1])) out.push(w);
+  for (let w = c.weekIndex; w <= c.sessionWeeks; w++) if (w === c.weekIndex || !hasActivities(c.weeks.weeks[w - 1])) out.push(w);
   return out.length ? out : [c.weekIndex];
 }
 
@@ -138,7 +146,8 @@ function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => 
       continue;
     }
     const wSum = weeks.reduce((sum, w) => sum + capacityWeight(c, b, w), 0);
-    const share = wSum > 0 ? (need * capacityWeight(c, b, c.weekIndex)) / wSum : need / weeks.length;
+    const rawShare = wSum > 0 ? (need * capacityWeight(c, b, c.weekIndex)) / wSum : need / weeks.length;
+    const share = need - rawShare < LATER_WEEKS_NEGLIGIBLE ? need : rawShare;
     const forced = Math.floor(need / weeks.length);
     let floorPart = Math.max(Math.floor(share), forced);
     if (limit !== null) floorPart = Math.min(floorPart, limit);
@@ -172,7 +181,17 @@ export function planWeek(c: Ctx): Plan {
     mins[area] = d.min;
   };
 
-  draw('Ropes', 'Ropes', () => SESSION_TARGETS.Ropes, () => 1);
+  // Ropes go in groups (bunks next to each other in a village, in twos), so a group draws its week once and every member follows.
+  const ropeNeed = Array.from({ length: n }, (_, b) => b).filter((b) => counted(c, inWeek, b, 'Ropes') < SESSION_TARGETS.Ropes);
+  const groups = ropeGroups(c.roster, ropeNeed, (b) => counted(c, inWeek, b, 'Ropes'), () => 0, false);
+  const leaders = new Set(groups.map((g) => g[0]));
+  draw('Ropes', 'Ropes', (b) => (leaders.has(b) ? SESSION_TARGETS.Ropes : counted(c, inWeek, b, 'Ropes')), () => 1);
+  for (const g of groups) {
+    for (const member of g.slice(1)) {
+      plan.Ropes[member] = plan.Ropes[g[0]];
+      mins.Ropes[member] = mins.Ropes[g[0]];
+    }
+  }
 
   // Pool: some villages have a weekly minimum (a Swim Test counts), the rest a per-session total.
   draw(

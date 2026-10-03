@@ -4,7 +4,7 @@ import { emptySchedule, newBunk, sampleSchedule } from '../sample';
 import type { WeeksState } from '../types';
 import { blocksOf, buildHistory, villageWeeksWithLabel } from './history';
 import { mulberry32, shuffle, weightedSample } from './rng';
-import { buildRoster, pairable, parseAge, related } from './roster';
+import { buildRoster, parseAge, shareLevel } from './roster';
 
 describe('rng', () => {
   it('is deterministic per seed and differs between seeds', () => {
@@ -52,12 +52,13 @@ describe('roster', () => {
     expect(r.old).toEqual([false, false, true, true]);
   });
 
-  it('relates same-village bunks and S with M, and pairs only within a year of age', () => {
-    const r = buildRoster([newBunk('S1', '7th'), newBunk('M1', '7th'), newBunk('S2', '9th'), newBunk('O1', '4th')]);
-    expect(related(r, 0, 1)).toBe(true);
-    expect(related(r, 0, 3)).toBe(false);
-    expect(pairable(r, 0, 1)).toBe(true);
-    expect(pairable(r, 0, 2)).toBe(false);
+  it('lets neighbours in a village share, and S with M of the same age, but never bunks further apart', () => {
+    const r = buildRoster([newBunk('S1', '7th'), newBunk('S2', '7th/8th'), newBunk('S3', '9th'), newBunk('M1', '7th'), newBunk('O1', '4th')]);
+    expect(shareLevel(r, 0, 1, 'Athletics')).toBe(2); // next to each other, half a grade apart
+    expect(shareLevel(r, 0, 2, 'Athletics')).toBe(0); // S1 and S3 are not next to each other
+    expect(shareLevel(r, 0, 3, 'Athletics')).toBe(2); // S with M, same age
+    expect(shareLevel(r, 0, 3, 'Ropes')).toBe(0); // never across villages at Ropes
+    expect(shareLevel(r, 0, 4, 'Athletics')).toBe(0); // S never with O
   });
 });
 

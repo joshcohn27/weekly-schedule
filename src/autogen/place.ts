@@ -1,23 +1,17 @@
-import {
-  FLEXIBLE_VILLAGES,
-  LEAGUE_PER_WEEK,
-  PAIR_PROBABILITY,
-  POOL_MAX_CAMPERS,
-  POOL_YOUNG_MAX_CAMPERS,
-  WATERFRONT_PER_WEEK,
-  leagueLabelFor,
-} from './config';
+import { areaOf } from '../config';
+import { AGE_ALLOWED, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
+import { ropeGroups } from './groups';
 import { blocksOf, halfSlots, slotAt } from './history';
-import { TOKEN_AREAS, TOKEN_LABEL, inWeekCount, type Plan } from './planner';
-import { chance, shuffle } from './rng';
-import { pairable } from './roster';
+import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
+import { shuffle } from './rng';
+import { shareLevel } from './roster';
 import {
   ALL_SLOTS,
   areaOnDay,
   daySlots,
   fillable,
-  h5ok,
   isFree,
+  okPlace,
   poolLoad,
   put,
   putVillage,
@@ -42,6 +36,17 @@ function leftover(c: Ctx, bunks: number[], day: number, adding: number): number 
 }
 
 const idx = (c: Ctx, v: string): number[] => c.roster.byVillage[v];
+
+/**
+ * How many bunks still have these periods empty, on average. Every period can only take so many bunks under the sharing and
+ * cap rules, so village-level blocks go where the most bunks are still free, which keeps the load even.
+ */
+function busyness(c: Ctx, slots: readonly number[]): number {
+  let free = 0;
+  for (const s of slots) for (let b = 0; b < c.roster.n; b++) if (c.grid[b][s] === '') free++;
+  return free / slots.length;
+}
+export const BUSY_WEIGHT = 0.5;
 
 // ---- Waterfront ---------------------------------------------------------------------------------
 
@@ -133,7 +138,7 @@ export function placeWaterfront(c: Ctx, plan: Plan): void {
         if (!usable(v, day, half)) continue;
         // leave half-days for villages that have few others to choose from
         const wanted = rivals.filter((r) => usable(r.x, day, half)).reduce((sum, r) => sum + 1 / r.options, 0);
-        const score = c.rng() + 3 * near + 8 * wanted + 0.4 * leftover(c, members, day, 2);
+        const score = c.rng() + 3 * near + 8 * wanted + 0.4 * leftover(c, members, day, 2) - BUSY_WEIGHT * busyness(c, halfSlots(day, half));
         if (!best || score < best.score) best = { day, half, score };
       }
     }
@@ -186,7 +191,7 @@ export function placeLeague(c: Ctx): void {
         const options = doubles ? [[...halfSlots(day, 0)], [...halfSlots(day, 1)]] : [0, 1, 2, 3].map((p) => [slotAt(day, p)]);
         for (const slots of options) {
           if (!villageFree(c, v, slots)) continue;
-          const score = c.rng() + 0.4 * leftover(c, members, day, slots.length);
+          const score = c.rng() + 0.4 * leftover(c, members, day, slots.length) - BUSY_WEIGHT * busyness(c, slots);
           if (!best || score < best.score) best = { slots, score };
         }
       }
@@ -222,7 +227,7 @@ export function placeTri(c: Ctx): void {
       for (const slots of options) {
         if (!villageFree(c, v, slots)) continue;
         if (slots.some((s) => poolLoad(c, s).count > 0 && !members.some((b) => c.grid[b][s] === label))) continue;
-        const score = c.rng() + 0.4 * leftover(c, members, day, slots.length);
+        const score = c.rng() + 0.4 * leftover(c, members, day, slots.length) - BUSY_WEIGHT * busyness(c, slots);
         if (!best || score < best.score) best = { slots, score };
       }
     }
@@ -236,47 +241,7 @@ export function placeTri(c: Ctx): void {
   }
 }
 
-// ---- grouping helpers for ropes and pool -----------------------------------------------------------
-
-function group(c: Ctx, bunks: number[], area: string, sameVillageOnly: boolean, maxCampers: number | null): number[][] {
-  const order = [...bunks].sort((a, b) => {
-    const va = c.roster.villages.indexOf(c.roster.village[a]);
-    const vb = c.roster.villages.indexOf(c.roster.village[b]);
-    return va - vb || c.roster.age[a] - c.roster.age[b];
-  });
-  const used = new Set<number>();
-  const out: number[][] = [];
-  const base = new Map<number, number>();
-  const baseOf = (x: number): number => {
-    let v = base.get(x);
-    if (v === undefined) {
-      v = (c.hist[x].earlier[area] ?? 0) + inWeekCount(c, x, area);
-      base.set(x, v);
-    }
-    return v;
-  };
-  for (const b of order) {
-    if (used.has(b)) continue;
-    used.add(b);
-    const unit = [b];
-    if (chance(c.rng, PAIR_PROBABILITY)) {
-      const partner = order.find(
-        (x) =>
-          !used.has(x) &&
-          pairable(c.roster, b, x) &&
-          (!sameVillageOnly || c.roster.village[x] === c.roster.village[b]) &&
-          baseOf(x) === baseOf(b) &&
-          (maxCampers === null || c.roster.campers[x] + c.roster.campers[b] <= maxCampers),
-      );
-      if (partner !== undefined) {
-        used.add(partner);
-        unit.push(partner);
-      }
-    }
-    out.push(unit);
-  }
-  return shuffle(c.rng, out);
-}
+// ---- placing groups ---------------------------------------------------------------------------------
 
 /**
  * Place units one at a time, always the one with the fewest places left to go, so a bunk with
@@ -317,22 +282,44 @@ function placeMostConstrainedFirst<T>(
   }
 }
 
+/** Would every bunk of the group keep the sharing rules with this label on these slots? Tries them one after another, then undoes it. */
+function okPlaceGroup(c: Ctx, unit: readonly number[], slots: readonly number[], label: string): boolean {
+  const saved = unit.map((b) => slots.map((s) => c.grid[b][s]));
+  let ok = true;
+  let done = 0;
+  for (const b of unit) {
+    if (!okPlace(c, b, slots, label)) {
+      ok = false;
+      break;
+    }
+    for (const s of slots) c.grid[b][s] = label;
+    done++;
+  }
+  for (let i = 0; i < done; i++) slots.forEach((s, k) => (c.grid[unit[i]][s] = saved[i][k]));
+  return ok;
+}
+
 // ---- Ropes --------------------------------------------------------------------------------------
+
+/** One group at ropes per half-day in the whole camp. */
+const ropesInHalf = (c: Ctx, slots: readonly number[]): boolean => c.grid.some((row) => slots.some((s) => areaOf(row[s]) === 'Ropes'));
 
 export function placeRopes(c: Ctx, plan: Plan): void {
   const ropers = plan.Ropes.map((k, b) => (k > 0 ? b : -1)).filter((b) => b >= 0);
+  const base = (b: number): number => (c.hist[b].earlier.Ropes ?? 0) + inWeekCount(c, b, 'Ropes');
+  const units = ropeGroups(c.roster, ropers, base, (k) => Math.floor(c.rng() * k), c.relax.trio);
   const names = (unit: number[]): string => unit.map((b) => c.roster.names[b]).join(' and ');
   placeMostConstrainedFirst<{ day: number; half: number }>(
     c,
-    group(c, ropers, 'Ropes', true, null),
+    shuffle(c.rng, units),
     (unit) => {
       const out: { value: { day: number; half: number }; score: number }[] = [];
       for (const day of c.days) {
         for (const half of [0, 1]) {
           const slots = halfSlots(day, half);
-          if (!unit.every((b) => rangeFree(c, b, slots) && !areaOnDay(c, b, day, 'Ropes') && h5ok(c, b, slots, 'Low Ropes'))) continue;
-          const others = c.grid.filter((row) => slots.some((s) => row[s] === 'Low Ropes' || row[s] === 'High Ropes')).length;
-          out.push({ value: { day, half }, score: c.rng() + 3 * Math.min(others, 3) + 0.4 * leftover(c, unit, day, 2) });
+          if (!unit.every((b) => rangeFree(c, b, slots) && !areaOnDay(c, b, day, 'Ropes'))) continue;
+          if (ropesInHalf(c, slots) || !okPlaceGroup(c, unit, slots, 'Low Ropes')) continue;
+          out.push({ value: { day, half }, score: c.rng() + 0.4 * leftover(c, unit, day, 2) - BUSY_WEIGHT * busyness(c, slots) });
         }
       }
       return out;
@@ -357,68 +344,143 @@ export function relabelRopes(c: Ctx): void {
   }
 }
 
-// ---- Judaics and Israel: one bunk at a time -------------------------------------------------------
-
-/** Give each planned Judaics and Israel block a period no other bunk has that area in, before the general fill. */
-export function placeSolo(c: Ctx, plan: Plan): void {
-  for (const area of ['Judaics', 'Israel Education'] as const) {
-    const label = TOKEN_LABEL[area];
-    const units: number[][] = [];
-    plan[area].forEach((k, b) => {
-      for (let i = 0; i < k; i++) units.push([b]);
-    });
-    placeMostConstrainedFirst<number>(
-      c,
-      units,
-      ([b]) => {
-        const out: { value: number; score: number }[] = [];
-        for (const day of c.days) {
-          if (areaOnDay(c, b, day, area)) continue;
-          for (let p = 0; p < 4; p++) {
-            const s = slotAt(day, p);
-            if (!isFree(c, b, s) || !h5ok(c, b, [s], label)) continue;
-            const alone = !slotHas(c, s, label);
-            out.push({ value: s, score: c.rng() + (alone ? 0 : 100) + 0.4 * leftover(c, [b], day, 1) });
-          }
-        }
-        return out;
-      },
-      ([b], s) => {
-        put(c, b, [s], label);
-        plan[area][b]--;
-      },
-      ([b]) => `${c.roster.names[b]} could not fit ${label} this week.`,
-      area,
-    );
-  }
-}
-
 // ---- Pool ---------------------------------------------------------------------------------------
 
+const poolOrdinal = (c: Ctx, b: number): number => (c.hist[b].earlier.Pool ?? 0) + inWeekCount(c, b, 'Pool') + 1;
+const lessonsDone = (c: Ctx, b: number): number => (c.hist[b].earlierLabels.Pool ?? 0) + c.grid[b].filter((l) => l === 'Pool').length;
+
+/** Split a run of bunks that would put too many campers in the water, unless it is the whole village. */
+function withinPoolLimit(c: Ctx, run: number[]): number[][] {
+  const r = c.roster;
+  const total = run.reduce((sum, b) => sum + r.campers[b], 0);
+  const whole = run.length === r.byVillage[r.village[run[0]]].length;
+  if (total <= POOL_MAX_CAMPERS || whole || run.length < 2) return [run];
+  const cut = Math.ceil(run.length / 2);
+  return [...withinPoolLimit(c, run.slice(0, cut)), ...withinPoolLimit(c, run.slice(cut))];
+}
+
+/** Groups of S and M bunks for the pool: a run within S and a run within M, only mixed at the same age, aiming for 2 to 5 bunks. */
+function seniorPoolGroups(c: Ctx, wanted: Set<number>): number[][] {
+  const r = c.roster;
+  const left = new Set([...(r.byVillage.S ?? []), ...(r.byVillage.M ?? [])].filter((b) => wanted.has(b)));
+  const out: number[][] = [];
+  while (left.size > 0) {
+    const list = [...left];
+    const seed = list[Math.floor(c.rng() * list.length)];
+    left.delete(seed);
+    const group = [seed];
+    const want = 2 + Math.floor(c.rng() * 4);
+    const campers = (): number => group.reduce((sum, b) => sum + r.campers[b], 0);
+    while (group.length < want) {
+      let best: { bunk: number; score: number } | null = null;
+      for (const cand of left) {
+        if (poolOrdinal(c, cand) !== poolOrdinal(c, seed) || campers() + r.campers[cand] > POOL_MAX_CAMPERS) continue;
+        const same = group.filter((x) => r.village[x] === r.village[cand]);
+        if (same.length > 0) {
+          const end = same.find((x) => r.pos[x] === r.pos[cand] - 1 || r.pos[x] === r.pos[cand] + 1);
+          const lo = Math.min(...same.map((x) => r.pos[x]));
+          const hi = Math.max(...same.map((x) => r.pos[x]));
+          if (end === undefined || (r.pos[cand] !== lo - 1 && r.pos[cand] !== hi + 1) || Math.abs(r.age[cand] - r.age[end]) > AGE_ALLOWED) continue;
+        }
+        const others = group.filter((x) => r.village[x] !== r.village[cand]);
+        if (others.some((x) => shareLevel(r, x, cand, 'Pool') === 0)) continue;
+        const score = group.reduce((sum, x) => sum + Math.abs(r.age[x] - r.age[cand]), 0) / group.length + c.rng() * 0.5;
+        if (!best || score < best.score) best = { bunk: cand, score };
+      }
+      if (!best) break;
+      group.push(best.bunk);
+      left.delete(best.bunk);
+    }
+    out.push(group);
+  }
+  return out;
+}
+
+/**
+ * Who goes to the pool together this week. O and C bunks on their first two regular Pool blocks are lessons, one bunk alone;
+ * after that a run of one village's bunks on the same time, up to the whole village (O and C never mix). Tusc always goes as one.
+ */
+function poolUnits(c: Ctx, plan: Plan): number[][] {
+  const r = c.roster;
+  const wanted = new Set(plan.Pool.map((k, b) => (k > 0 ? b : -1)).filter((b) => b >= 0));
+  const units: number[][] = [];
+  for (const v of r.villages) {
+    const members = r.byVillage[v].filter((b) => wanted.has(b));
+    if (members.length === 0 || v === 'S' || v === 'M') continue;
+    if (v === 'T') {
+      units.push(members);
+      continue;
+    }
+    const lessons = v === 'O' || v === 'C' ? members.filter((b) => lessonsDone(c, b) < POOL_LESSONS) : [];
+    for (const b of lessons) units.push([b]);
+    let run: number[] = [];
+    const flush = () => {
+      if (run.length > 0) units.push(...withinPoolLimit(c, run));
+      run = [];
+    };
+    for (const b of members.filter((x) => !lessons.includes(x))) {
+      const prev = run[run.length - 1];
+      if (prev !== undefined && r.pos[b] === r.pos[prev] + 1 && poolOrdinal(c, b) === poolOrdinal(c, prev) && Math.abs(r.age[b] - r.age[prev]) <= AGE_ALLOWED) run.push(b);
+      else {
+        flush();
+        run = [b];
+      }
+    }
+    flush();
+  }
+  units.push(...seniorPoolGroups(c, wanted));
+  return units;
+}
+
+/** A pool group that no period can hold (some bunk is busy at every free moment) is split and tried again as smaller groups. */
+function poolSlotsFor(c: Ctx, unit: number[]): number[] {
+  const out: number[] = [];
+  for (const day of c.days) {
+    if (unit.some((b) => areaOnDay(c, b, day, 'Pool'))) continue;
+    for (let p = 0; p < 4; p++) {
+      const s = slotAt(day, p);
+      if (unit.every((b) => isFree(c, b, s)) && poolLoad(c, s).count === 0) out.push(s);
+    }
+  }
+  return out;
+}
+
+function splitPoolUnits(c: Ctx, units: number[][]): number[][] {
+  const r = c.roster;
+  const out: number[][] = [];
+  const queue = [...units];
+  while (queue.length > 0) {
+    const unit = queue.shift() as number[];
+    const isTusc = r.village[unit[0]] === 'T';
+    if (unit.length < 2 || isTusc || poolSlotsFor(c, unit).length > 0) {
+      out.push(unit);
+      continue;
+    }
+    const cut = Math.ceil(unit.length / 2);
+    const sorted = [...unit].sort((x, y) => r.village[x].localeCompare(r.village[y]) || r.pos[x] - r.pos[y]);
+    // a mixed S and M group splits by village first, so each half stays a run
+    const byVillage = [...new Set(sorted.map((b) => r.village[b]))];
+    if (byVillage.length === 2) queue.push(sorted.filter((b) => r.village[b] === byVillage[0]), sorted.filter((b) => r.village[b] === byVillage[1]));
+    else queue.push(sorted.slice(0, cut), sorted.slice(cut));
+  }
+  return out;
+}
+
 export function placePool(c: Ctx, plan: Plan): void {
-  const swimmers = plan.Pool.map((k, b) => (k > 0 ? b : -1)).filter((b) => b >= 0);
   const names = (unit: number[]): string => unit.map((b) => c.roster.names[b]).join(' and ');
   placeMostConstrainedFirst<number>(
     c,
-    group(c, swimmers, 'Pool', false, POOL_YOUNG_MAX_CAMPERS),
+    shuffle(c.rng, splitPoolUnits(c, poolUnits(c, plan))),
     (unit) => {
       const out: { value: number; score: number }[] = [];
-      const campers = unit.reduce((sum, b) => sum + c.roster.campers[b], 0);
-      const youngCampers = unit
-        .filter((b) => c.roster.village[b] === 'O' || c.roster.village[b] === 'C')
-        .reduce((sum, b) => sum + c.roster.campers[b], 0);
       for (const day of c.days) {
         if (unit.some((b) => areaOnDay(c, b, day, 'Pool'))) continue;
-        const poolToday = daySlots(day).reduce((sum, s) => sum + c.grid.filter((row) => row[s] === 'Pool').length, 0);
+        const poolToday = daySlots(day).filter((s) => poolLoad(c, s).count > 0).length;
         for (let p = 0; p < 4; p++) {
           const s = slotAt(day, p);
           if (!unit.every((b) => isFree(c, b, s))) continue;
-          if (slotHas(c, s, 'Tusc Triathlon Training') || slotHas(c, s, 'Swim Test')) continue; // pool is closed here
-          const load = poolLoad(c, s);
-          if (load.total + campers > POOL_MAX_CAMPERS && !(load.count === 0 && unit.length === 1)) continue;
-          if (load.young + youngCampers > POOL_YOUNG_MAX_CAMPERS && !(load.young === 0 && unit.length === 1)) continue;
-          if (!unit.every((b) => h5ok(c, b, [s], 'Pool'))) continue;
-          out.push({ value: s, score: c.rng() + 0.02 * load.total + 0.25 * poolToday + 0.4 * leftover(c, unit, day, 1) });
+          if (poolLoad(c, s).count > 0) continue; // one group at the pool per period, and none while the Swim Test or Tusc training is on
+          out.push({ value: s, score: c.rng() + 0.25 * poolToday + 0.4 * leftover(c, unit, day, 1) - BUSY_WEIGHT * busyness(c, [s]) });
         }
       }
       return out;
