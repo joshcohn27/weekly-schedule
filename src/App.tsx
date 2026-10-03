@@ -161,7 +161,7 @@ export default function App() {
 
   const hasActivities = schedule.bunks.some((b) => b.slots.some((l) => l !== ''));
 
-  const runAutoGenerate = async (mode: AutoGenerateMode, sessionWeeks: SessionWeeks) => {
+  const runAutoGenerate = async (mode: AutoGenerateMode, sessionWeeks: SessionWeeks, keepTrips: boolean) => {
     setAutoOpen(false);
     setGenerating(true);
     await new Promise<void>((resolve) => setTimeout(resolve, 0)); // let the button show "Generating..." first
@@ -169,7 +169,7 @@ export default function App() {
       const weekIndex = current;
       const before = schedule;
       const seed = Math.floor(Math.random() * 2 ** 31);
-      const result = await generateWeekAsync({ weeks: weeksState, weekIndex: weekIndex + 1, mode, sessionWeeks, seed });
+      const result = await generateWeekAsync({ weeks: weeksState, weekIndex: weekIndex + 1, mode, sessionWeeks, seed, keepTrips });
       if (!result) return;
       // Nothing about shortfalls is ever shown; this is only for whoever has the console open.
       console.debug('Auto generate', {

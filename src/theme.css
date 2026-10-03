@@ -283,6 +283,9 @@ footer {
   display: block;
   margin: 6px 0;
 }
+.modal fieldset label.sub-option {
+  margin-left: 22px;
+}
 .modal select {
   width: auto;
   font-size: 13px;

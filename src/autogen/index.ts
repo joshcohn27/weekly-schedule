@@ -24,6 +24,8 @@ export interface AutoGenOptions {
   /** The week to generate, 1 to 4. */
   weekIndex: number;
   mode: 'fill-empty' | 'replace-all';
+  /** When replacing: leave the trips that were entered by hand (Bike Trip, Tiyul) in place. Default true. */
+  keepTrips?: boolean;
   /** Default 4. */
   sessionWeeks?: SessionWeeks;
   /** The UI passes a fresh random seed every click. */
@@ -108,8 +110,9 @@ class WeekSearch {
     const bunks = this.source?.bunks ?? [];
     this.roster = buildRoster(bunks);
     this.hist = buildHistory(opts.weeks, opts.weekIndex, this.roster.names);
-    // replacing clears the week, except the trips that were entered by hand
-    this.start = bunks.map((b) => (opts.mode === 'replace-all' ? b.slots.map((l) => (TRIP_LABELS.includes(l) ? l : '')) : [...b.slots]));
+    // replacing clears the week; the trips that were entered by hand stay unless the user said otherwise
+    const keep = (l: string): boolean => opts.keepTrips !== false && TRIP_LABELS.includes(l);
+    this.start = bunks.map((b) => (opts.mode === 'replace-all' ? b.slots.map((l) => (keep(l) ? l : '')) : [...b.slots]));
     this.locked = this.start.map((row) => row.map((label) => label !== ''));
     this.lastWeek = this.sessionWeeks === 4 && opts.weekIndex === 4;
     if (!this.source) this.done = true;
