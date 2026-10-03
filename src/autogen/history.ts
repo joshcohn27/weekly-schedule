@@ -57,8 +57,16 @@ export function ordinalAt(slots: readonly string[], earlier: Record<string, numb
 
 export const isFilledWeek = (s: Schedule | null): s is Schedule => !!s && s.bunks.length > 0;
 
-/** A week that has bunks and at least one activity in it: the planner treats it as already done. */
-export const hasActivities = (s: Schedule | null): s is Schedule => isFilledWeek(s) && s.bunks.some((b) => b.slots.some((l) => l !== ''));
+/**
+ * A week that is already built: it has bunks and few empty periods. A week that only has its trips entered is not built yet,
+ * so the planner still counts on it for what a bunk needs.
+ */
+export function isBuiltWeek(s: Schedule | null, maxEmptyShare: number): s is Schedule {
+  if (!isFilledWeek(s)) return false;
+  let empty = 0;
+  for (const b of s.bunks) for (const l of b.slots) if (l === '') empty++;
+  return empty / (s.bunks.length * SLOTS) <= maxEmptyShare;
+}
 
 /** Other loaded, non-empty weeks, with their 1-based week numbers. */
 export function otherWeeks(weeks: WeeksState, weekIndex: number): { week: number; schedule: Schedule }[] {

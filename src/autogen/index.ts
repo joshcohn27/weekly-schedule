@@ -1,8 +1,8 @@
 import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, planCalendar } from './calendar';
-import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, SINGLES_AFTER, SYNC_MAX_MS, TRIO_AFTER, type SessionWeeks } from './config';
+import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, SINGLES_AFTER, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
-import { SLOTS, blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
+import { blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
 import { placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_LABEL, planWeek, sessionTargetOf, type TokenArea } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
@@ -108,7 +108,8 @@ class WeekSearch {
     const bunks = this.source?.bunks ?? [];
     this.roster = buildRoster(bunks);
     this.hist = buildHistory(opts.weeks, opts.weekIndex, this.roster.names);
-    this.start = bunks.map((b) => (opts.mode === 'replace-all' ? Array<string>(SLOTS).fill('') : [...b.slots]));
+    // replacing clears the week, except the trips that were entered by hand
+    this.start = bunks.map((b) => (opts.mode === 'replace-all' ? b.slots.map((l) => (TRIP_LABELS.includes(l) ? l : '')) : [...b.slots]));
     this.locked = this.start.map((row) => row.map((label) => label !== ''));
     this.lastWeek = this.sessionWeeks === 4 && opts.weekIndex === 4;
     if (!this.source) this.done = true;
@@ -126,7 +127,7 @@ class WeekSearch {
     const { opts, roster, hist, start, locked, lastWeek, sessionWeeks } = this;
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
-      { weeks: opts.weeks, weekIndex: opts.weekIndex, sessionWeeks, lastWeek, villages: roster.villages },
+      { weekIndex: opts.weekIndex, sessionWeeks, lastWeek },
       mulberry32(roundSeed ^ 0x51ed270b),
     );
 
@@ -173,7 +174,6 @@ class WeekSearch {
         locked,
         missing: c.missing,
         carried: c.carried,
-        tiyulDue: calendar.tiyul,
       });
       // rule breaks first, then anything not acceptable, then the small stuff, then the soft preferences
       const score = quality.hard.length * 1e6 + quality.major.length * 1e4 + quality.minor.length * 50 + softScore(c);

@@ -1,12 +1,11 @@
-import type { WeeksState } from '../types';
 import {
   HOBBY_SUNDAY_PROBABILITY,
   HOBBY_WED_PM_PROBABILITY,
   SHABBAT_ROTATION,
-  TIYUL_WEEKS,
+  TRIP_LABELS,
   type SessionWeeks,
 } from './config';
-import { dayOf, halfSlots, slotAt, villageWeeksWithLabel } from './history';
+import { dayOf, halfSlots, slotAt } from './history';
 import { chance, shuffle, type Rng } from './rng';
 import {
   put,
@@ -26,14 +25,12 @@ const where = (day: number, half?: number): string =>
 export interface CalendarPlan {
   /** Half-days that carry hobbies: [day, half] pairs. */
   hobbies: [number, number][];
-  /** Villages whose Tiyul falls in this week. */
-  tiyul: string[];
   /** Order of the four Sunday periods handed out to the swim-test villages (week 1). */
   swimOrder: number[];
 }
 
 export function planCalendar(
-  input: { weeks: WeeksState; weekIndex: number; sessionWeeks: SessionWeeks; lastWeek: boolean; villages: string[] },
+  input: { weekIndex: number; sessionWeeks: SessionWeeks; lastWeek: boolean },
   rng: Rng,
 ): CalendarPlan {
   let hobbies: [number, number][];
@@ -44,17 +41,7 @@ export function planCalendar(
     if (input.weekIndex > 1 && chance(rng, HOBBY_SUNDAY_PROBABILITY)) hobbies.push([0, 0]);
   }
 
-  // Each village with a Tiyul on its calendar for this week goes with probability 1 / (eligible weeks left).
-  const calendar = TIYUL_WEEKS[input.sessionWeeks];
-  const done = villageWeeksWithLabel(input.weeks, input.weekIndex, 'Tiyul');
-  const tiyul: string[] = [];
-  for (const v of input.villages) {
-    const list = calendar[v];
-    if (!list || (done[v] ?? 0) > 0) continue;
-    const remaining = list.filter((w) => w >= input.weekIndex);
-    if (remaining.includes(input.weekIndex) && chance(rng, 1 / remaining.length)) tiyul.push(v);
-  }
-  return { hobbies, tiyul, swimOrder: shuffle(rng, [0, 1, 2, 3]) };
+  return { hobbies, swimOrder: shuffle(rng, [0, 1, 2, 3]) };
 }
 
 function placeHobbies(c: Ctx): void {
@@ -62,8 +49,8 @@ function placeHobbies(c: Ctx): void {
     const slots = halfSlots(day, half);
     const label = half === 0 ? 'AM Hobbies' : 'PM Hobbies';
     for (let b = 0; b < c.roster.n; b++) {
-      if (c.lastWeek && c.roster.village[b] === 'T') continue; // Tusc is on the bike trip
       if (rangeFree(c, b, slots)) put(c, b, slots, label);
+      else if (slots.every((s) => TRIP_LABELS.includes(c.grid[b][s]))) continue; // away on a trip
       else warn(c, `Hobbies on ${where(day, half)} could not be placed for ${c.roster.names[b]} because that time is already filled in.`);
     }
   }
@@ -81,14 +68,6 @@ function placeLastWeekExtras(c: Ctx): void {
       const slots = halfSlots(day, half);
       if (rangeFree(c, b, slots)) put(c, b, slots, label);
       else warn(c, `${label} on Thursday could not be placed for ${c.roster.names[b]} because that time is already filled in.`);
-    }
-  }
-  // Tusc bike trip: all four periods on Sunday, Monday and Tuesday
-  if (c.roster.byVillage.T) {
-    for (const day of [0, 1, 2]) {
-      const slots = [0, 1, 2, 3].map((p) => slotAt(day, p));
-      if (villageFree(c, 'T', slots)) putVillage(c, 'T', slots, 'Bike Trip');
-      else warn(c, `The Tusc bike trip on ${DAY_NAMES[day]} could not be placed because part of that day is already filled in.`);
     }
   }
 }
@@ -121,12 +100,12 @@ function placeSundayOfWeekOne(c: Ctx): void {
   }
 }
 
-function placeMiniBikeTrip(c: Ctx): void {
-  if (c.weekIndex !== 2 || !c.roster.byVillage.T) return;
-  const options = shuffle(c.rng, [halfSlots(4, 0), halfSlots(4, 1), halfSlots(5, 1)].map((s) => [...s]));
-  const placed = placeVillageFirstFit(c, 'T', options, 'Bike Trip', 'Trips');
-  if (placed) c.tripDay = dayOf(placed[0]);
-  else warn(c, 'The Tusc mini bike trip could not be placed near the end of the week.');
+/** A short Tusc bike trip that was entered by hand (a half-day, not the three-day trip): triathlon training goes before it. */
+function findMiniBikeTrip(c: Ctx): void {
+  const members = c.roster.byVillage.T;
+  if (!members) return;
+  const cells = c.grid[members[0]].map((l, s) => (l === 'Bike Trip' ? s : -1)).filter((s) => s >= 0);
+  if (cells.length > 0 && cells.length <= 2) c.tripDay = dayOf(cells[0]);
 }
 
 function placeShabbatPrep(c: Ctx): void {
@@ -145,52 +124,11 @@ function placeShabbatPrep(c: Ctx): void {
   }
 }
 
-function placeTiyul(c: Ctx): void {
-  const usedHalves = new Map<string, string>(); // "day.half" -> village
-  const conflicts = (v: string, halves: [number, number][]): boolean =>
-    halves.some(([d, h]) => {
-      const other = usedHalves.get(`${d}.${h}`);
-      return !!other && !((other === 'O' && v === 'C') || (other === 'C' && v === 'O'));
-    });
-
-  // S and M need two consecutive half-days, so they choose before O and C take single ones
-  const order = [...c.calendar.tiyul].sort((a, b) => Number(b === 'S' || b === 'M') - Number(a === 'S' || a === 'M'));
-  for (const v of order) {
-    if (!c.roster.byVillage[v]) continue;
-    const overnight = v === 'S' || v === 'M';
-    const candidates: { halves: [number, number][]; slots: number[][] }[] = [];
-    if (overnight) {
-      const days = c.lastWeek ? [1, 2] : [1, 2, 3];
-      for (const d of days) {
-        candidates.push({
-          halves: [[d, 1], [d + 1, 0]],
-          slots: [[...halfSlots(d, 1)], [...halfSlots(d + 1, 0)]],
-        });
-      }
-    } else {
-      for (let d = 0; d <= 4; d++) candidates.push({ halves: [[d, 1]], slots: [[...halfSlots(d, 1)]] });
-    }
-
-    let placed = false;
-    for (const cand of shuffle(c.rng, candidates)) {
-      if (conflicts(v, cand.halves)) continue;
-      const ok = cand.slots.every((slots) => villageFree(c, v, slots) && !villageAreaOnDay(c, v, dayOf(slots[0]), 'Trips'));
-      if (!ok) continue;
-      cand.slots.forEach((slots) => putVillage(c, v, slots, 'Tiyul'));
-      cand.halves.forEach(([d, h]) => usedHalves.set(`${d}.${h}`, v));
-      placed = true;
-      break;
-    }
-    if (!placed) warn(c, `Tiyul for village ${v} could not be placed this week.`);
-  }
-}
-
-/** Fixed events first: they never move, and everything flexible is built around them. */
+/** Fixed events first: they never move, and everything flexible is built around them. Trips are entered by hand beforehand. */
 export function placeCalendar(c: Ctx): void {
   placeHobbies(c);
   placeLastWeekExtras(c);
   placeSundayOfWeekOne(c);
-  placeMiniBikeTrip(c);
+  findMiniBikeTrip(c);
   placeShabbatPrep(c);
-  placeTiyul(c);
 }

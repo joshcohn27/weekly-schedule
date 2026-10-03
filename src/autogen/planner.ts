@@ -1,4 +1,5 @@
 import {
+  BUILT_WEEK_MAX_EMPTY,
   FLEXIBLE_LATER_WEEK_SHARE,
   FLEXIBLE_VILLAGES,
   DANCE_TARGETS,
@@ -13,9 +14,10 @@ import {
   SESSION_TARGETS,
   SHABBAT_ROTATION,
   TIYUL_WEEKS,
+  TRIP_LABELS,
   WATERFRONT_PER_WEEK,
 } from './config';
-import { blocksOf, hasActivities, villageWeeksWithLabel } from './history';
+import { blocksOf, isBuiltWeek, villageWeeksWithLabel } from './history';
 import { ropeGroups } from './groups';
 import { weightedSample } from './rng';
 import type { Ctx } from './state';
@@ -62,48 +64,54 @@ const counted = (c: Ctx, inWeek: Counts[], b: number, area: string): number =>
   (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0) + (inWeek[b][area] ?? 0);
 
 /**
- * Roughly how many single periods a bunk has to spare in a given week once the fixed calendar,
+ * Periods a bunk's trips take in a week. Trips are entered by hand: when the week has any, they are counted as they stand.
+ * A week with none entered yet gets the usual guess (Tusc's bike trips, and a Tiyul some time in the weeks on its calendar).
+ */
+function tripCells(c: Ctx, b: number, week: number): number {
+  const v = c.roster.village[b];
+  const schedule = c.weeks.weeks[week - 1];
+  const isTrip = (l: string): boolean => TRIP_LABELS.includes(l);
+  if (schedule && schedule.bunks.some((x) => x.slots.some(isTrip))) {
+    return schedule.bunks.find((x) => x.name.trim() === c.roster.names[b])?.slots.filter(isTrip).length ?? 0;
+  }
+  if (v === 'T') return c.sessionWeeks === 4 && week === 4 ? 12 : week === 2 ? 2 : 0;
+  const list = TIYUL_WEEKS[c.sessionWeeks][v];
+  if (!list || !list.includes(week) || (villageWeeksWithLabel(c.weeks, week, 'Tiyul')[v] ?? 0) > 0) return 0;
+  return (v === 'S' || v === 'M' ? 4 : 2) / list.length;
+}
+
+/**
+ * Roughly how many single periods a bunk has to spare in a given week once the fixed calendar, trips,
  * league, Waterfront and the weekly Music, Pool and Ropes are taken out. Used to spread what a
  * bunk still needs over the weeks left in proportion to the room each week really has.
  */
-/** Periods a village's Tiyul takes in a given week: known for this week and (once decided) for later ones. */
-function tiyulCells(c: Ctx, v: string, week: number): number {
-  const list = TIYUL_WEEKS[c.sessionWeeks][v];
-  if (!list || !list.includes(week)) return 0;
-  const cells = v === 'S' || v === 'M' ? 4 : 2;
-  const done = villageWeeksWithLabel(c.weeks, c.weekIndex, 'Tiyul')[v] ?? 0;
-  if (done > 0) return 0;
-  if (week === c.weekIndex) return c.calendar.tiyul.includes(v) ? cells : 0;
-  if (c.calendar.tiyul.includes(v)) return 0; // it happens this week, so not later
-  const later = list.filter((w) => w > c.weekIndex && !hasActivities(c.weeks.weeks[w - 1]));
-  return later.includes(week) ? cells / later.length : 0; // certain if this is the only week left
-}
-
 export function expectedSpare(c: Ctx, b: number, week: number): number {
   const v = c.roster.village[b];
   const last = c.sessionWeeks === 4 && week === 4;
+  const pool = POOL_TARGETS[v]?.perWeek ?? 0.75;
+  const upkeep = MUSIC_PER_WEEK + pool + 1; // Music, Pool and about one Ropes double every other week
+  if (week === c.weekIndex) {
+    // this week is in hand: count what is really still empty, less what is yet to be placed
+    let free = 0;
+    for (let s = 0; s < 24; s++) if (c.grid[b][s] === '' && !(last && s >= 20)) free++;
+    const row = blocksOf(c.grid[b]);
+    const leagueWant = v === 'T' ? (last ? 0 : LEAGUE_PER_WEEK + 1) : LEAGUE_PER_WEEK * (v === 'M' ? 2 : 1);
+    const leagueHave = row.filter((k) => k.area === 'League').reduce((sum, k) => sum + k.len, 0);
+    const wfHave = row.filter((k) => k.area === 'Waterfront').length;
+    free -= Math.max(0, leagueWant - leagueHave);
+    free -= 2 * Math.max(0, (last ? WATERFRONT_PER_WEEK * 0.75 : WATERFRONT_PER_WEEK) - wfHave);
+    return free - upkeep;
+  }
   let free = 24;
-  if (last) {
-    free -= 4; // Friday
-    free -= v === 'T' ? 16 : 6; // Thursday, plus Monday hobbies or the bike trip
-  } else if (week === c.weekIndex) {
-    free -= c.calendar.hobbies.length * 2; // this week's hobbies are already decided
-  } else {
-    free -= 4 + (week > 1 ? 0.4 : 0); // hobbies, the optional Sunday one at 20 percent
-  }
+  if (last) free -= 4 + 6; // Friday, Thursday and Monday hobbies
+  else free -= 4 + (week > 1 ? 0.4 : 0); // hobbies, the optional Sunday one at 20 percent
   if (week === 1) free -= 1; // Sunday swim test, or Mohawk's Athletics
-  if (v === 'T') {
-    free -= last ? 0 : LEAGUE_PER_WEEK + 1; // triathlon: one double and two singles
-    if (week === 2) free -= 2; // mini bike trip
-  } else {
-    free -= v === 'M' ? LEAGUE_PER_WEEK * 2 : LEAGUE_PER_WEEK;
-  }
+  if (v === 'T') free -= last ? 0 : LEAGUE_PER_WEEK + 1; // triathlon: one double and two singles
+  else free -= v === 'M' ? LEAGUE_PER_WEEK * 2 : LEAGUE_PER_WEEK;
   free -= last ? WATERFRONT_PER_WEEK * 1.5 : WATERFRONT_PER_WEEK * 2;
   if ((SHABBAT_ROTATION[c.sessionWeeks][week] ?? []).includes(v)) free -= 3;
-  free -= tiyulCells(c, v, week);
-  const pool = POOL_TARGETS[v]?.perWeek ?? 0.75;
-  free -= MUSIC_PER_WEEK + pool + 1; // Music, Pool and about one Ropes double every other week
-  return free;
+  free -= tripCells(c, b, week);
+  return free - upkeep;
 }
 
 /** A week with (almost) no room gets no share, so what a bunk needs is done in the weeks that have room. */
@@ -115,10 +123,10 @@ const capacityWeight = (c: Ctx, b: number, week: number): number => {
   return weight;
 };
 
-/** This week, plus every later week of the session that is not already loaded. */
+/** This week, plus every later week of the session that is not already built. */
 function remainingWeeks(c: Ctx): number[] {
   const out: number[] = [];
-  for (let w = c.weekIndex; w <= c.sessionWeeks; w++) if (w === c.weekIndex || !hasActivities(c.weeks.weeks[w - 1])) out.push(w);
+  for (let w = c.weekIndex; w <= c.sessionWeeks; w++) if (w === c.weekIndex || !isBuiltWeek(c.weeks.weeks[w - 1], BUILT_WEEK_MAX_EMPTY)) out.push(w);
   return out.length ? out : [c.weekIndex];
 }
 

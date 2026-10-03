@@ -11,7 +11,7 @@ const roster = buildRoster(sampleSchedule().bunks);
 const at = (name: string): number => roster.names.indexOf(name);
 
 /** Judge a grid that starts blank for every bunk. Only the messages a test asks about matter. */
-function judge(weekIndex: number, edit: (grid: string[][]) => void = () => {}, extra: { carried?: { bunk: number; area: string }[]; tiyulDue?: string[]; sessionWeeks?: 3 | 4 } = {}): WeekQuality {
+function judge(weekIndex: number, edit: (grid: string[][]) => void = () => {}, extra: { carried?: { bunk: number; area: string }[]; sessionWeeks?: 3 | 4 } = {}): WeekQuality {
   const sessionWeeks = extra.sessionWeeks ?? 4;
   const grid = roster.names.map(() => Array<string>(24).fill(''));
   edit(grid);
@@ -25,7 +25,6 @@ function judge(weekIndex: number, edit: (grid: string[][]) => void = () => {}, e
     hist: buildHistory(weeks, weekIndex, roster.names),
     grid,
     carried: extra.carried,
-    tiyulDue: extra.tiyulDue,
   });
 }
 
@@ -92,10 +91,9 @@ describe('weekQuality', () => {
     expect(judge(week, (g) => (g[roster.byVillage[v][0]][slotAt(0, 0)] = 'Shabbat Prep')).major).not.toContain(message);
   });
 
-  it('counts a Tiyul that is due but missing as major', () => {
-    const message = 'Village O is missing its Tiyul.';
-    expect(judge(2, () => {}, { tiyulDue: ['O'] }).major).toContain(message);
-    expect(judge(2, (g) => (g[roster.byVillage.O[0]][slotAt(1, 0)] = 'Tiyul'), { tiyulDue: ['O'] }).major).not.toContain(message);
+  it('never asks for a Tiyul: trips are entered by hand', () => {
+    expect(judge(2).major.some((m) => /Tiyul/.test(m))).toBe(false);
+    expect(judge(3).major.some((m) => /Tiyul/.test(m))).toBe(false);
   });
 
   it('is bad only with a hard or major issue, and orders hard before major before minor', () => {

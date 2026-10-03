@@ -5,7 +5,7 @@ import {
   POOL_LESSONS,
   POOL_MAX_CAMPERS,
   SHABBAT_ROTATION,
-  TIYUL_WEEKS,
+  TRIP_LABELS,
   VILLAGE_LEVEL_LABELS,
   WEEK_BLOCK_MAX,
   type SessionWeeks,
@@ -185,15 +185,11 @@ export function validateGrid(input: ValidationInput): Violation[] {
     }
   }
 
-  // H8: Shabbat Prep and Tiyul once per village per session, following the calendar
-  for (const label of ['Shabbat Prep', 'Tiyul']) {
-    const elsewhere = villageWeeksWithLabel(weeks, weekIndex, label);
-    for (const v of roster.villages) {
-      const members = roster.byVillage[v];
-      const hereWeek = members.some((b) => grid[b].includes(label));
-      if (hereWeek && (elsewhere[v] ?? 0) > 0) add('H8', `Village ${v} has ${label} in more than one week.`, members[0]);
-      if (label === 'Tiyul' && hereWeek && !(TIYUL_WEEKS[sessionWeeks][v] ?? []).includes(weekIndex)) add('H8', `Village ${v} has Tiyul in a week that is not on its calendar.`, members[0]);
-    }
+  // H8: Shabbat Prep once per village per session, following the calendar. Tiyul is entered by hand and is not checked.
+  const prepElsewhere = villageWeeksWithLabel(weeks, weekIndex, 'Shabbat Prep');
+  for (const v of roster.villages) {
+    const members = roster.byVillage[v];
+    if (members.some((b) => grid[b].includes('Shabbat Prep')) && (prepElsewhere[v] ?? 0) > 0) add('H8', `Village ${v} has Shabbat Prep in more than one week.`, members[0]);
   }
   const rotation = SHABBAT_ROTATION[sessionWeeks][weekIndex] ?? [];
   for (const v of roster.villages) {
@@ -268,6 +264,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
 
   // H11: hobbies and the last-week calendar
   const isHobby = (l: string): boolean => l === 'AM Hobbies' || l === 'PM Hobbies';
+  const onTrip = (b: number, s: number): boolean => TRIP_LABELS.includes(grid[b][s]);
   for (let b = 0; b < n; b++) {
     for (const k of blocks[b]) {
       if (!isHobby(k.label) || lockedAny(b, k.start, k.len)) continue;
@@ -282,7 +279,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     if (labels.size === 0) continue;
     const partner = s % 2 === 0 ? s + 1 : s - 1; // the other period of the same half-day
     for (let b = 0; b < n; b++) {
-      const exempt = lastWeek && roster.village[b] === 'T';
+      const exempt = onTrip(b, s) || onTrip(b, partner);
       if (!labels.has(grid[b][s]) && !exempt && !locked(b, s) && !locked(b, partner)) add('H11', `${roster.names[b]} is missing hobbies on ${where(s)}.`, b, s);
     }
   }
@@ -290,13 +287,13 @@ export function validateGrid(input: ValidationInput): Violation[] {
     for (let b = 0; b < n; b++) {
       const isT = roster.village[b] === 'T';
       const want = (day: number, half: number): string => {
-        if (day === 1 && half === 0) return isT ? 'Bike Trip' : 'AM Hobbies';
+        if (day === 1 && half === 0) return 'AM Hobbies';
         if (day === 4 && half === 0) return 'Hobby Culmination';
         if (day === 4 && half === 1) return isT ? 'Banquet Prep' : 'Packing Time';
         return '';
       };
       for (const [day, half] of [[1, 0], [4, 0], [4, 1]]) {
-        for (const s of halfSlots(day, half)) if (want(day, half) && grid[b][s] !== want(day, half) && !locked(b, s)) add('H11', `${roster.names[b]} should have ${want(day, half)} on ${where(s)}.`, b, s);
+        for (const s of halfSlots(day, half)) if (want(day, half) && grid[b][s] !== want(day, half) && !locked(b, s) && !onTrip(b, s)) add('H11', `${roster.names[b]} should have ${want(day, half)} on ${where(s)}.`, b, s);
       }
       for (let p = 0; p < 4; p++) if (grid[b][slotAt(5, p)] !== '' && !locked(b, slotAt(5, p))) add('H11', `${roster.names[b]} has something on the last Friday.`, b, slotAt(5, p));
       const extra = grid[b].findIndex((l, s) => isHobby(l) && !(dayOf(s) === 1 && periodOf(s) < 2));

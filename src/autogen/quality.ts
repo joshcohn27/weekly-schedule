@@ -13,11 +13,10 @@ import {
   RARE_OCS_MAX_SHORT_BUNKS,
   RARE_SHORT_MAJOR_AT,
   SHABBAT_ROTATION,
-  TIYUL_WEEKS,
   WATERFRONT_PER_WEEK,
   type SessionWeeks,
 } from './config';
-import { blocksOf, villageWeeksWithLabel, type BunkHistory } from './history';
+import { blocksOf, type BunkHistory } from './history';
 import { sessionTargetOf } from './planner';
 import type { Roster } from './roster';
 import { validateGrid } from './validate';
@@ -45,12 +44,10 @@ export interface QualityInput {
   grid: string[][];
   /** Cells that were already filled before generating; the rule checker leaves them alone. */
   locked?: boolean[][];
-  /** Blocks the generator planned but could not place (ropes, pool, league, triathlon, Tiyul, Shabbat Prep). */
+  /** Blocks the generator planned but could not place (ropes, pool, league, triathlon, Shabbat Prep). */
   missing?: string[];
   /** Rare-area blocks planned but not placed this week (they carry over unless this is the last week). */
   carried?: { bunk: number; area: string }[];
-  /** Villages whose Tiyul was decided for this week. */
-  tiyulDue?: string[];
 }
 
 export const isBad = (q: WeekQuality): boolean => q.hard.length > 0 || q.major.length > 0;
@@ -114,16 +111,6 @@ export function weekQuality(input: QualityInput): WeekQuality {
   for (const v of SHABBAT_ROTATION[sessionWeeks][weekIndex] ?? []) {
     if (!roster.byVillage[v]) continue;
     if (!blocks[first(v)].some((k) => k.label === 'Shabbat Prep' && k.len === 1)) major.push(`Village ${v} is missing its extra Shabbat Prep period.`);
-  }
-
-  // Tiyul: once per village, in a week on its calendar
-  const tiyulElsewhere = villageWeeksWithLabel(weeks, weekIndex, 'Tiyul');
-  for (const v of roster.villages) {
-    const list = TIYUL_WEEKS[sessionWeeks][v];
-    if (!list) continue;
-    const here = grid[first(v)].includes('Tiyul');
-    const due = (input.tiyulDue ?? []).includes(v) || (weekIndex === Math.max(...list) && (tiyulElsewhere[v] ?? 0) === 0);
-    if (due && !here) major.push(`Village ${v} is missing its Tiyul.`);
   }
 
   // Rare areas: how far short is each bunk?

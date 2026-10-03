@@ -44,6 +44,10 @@ export const SHABBAT_ROTATION: Record<SessionWeeks, Record<number, string[]>> = 
   3: { 1: ['S', 'M'], 2: ['O', 'C'], 3: ['T'] },
 };
 export const AC_ATHLETICS_MAX_GAP = 1;
+/** Trips are entered by hand before generating. The generator never writes them, and "replace" leaves them where they are. */
+export const TRIP_LABELS = ['Bike Trip', 'Tiyul'];
+/** A week with at most this share of its periods empty counts as already built; one with more is still to be generated. */
+export const BUILT_WEEK_MAX_EMPTY = 0.25;
 
 // ---- Who may share a period and an area (H13), and how many (H14, H15) --------------------------
 
