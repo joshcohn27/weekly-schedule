@@ -25,6 +25,10 @@ The build output is the `dist/` folder from `npm run build`.
 
 ## Using it
 
+The **?** next to the title opens a plain how-to for the whole page: the tabs, building a week step by step, changing
+things by hand, the rules that are always kept, the settings, and saving and printing. It is written for someone who
+has not seen the page before.
+
 - **Weeks:** the week bar above the tabs switches between Week 1-4. Weeks 2-4 start blank. "Reset Week N" blanks
   the selected week. On Weeks 2-4, "Use Week N-1's bunks" (next to "Add bunk") copies the previous week's roster
   with blank activities.

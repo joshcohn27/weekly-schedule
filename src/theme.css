@@ -384,6 +384,24 @@ fieldset.readonly {
   border-radius: 8px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
+/* the "?" in the header and the how-to panel it opens */
+.help-button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  font-weight: bold;
+  vertical-align: middle;
+}
+.modal.help {
+  max-width: 760px;
+}
+.modal.help h3 {
+  margin: 14px 0 4px;
+}
+.modal.help li {
+  margin-bottom: 4px;
+}
 .modal h2 {
   margin: 0 0 8px;
 }
