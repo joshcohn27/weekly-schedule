@@ -177,10 +177,11 @@ each limit on shortfalls is one looser.
 
 ### What to expect
 
-- The default roster (22 bunks): in 100 simulated sessions, about 97 or 98 weeks in 100 came back fully clean (no
-  rule break and nothing short) within the 45 seconds. The rest are weeks 3 and 4, where trips, Shabbat Prep and the
-  short last week leave the least room. Pressing Auto generate again for that week gives a new attempt. Smaller
-  rosters generate cleanly.
+- The default roster (22 bunks): 100 simulated 4-week sessions all came out fully good (no rule break and nothing
+  short in any week). Half took 8 seconds or less, 9 in 10 about 20 seconds, the slowest 68 seconds. About 2 or 3
+  weeks in 100 fail on the first attempt, always weeks 3 and 4, where trips, Shabbat Prep and the short last week
+  leave the least room; those are the ones it redoes. Run the same check with
+  `AUTOGEN_RUNS=100 npx vitest run --pool=forks src/autogen/session.test.ts`. Smaller rosters generate cleanly.
 - Every bunk gets A&C. Mohawk has about six spare periods all session, so it ends with 1 to 4 A&C per bunk.
 - Pool ends at 4 or 5 swims per bunk in every village; now and then a Seneca or Mohawk bunk ends on 3.
 - Mohawk and Tusc have the least room (league doubles, Waterfront, trips, a short last week), so they may end the
