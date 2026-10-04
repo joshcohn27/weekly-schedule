@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { AGE_ALLOWED, EXTRA_POOL_ABOVE, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
+import { AGE_ALLOWED, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_PATTERNS, NEXT_DAY_WEIGHT, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
 import { ropeGroups } from './groups';
 import { blocksOf, halfSlots, slotAt } from './history';
 import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
@@ -25,16 +25,26 @@ import {
   type Ctx,
 } from './state';
 
-/** Free, fillable cells left on a day for a bunk once `adding` more are used. Days that end up nearly full are easier to finish. */
+/** A day with this many empty periods or fewer is easy to finish: one Athletics and one A&C. */
+const EASY_DAY_FREE = 2;
+/** How much more a block is drawn to a day that would otherwise be left with three or four empty periods. */
+const CROWDED_DAY_WEIGHT = 4;
+
+/**
+ * How much a block of `adding` periods on this day helps its bunks. Athletics and A&C are single periods, one of each a
+ * day, so a bunk's empty periods should be spread over as many days as possible: a block goes on the day that has the most
+ * room, and above all on a day that would otherwise be left with more empty periods than Athletics and A&C can take.
+ */
 function leftover(c: Ctx, bunks: number[], day: number, adding: number): number {
   const slots = daySlots(day);
   let worst = 0;
   for (const b of bunks) {
-    let free = -adding;
+    let free = 0;
     for (const s of slots) if (c.grid[b][s] === '' && fillable(c, s)) free++;
     if (free > worst) worst = free;
   }
-  return worst;
+  const over = (free: number): number => Math.max(0, free - EASY_DAY_FREE) ** 2;
+  return worst - adding + CROWDED_DAY_WEIGHT * (over(worst) - over(worst - adding));
 }
 
 const idx = (c: Ctx, v: string): number[] => c.roster.byVillage[v];
@@ -49,6 +59,8 @@ function busyness(c: Ctx, slots: readonly number[]): number {
   return free / slots.length;
 }
 export const BUSY_WEIGHT = 0.5;
+/** How strongly a block is drawn to the day on which its bunks have the most empty periods. */
+export const SPREAD_WEIGHT = 0.6;
 
 // ---- Waterfront ---------------------------------------------------------------------------------
 
@@ -156,7 +168,7 @@ export function placeWaterfront(c: Ctx, plan: Plan): void {
         if (!usable(v, day, half)) continue;
         // leave half-days for villages that have few others to choose from
         const wanted = rivals.filter((r) => usable(r.x, day, half)).reduce((sum, r) => sum + 1 / r.options, 0);
-        const score = c.rng() + 3 * near + 8 * wanted + 0.4 * leftover(c, members, day, 2) - BUSY_WEIGHT * busyness(c, halfSlots(day, half));
+        const score = c.rng() + 3 * near + 8 * wanted - SPREAD_WEIGHT * leftover(c, members, day, 2) - BUSY_WEIGHT * busyness(c, halfSlots(day, half));
         if (!best || score < best.score) best = { day, half, score };
       }
     }
@@ -202,14 +214,20 @@ export function placeLeague(c: Ctx): void {
     const label = leagueLabelFor(v, c.sessionWeeks);
     const doubles = v === 'M';
     const have = Math.max(...members.map((b) => inWeekCount(c, b, 'League')));
+    const optionsOn = (day: number): number[][] => (doubles ? [[...halfSlots(day, 0)], [...halfSlots(day, 1)]] : [0, 1, 2, 3].map((p) => [slotAt(day, p)]));
+    const open = (day: number): boolean =>
+      villageAreaOnDay(c, v, day, 'League') || optionsOn(day).some((slots) => villageFree(c, v, slots) && !members.some((b) => backToBack(c, b, slots, 'League')));
+    // league days are not next to each other where the week allows it: aim for a set of days that are all still possible
+    const pattern = shuffle(c.rng, LEAGUE_DAY_PATTERNS).find((days) => days.every((d) => c.days.includes(d) && open(d)));
     for (let i = have; i < LEAGUE_PER_WEEK; i++) {
       let best: { slots: number[]; score: number } | null = null;
       for (const day of c.days) {
         if (villageAreaOnDay(c, v, day, 'League')) continue;
-        const options = doubles ? [[...halfSlots(day, 0)], [...halfSlots(day, 1)]] : [0, 1, 2, 3].map((p) => [slotAt(day, p)]);
-        for (const slots of options) {
+        const near = [day - 1, day + 1].filter((d) => d >= 0 && d < 6 && villageAreaOnDay(c, v, d, 'League')).length;
+        const off = pattern && !pattern.includes(day) ? 2 * NEXT_DAY_WEIGHT : 0;
+        for (const slots of optionsOn(day)) {
           if (!villageFree(c, v, slots) || members.some((b) => backToBack(c, b, slots, 'League'))) continue;
-          const score = c.rng() + 0.4 * leftover(c, members, day, slots.length) - BUSY_WEIGHT * busyness(c, slots);
+          const score = c.rng() + NEXT_DAY_WEIGHT * near + off - SPREAD_WEIGHT * leftover(c, members, day, slots.length) - BUSY_WEIGHT * busyness(c, slots);
           if (!best || score < best.score) best = { slots, score };
         }
       }
@@ -245,7 +263,8 @@ export function placeTri(c: Ctx): void {
       for (const slots of options) {
         if (!villageFree(c, v, slots) || members.some((b) => backToBack(c, b, slots, 'League'))) continue;
         if (slots.some((s) => poolLoad(c, s).count > 0 && !members.some((b) => c.grid[b][s] === label))) continue;
-        const score = c.rng() + 0.4 * leftover(c, members, day, slots.length) - BUSY_WEIGHT * busyness(c, slots);
+        const near = [day - 1, day + 1].filter((d) => usedDays.has(d)).length;
+        const score = c.rng() + NEXT_DAY_WEIGHT * near - SPREAD_WEIGHT * leftover(c, members, day, slots.length) - BUSY_WEIGHT * busyness(c, slots);
         if (!best || score < best.score) best = { slots, score };
       }
     }
@@ -272,7 +291,7 @@ function placeMostConstrainedFirst<T>(
   apply: (unit: number[], value: T) => void,
   couldNot: (unit: number[]) => string,
   /** A rare area that does not fit is carried over; anything else that does not fit makes the week not good enough. */
-  carryArea?: string,
+  carryArea?: (unit: number[]) => string | undefined,
   /** A last try for a unit with nowhere to go. Returns true when it found a place itself. */
   rescue?: (unit: number[]) => boolean,
 ): void {
@@ -294,7 +313,8 @@ function placeMostConstrainedFirst<T>(
     if (pickOptions.length === 0) {
       if (rescue?.(unit)) continue;
       c.unmet += unit.length;
-      if (carryArea) for (const b of unit) c.carried.push({ bunk: b, area: carryArea });
+      const area = carryArea?.(unit);
+      if (area) for (const b of unit) c.carried.push({ bunk: b, area });
       else c.missing.push(couldNot(unit));
       warn(c, couldNot(unit));
       continue;
@@ -340,7 +360,7 @@ export function placeRopes(c: Ctx, plan: Plan): void {
           const slots = halfSlots(day, half);
           if (!unit.every((b) => rangeFree(c, b, slots) && !areaOnDay(c, b, day, 'Ropes') && !backToBack(c, b, slots, 'Ropes'))) continue;
           if (ropesInHalf(c, slots) || !okPlaceGroup(c, unit, slots, 'Low Ropes')) continue;
-          out.push({ value: { day, half }, score: c.rng() + 0.4 * leftover(c, unit, day, 2) - BUSY_WEIGHT * busyness(c, slots) });
+          out.push({ value: { day, half }, score: c.rng() - SPREAD_WEIGHT * leftover(c, unit, day, 2) - BUSY_WEIGHT * busyness(c, slots) });
         }
       }
       return out;
@@ -368,7 +388,6 @@ export function relabelRopes(c: Ctx): void {
 // ---- Pool ---------------------------------------------------------------------------------------
 
 const poolOrdinal = (c: Ctx, b: number): number => (c.hist[b].earlier.Pool ?? 0) + inWeekCount(c, b, 'Pool') + 1;
-const lessonsDone = (c: Ctx, b: number): number => (c.hist[b].earlierLabels.Pool ?? 0) + c.grid[b].filter((l) => l === 'Pool').length;
 
 /** Split a run of bunks that would put too many campers in the water, unless it is the whole village. */
 function withinPoolLimit(c: Ctx, run: number[]): number[][] {
@@ -431,7 +450,8 @@ function poolUnits(c: Ctx, wanted: Set<number>): number[][] {
       units.push(members);
       continue;
     }
-    const lessons = v === 'O' || v === 'C' ? members.filter((b) => lessonsDone(c, b) < POOL_LESSONS) : [];
+    // a bunk that started the week still on its lessons swims alone all week, whatever order its swims end up in
+    const lessons = v === 'O' || v === 'C' ? members.filter((b) => (c.hist[b].earlierLabels.Pool ?? 0) < POOL_LESSONS) : [];
     for (const b of lessons) units.push([b]);
     let run: number[] = [];
     const flush = () => {
@@ -501,7 +521,8 @@ function placePoolUnits(c: Ctx, units: number[][], extra: boolean): void {
           const s = slotAt(day, p);
           if (!unit.every((b) => isFree(c, b, s) && !backToBack(c, b, [s], 'Pool'))) continue;
           if (poolLoad(c, s).count > 0) continue;
-          out.push({ value: s, score: c.rng() + 0.25 * poolToday + 0.4 * leftover(c, unit, day, 1) - BUSY_WEIGHT * busyness(c, [s]) });
+          const near = [day - 1, day + 1].filter((d) => d >= 0 && d < 6 && unit.some((b) => areaOnDay(c, b, d, 'Pool'))).length;
+          out.push({ value: s, score: c.rng() + 0.25 * poolToday + NEXT_DAY_WEIGHT * near - SPREAD_WEIGHT * leftover(c, unit, day, 1) - BUSY_WEIGHT * busyness(c, [s]) });
         }
       }
       return out;
@@ -510,7 +531,8 @@ function placePoolUnits(c: Ctx, units: number[][], extra: boolean): void {
       for (const b of unit) put(c, b, [slot], 'Pool');
     },
     (unit) => `${extra ? 'A second Pool' : 'Pool'} for ${names(unit)} could not be placed this week.`,
-    extra ? 'Pool' : undefined, // a second swim that does not fit is simply not given
+    // a second swim that does not fit is simply not given, and a swim counted over the session may be made up in another week
+    (unit) => (extra || unit.every((b) => POOL_TARGETS[c.roster.village[b]]?.perWeek === undefined) ? 'Pool' : undefined),
     extra ? undefined : (unit) => swimInsteadOfLeague(c, unit),
   );
 }
@@ -549,24 +571,35 @@ export function placePool(c: Ctx, plan: Plan): void {
 }
 
 /**
- * A crowded week has more empty periods than Athletics, A&C and Time with UH can take. Pool may always be given a second
- * time in a week, so while the week is crowded a village at a time gets a second swim, the whole village together where it can.
- * O and C bunks only once their lessons are behind them.
+ * A second swim in the week, a village at a time, whenever it fits. Only a village that has swum the least so far may take
+ * one, so over the session the villages stay within one swim of each other. It is the whole village or nobody (every bunk
+ * of a village keeps the same number of swims), together where it can; an O or C bunk still on its lessons swims alone.
  */
 export function placeExtraPool(c: Ctx, plan: Plan): void {
   const tokens = (b: number): number => TOKEN_AREAS.reduce((sum, a) => sum + plan[a][b], 0);
-  const crowding = (): number => {
-    let periods = 0;
-    for (const s of ALL_SLOTS) if (fillable(c, s) && c.grid.some((row) => row[s] === '')) periods++;
-    let left = 0;
-    for (let b = 0; b < c.roster.n; b++) left += Math.max(0, ALL_SLOTS.filter((s) => fillable(c, s) && isFree(c, b, s)).length - tokens(b));
-    return periods > 0 ? left / periods : 0;
-  };
-  for (const v of shuffle(c.rng, c.roster.villages)) {
-    if (crowding() <= EXTRA_POOL_ABOVE) return;
+  const spare = (b: number): number => ALL_SLOTS.filter((s) => fillable(c, s) && isFree(c, b, s)).length - tokens(b);
+  const swims = (v: string): number => Math.max(...idx(c, v).map((b) => (c.hist[b].earlier.Pool ?? 0) + (c.hist[b].later.Pool ?? 0) + inWeekCount(c, b, 'Pool')));
+  const tried = new Set<string>();
+  for (;;) {
+    const least = Math.min(...c.roster.villages.map(swims));
+    const able = c.roster.villages.filter(
+      (v) => !tried.has(v) && swims(v) <= least && idx(c, v).every((b) => inWeekCount(c, b, 'Pool') === 1 && spare(b) >= EXTRA_POOL_MIN_SPARE),
+    );
+    if (able.length === 0) return;
+    const v = shuffle(c.rng, able)[0];
+    tried.add(v);
     const members = idx(c, v);
-    if ((v === 'O' || v === 'C') && members.some((b) => (c.hist[b].earlierLabels.Pool ?? 0) < POOL_LESSONS)) continue;
-    if (members.some((b) => inWeekCount(c, b, 'Pool') !== 1)) continue;
+    const saved = members.map((b) => [...c.grid[b]]);
+    const before = { unmet: c.unmet, carried: c.carried.length, warnings: c.warnings.length };
     placePoolUnits(c, splitPoolUnits(c, poolUnits(c, new Set(members))), true);
+    if (members.every((b) => inWeekCount(c, b, 'Pool') === POOL_MAX_PER_WEEK)) continue;
+    // it did not fit for everyone: nobody in the village gets it
+    members.forEach((b, i) => {
+      saved[i].forEach((label, s) => (c.grid[b][s] = label));
+      c.dayMask[b] = buildDayMasks([saved[i]])[0];
+    });
+    c.unmet = before.unmet;
+    c.carried.length = before.carried;
+    c.warnings.length = before.warnings;
   }
 }

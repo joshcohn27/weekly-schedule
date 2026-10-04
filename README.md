@@ -74,7 +74,9 @@ fill tools make it quick), then generate: the schedule is built around them.
 **What it builds.** A fixed calendar first: hobbies, the Sunday swim tests in week 1, the Shabbat Prep rotation, and in
 the last week of Session 1 the Monday hobbies, Hobby Culmination, Packing Time and Banquet Prep, with Friday left
 empty. Then Waterfront, league (Tusc has triathlon training), ropes and pool. Then every remaining period: Music and
-the rarer areas first, and whatever is left becomes Athletics, A&C or Time with UH. It reads the other weeks you have
+the rarer areas first, and whatever is left becomes Athletics, A&C, Time with UH or a second Music. Every block is put
+on the day its bunks have the most empty periods, so no bunk is left with a day that Athletics and A&C alone would have
+to fill. It reads the other weeks you have
 loaded, matching bunks by name, so totals stay fair across the session (two ropes per bunk, low then high, and
 Waterfront within one block between villages).
 
@@ -120,18 +122,38 @@ Who may share a period in the same area:
 
 How much:
 
-- At most 2 Athletics blocks and 2 A&C blocks per bunk per week, and no area twice in one day.
-- At most 2 bunks of one village at Athletics, A&C, Music, Teva, Dance or Time with UH in one day, and 1 at Yoga,
-  Ceramics, Judaics or Israel.
+- **Nothing back to back.** Athletics and A&C are always single periods, never a double. No area is in period 4 and
+  again in period 1 the next day (trips are exempt, and Friday into Sunday does not count).
+- At most 3 Athletics periods and 3 A&C periods per bunk per week, a second Music in a week only to fill a period, and
+  no area twice in one day.
+- At most 2 bunks of one village at Athletics, A&C, Music, Teva, Dance, Israel or Time with UH in one day, and 1 at
+  Yoga, Ceramics or Judaics.
 - Athletics and A&C stay within one block of each other per bunk (two for Mohawk and Tusc).
-- Time with UH is planned once a session and may be used up to three times to fill periods.
+- Time with UH is planned once a session and may be used up to three times to fill periods. The third is held back
+  for the last week, or for a week the bunk is away on a trip.
+- Per session: Ropes 2, Judaics 2, Israel 2, Teva 3, Ceramics 2, Yoga 2, Dance 3 (O, S), 2 (C, T) or 1 (M).
+- Music every week, except Mohawk: two of the first three weeks, a different week off for each bunk, so the little
+  time Mohawk has left over goes to A&C.
+- League three times a week (Mohawk three double periods), on days that are not next to each other where the week
+  allows it.
+
+Preferred, not required:
+
+- **The same kind of period is kept off back-to-back days** (Athletics on Monday and again on Tuesday). Waterfront,
+  league, pool and every area the generator fills are steered away from it. In a simulated session about 1 day in 14
+  still repeats something from the day before, most of it league in the short last week.
+- Hobbies go on Wednesday afternoon or Tuesday morning; when a village is away on a trip for one of them, the other is
+  used, so nobody misses hobbies.
 
 The pool:
 
 - One group at the pool per period, and Tusc triathlon training only when nobody is swimming.
 - An O or C bunk's first two regular Pool blocks are lessons, one bunk alone. After that a run of bunks from one
   village may go together. O and C never share the pool. Tusc always goes as a whole village.
-- Every O and C bunk swims every week. Any bunk may swim a second time in a week when the week is crowded.
+- **Every village swims about once a week.** O, C and Tusc must swim every week; Seneca and Mohawk are counted over
+  the session and may end one short.
+- A second swim in a week is given a whole village at a time, and only to a village that has swum the least so far,
+  so the villages end the session within one swim of each other (4 or 5 each in a 4-week session).
 - At most 80 campers at the pool at once, except when a whole village goes.
 
 Building around periods you filled in by hand (other than trips) can put a target out of reach, so for such a week

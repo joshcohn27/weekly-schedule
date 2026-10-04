@@ -7,6 +7,7 @@ import {
   GAP_SLACK_BEFORE_LAST_WEEK,
   LEAGUE_PER_WEEK,
   MUSIC_PER_WEEK,
+  POOL_SHORT_OK,
   POOL_TARGETS,
   POOL_TARGET_OTHER,
   RARE_AREAS,
@@ -19,7 +20,7 @@ import {
   type SessionWeeks,
 } from './config';
 import { blocksOf, type BunkHistory } from './history';
-import { sessionTargetOf } from './planner';
+import { musicDue, sessionTargetOf } from './planner';
 import type { Roster } from './roster';
 import { validateGrid } from './validate';
 
@@ -82,7 +83,10 @@ export function weekQuality(input: QualityInput): WeekQuality {
 
   // Music every week, for every bunk
   const away = (b: number): boolean => grid[b].filter((l) => TRIP_LABELS.includes(l)).length >= AWAY_PERIODS_NO_MUSIC;
-  for (let b = 0; b < n; b++) if (count(b, 'Music') < MUSIC_PER_WEEK && !away(b) && !input.musicExcused?.includes(b)) major.push(`${roster.names[b]} has no Music this week.`);
+  for (let b = 0; b < n; b++) {
+    if (!musicDue(roster.village[b], roster.pos[b], weekIndex)) continue;
+    if (count(b, 'Music') < MUSIC_PER_WEEK && !away(b) && !input.musicExcused?.includes(b)) major.push(`${roster.names[b]} has no Music this week.`);
+  }
 
   for (const v of roster.villages) {
     const f = first(v);
@@ -110,7 +114,11 @@ export function weekQuality(input: QualityInput): WeekQuality {
     const t = POOL_TARGETS[roster.village[b]] ?? POOL_TARGET_OTHER;
     if ('perWeek' in t && t.perWeek !== undefined) {
       if (count(b, 'Pool') < t.perWeek) major.push(`${roster.names[b]} has no Pool this week.`);
-    } else if (lastOfSession && total(b, 'Pool') < (t.perSession ?? 0)) major.push(`${roster.names[b]} is short on Pool.`);
+    } else if (lastOfSession) {
+      const by = sessionTargetOf(roster.village[b], sessionWeeks, 'Pool') - total(b, 'Pool');
+      if (by > POOL_SHORT_OK + stretch) major.push(`${roster.names[b]} is short on Pool.`);
+      else if (by > 0) minor.push(`${roster.names[b]} is short ${by} on Pool.`);
+    }
     // Ropes: two per session
     if (lastOfSession && total(b, 'Ropes') < sessionTargetOf(roster.village[b], sessionWeeks, 'Ropes')) major.push(`${roster.names[b]} is short on Ropes.`);
   }

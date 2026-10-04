@@ -2,7 +2,7 @@ import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, planCalendar } from './calendar';
 import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
-import { blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
+import { blocksOf, buildHistory, halfSlots, isFilledWeek, type BunkHistory } from './history';
 import { placeExtraPool, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_LABEL, planWeek, sessionTargetOf, type TokenArea } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
@@ -133,7 +133,7 @@ class WeekSearch {
     const { opts, roster, hist, start, locked, lastWeek, sessionWeeks, stretch } = this;
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
-      { weekIndex: opts.weekIndex, sessionWeeks, lastWeek },
+      { weekIndex: opts.weekIndex, sessionWeeks, lastWeek, taken: (day, half) => start.some((row) => halfSlots(day, half).some((s) => row[s] !== '')) },
       mulberry32(roundSeed ^ 0x51ed270b),
     );
 

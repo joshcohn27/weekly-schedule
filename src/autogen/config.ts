@@ -14,7 +14,7 @@ export const SESSION_TARGETS: Record<string, number> = {
   Ropes: 2,
   Judaics: 2,
   'Israel Education': 2,
-  Teva: 2,
+  Teva: 3,
   Ceramics: 2,
   Yoga: 2,
   'TW UH': 1,
@@ -22,18 +22,31 @@ export const SESSION_TARGETS: Record<string, number> = {
 export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1 }; // area 'Dance'
 /** DEFAULT: a village letter not listed above gets this many Dance blocks per session. */
 export const DANCE_TARGET_OTHER = 2;
+/**
+ * Every village swims about once a week, so the villages end the session with very nearly the same number of swims.
+ * perWeek is a swim that must be there every week; perSession is a total (never more than one for each week of the session)
+ * that may be made up in another week when a week has no room.
+ */
 export const POOL_TARGETS: Record<string, { perWeek?: number; perSession?: number }> = {
   O: { perWeek: 1 },
   C: { perWeek: 1 },
-  S: { perSession: 3 },
-  M: { perSession: 3 },
+  S: { perSession: 4 },
+  M: { perSession: 4 },
   T: { perWeek: 1 },
 };
 /** DEFAULT: a village letter not listed above is treated like S and M. */
-export const POOL_TARGET_OTHER = { perSession: 3 };
+export const POOL_TARGET_OTHER = { perSession: 4 };
+/** A bunk with a session total may end this many swims short and still be fine. */
+export const POOL_SHORT_OK = 1;
 export const WATERFRONT_PER_WEEK = 2;
 export const LEAGUE_PER_WEEK = 3; // M: 3 double periods
 export const MUSIC_PER_WEEK = 1;
+/**
+ * Villages with so little room that the weekly Music crowds out A&C. Their bunks have Music in two of the first three weeks
+ * (each bunk skips a different week, so the village is never all at Music or all without) and the periods go to A&C instead.
+ */
+export const MUSIC_LIGHT_VILLAGES = ['M'];
+export const MUSIC_LIGHT_PER_SESSION = 2;
 export const TIYUL_WEEKS: Record<SessionWeeks, Record<string, number[]>> = {
   4: { O: [2, 3], C: [2, 3], S: [3, 4], M: [3, 4] },
   3: { O: [2], C: [2], S: [2], M: [2] },
@@ -95,8 +108,8 @@ export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 3, 'A&C': 3, 
 
 /** Total campers at the pool in one period, except a whole village. */
 export const POOL_MAX_CAMPERS = 80;
-/** When a week has more than this many leftover bunk-periods per period, villages get a second Pool block. */
-export const EXTRA_POOL_ABOVE = 3.5;
+/** A village takes a second swim in a week only when each of its bunks has at least this many periods to spare beyond what is planned. */
+export const EXTRA_POOL_MIN_SPARE = 2;
 /** Most times a bunk swims in one week. */
 export const POOL_MAX_PER_WEEK = 2;
 /** An O or C bunk's first this many regular Pool blocks are lessons, one bunk alone. The Swim Test is not a lesson. */
@@ -124,9 +137,6 @@ export const UH_EARLY_MARGIN = 0.5;
 export const FLEXIBLE_VILLAGES = ['M', 'T'];
 /** Time with UH is planned once a session; a bunk may get it up to this many times when its periods cannot be filled otherwise. */
 export const UH_MAX_PER_SESSION = 3;
-/** Periods with activities in a normal week (hobbies take two half-days) and in the last week of a 4-week session. */
-export const NORMAL_WEEK_PERIODS = 20;
-export const LAST_WEEK_PERIODS = 14;
 /** A bunk away on trips for at least this many periods of a week is not expected to get its weekly Music. */
 export const AWAY_PERIODS_NO_MUSIC = 12;
 /** Extra periods a later week is assumed to have when sharing out the rare areas, so they are not all used up early. */
@@ -173,7 +183,7 @@ export const SYNC_MAX_MS = 10000;
 
 /** Steps the fill search may take on one attempt before giving up, and steps spent on preferences once nothing breaks a rule. */
 export const FILL_MAX_STEPS = 6000;
-export const FILL_POLISH_STEPS = 150;
+export const FILL_POLISH_STEPS = 500;
 /** The fill search gives up on an attempt after this many steps without getting any closer. */
 export const FILL_STALL_STEPS = 500;
 /** A period the fill search just changed is left alone for about this many steps. */
@@ -191,6 +201,23 @@ export const BUILD_AROUND_STRETCH = 1;
  * fewer. It is off: the two periods it frees for a whole village can only become Athletics or A&C, and that made weeks fail.
  */
 export const WATERFRONT_HALF_DAY_OFF = false;
+
+/**
+ * The same kind of period on back-to-back days (Athletics on Monday and again on Tuesday) is avoided where possible. It is a
+ * preference, not a rule: this is how strongly Waterfront, league and the pool are pushed off a day next to one they are already on.
+ */
+export const NEXT_DAY_WEIGHT = 3;
+/** Sets of three days with none next to each other, for a village's three league periods (0 is Sunday). */
+export const LEAGUE_DAY_PATTERNS = [
+  [0, 2, 4],
+  [0, 2, 5],
+  [0, 3, 5],
+  [1, 3, 5],
+];
+/** Time with UH fills periods nothing else can, and the last weeks need it most: before the last week a bunk is kept this many under its limit. */
+export const UH_HELD_BACK = 1;
+/** A bunk away on trips for at least this many periods of a week is squeezed onto few days, and may use what was held back. */
+export const UH_RELEASE_TRIP_PERIODS = 4;
 
 export const HOBBY_WED_PM_PROBABILITY = 0.65; // otherwise Tuesday AM
 export const HOBBY_SUNDAY_PROBABILITY = 0.2;
@@ -225,4 +252,10 @@ export const WEIGHTS = {
   uhExtra: 15,
   /** Each block Athletics and A&C are more than one apart, even where that is still allowed: closer is better. */
   gapWide: 25,
+  /** A Mohawk or Tusc bunk whose leftover periods this week hold no A&C at all. */
+  noAcWeek: 30,
+  /** Mohawk and Tusc: each block their A&C is not at least one ahead of their Athletics, so the little they have left over leans to A&C. */
+  flexibleAcBehind: 40,
+  /** An area on a day right after a day that already has it. */
+  nextDay: 4,
 };

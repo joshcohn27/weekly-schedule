@@ -35,6 +35,25 @@ describe('weekQuality', () => {
     expect(judge(1, (g) => (g[at('O1')][1] = 'Music')).major).not.toContain('O1 has no Music this week.');
   });
 
+  it('asks Mohawk for Music in two of the first three weeks only, a different week off for each bunk', () => {
+    const noMusic = (week: number): string[] => judge(week).major.filter((m) => /^M\d has no Music/.test(m)).map((m) => m.slice(0, 2));
+    expect(noMusic(1)).toEqual(['M2', 'M3']);
+    expect(noMusic(2)).toEqual(['M1', 'M3', 'M4']);
+    expect(noMusic(3)).toEqual(['M1', 'M2', 'M4']);
+    expect(noMusic(4)).toEqual([]);
+  });
+
+  it('lets a Seneca or Mohawk bunk end one swim short, but not two', () => {
+    const swims = (k: number) => (g: string[][]) => {
+      for (let day = 0; day < k; day++) g[at('S1')][slotAt(day, 0)] = 'Pool';
+    };
+    const one = judge(4, swims(3));
+    expect(one.minor).toContain('S1 is short 1 on Pool.');
+    expect(one.major).not.toContain('S1 is short on Pool.');
+    expect(judge(4, swims(2)).major).toContain('S1 is short on Pool.');
+    expect(judge(4, swims(4)).minor.filter((m) => m.startsWith('S1 is short') && m.endsWith('Pool.'))).toEqual([]);
+  });
+
   it('counts a rare area short by 1 for Mohawk or Tusc as minor, and by 2 as major', () => {
     const q = judge(1, () => {}, { carried: [{ bunk: at('M1'), area: 'Yoga' }] });
     expect(q.minor).toContain('M1 is short 1 on Yoga.');

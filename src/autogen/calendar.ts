@@ -30,15 +30,26 @@ export interface CalendarPlan {
 }
 
 export function planCalendar(
-  input: { weekIndex: number; sessionWeeks: SessionWeeks; lastWeek: boolean },
+  input: {
+    weekIndex: number;
+    sessionWeeks: SessionWeeks;
+    lastWeek: boolean;
+    /** Is some bunk already busy on this half-day (away on a trip, or filled in by hand)? */
+    taken?: (day: number, half: number) => boolean;
+  },
   rng: Rng,
 ): CalendarPlan {
   let hobbies: [number, number][];
   if (input.lastWeek) hobbies = [[1, 0]]; // Monday morning only
   else {
     hobbies = [[5, 0]]; // Friday morning always
-    hobbies.push(chance(rng, HOBBY_WED_PM_PROBABILITY) ? [3, 1] : [2, 0]); // Wednesday afternoon, or Tuesday morning
-    if (input.weekIndex > 1 && chance(rng, HOBBY_SUNDAY_PROBABILITY)) hobbies.push([0, 0]);
+    // Wednesday afternoon, or Tuesday morning. When a village is away for one of them the other is used, so nobody misses hobbies.
+    const wedTaken = !!input.taken?.(3, 1);
+    const tueTaken = !!input.taken?.(2, 0);
+    const drawWed = chance(rng, HOBBY_WED_PM_PROBABILITY);
+    hobbies.push((wedTaken !== tueTaken ? tueTaken : drawWed) ? [3, 1] : [2, 0]);
+    const drawSunday = chance(rng, HOBBY_SUNDAY_PROBABILITY);
+    if (input.weekIndex > 1 && drawSunday && !input.taken?.(0, 0)) hobbies.push([0, 0]);
   }
 
   return { hobbies, swimOrder: shuffle(rng, [0, 1, 2, 3]) };
@@ -115,9 +126,9 @@ function placeShabbatPrep(c: Ctx): void {
     const friday = [...halfSlots(5, 1)];
     if (villageFree(c, v, friday)) putVillage(c, v, friday, 'Shabbat Prep');
     else warn(c, `Shabbat Prep on Friday afternoon could not be placed for village ${v} because that time is already filled in.`);
-    // one single period earlier in the week, in period 1 or 2, Monday to Thursday
+    // one single period earlier in the week, in period 1 or 2, Monday to Thursday (Thursday last: it is the day before the Friday block)
     const singles: number[][] = [];
-    for (const day of shuffle(c.rng, [1, 2, 3, 4])) for (const p of shuffle(c.rng, [0, 1])) singles.push([slotAt(day, p)]);
+    for (const day of [...shuffle(c.rng, [1, 2, 3]), 4]) for (const p of shuffle(c.rng, [0, 1])) singles.push([slotAt(day, p)]);
     if (!placeVillageFirstFit(c, v, singles, 'Shabbat Prep', 'Shabbat Prep')) {
       warn(c, `The extra Shabbat Prep period for village ${v} could not be placed earlier in the week.`);
     }

@@ -1,9 +1,7 @@
 import {
   BUILT_WEEK_MAX_EMPTY,
   DAY_CAP,
-  LAST_WEEK_PERIODS,
   LATER_WEEK_ROOM_BONUS,
-  NORMAL_WEEK_PERIODS,
   FLEXIBLE_LATER_WEEK_SHARE,
   FLEXIBLE_VILLAGES,
   DANCE_TARGETS,
@@ -12,6 +10,8 @@ import {
   LAST_WEEK_SHARE,
   LATER_WEEKS_NEGLIGIBLE,
   MIN_WEEK_CAPACITY,
+  MUSIC_LIGHT_PER_SESSION,
+  MUSIC_LIGHT_VILLAGES,
   MUSIC_PER_WEEK,
   POOL_TARGETS,
   POOL_TARGET_OTHER,
@@ -44,14 +44,23 @@ export const TOKEN_LABEL: Record<TokenArea, string> = {
   'TW UH': 'Time with UH',
 };
 
+/**
+ * Is this bunk's weekly Music due this week? Every bunk, every week, except the villages in MUSIC_LIGHT_VILLAGES: there a
+ * bunk has Music in two of the first three weeks, and which week it skips goes by its place in the village list.
+ */
+export function musicDue(v: string, pos: number, weekIndex: number): boolean {
+  if (!MUSIC_LIGHT_VILLAGES.includes(v)) return true;
+  return weekIndex <= MUSIC_LIGHT_PER_SESSION + 1 && weekIndex !== (pos % (MUSIC_LIGHT_PER_SESSION + 1)) + 1;
+}
+
 /** How many blocks of an area a bunk should have over the whole session (Music and some Pool targets are weekly). */
 export function sessionTargetOf(v: string, sessionWeeks: number, area: string): number {
   if (area === 'Dance') return DANCE_TARGETS[v] ?? DANCE_TARGET_OTHER;
-  if (area === 'Music') return MUSIC_PER_WEEK * sessionWeeks;
+  if (area === 'Music') return MUSIC_LIGHT_VILLAGES.includes(v) ? MUSIC_LIGHT_PER_SESSION : MUSIC_PER_WEEK * sessionWeeks;
   if (area === 'Pool') {
     const t = POOL_TARGETS[v];
     if (t?.perWeek !== undefined) return t.perWeek * sessionWeeks;
-    return t?.perSession ?? POOL_TARGET_OTHER.perSession;
+    return Math.min(t?.perSession ?? POOL_TARGET_OTHER.perSession, sessionWeeks);
   }
   return SESSION_TARGETS[area] ?? 0;
 }
@@ -92,7 +101,7 @@ function tripCells(c: Ctx, b: number, week: number): number {
 export function expectedSpare(c: Ctx, b: number, week: number): number {
   const v = c.roster.village[b];
   const last = c.sessionWeeks === 4 && week === 4;
-  const pool = POOL_TARGETS[v]?.perWeek ?? 0.75;
+  const pool = POOL_TARGETS[v]?.perWeek ?? 1;
   const upkeep = MUSIC_PER_WEEK + pool + 1; // Music, Pool and about one Ropes double every other week
   if (week === c.weekIndex) {
     // this week is in hand: count what is really still empty, less what is yet to be placed
@@ -178,13 +187,39 @@ function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => 
 }
 
 const RARE = ['Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga', 'Dance', 'TW UH'];
-/** Periods in a week that have activities: Friday of the last week has none, and Thursday and Monday morning are spoken for. */
-const periodsIn = (c: Ctx, week: number): number => (c.sessionWeeks === 4 && week === 4 ? LAST_WEEK_PERIODS : NORMAL_WEEK_PERIODS);
+
+/**
+ * Roughly how many leftover periods (Athletics and A&C) a bunk can take in a week. They are single periods, one of each a day
+ * for the bunk and DAY_CAP bunks a day for its village, so it goes by the days the bunk has open, not by its empty periods.
+ * A week squeezed onto a few days by a trip and Shabbat Prep has very little, and needs its rare areas saved for it.
+ */
+function leftoverRoom(c: Ctx, b: number, week: number): number {
+  const v = c.roster.village[b];
+  const last = c.sessionWeeks === 4 && week === 4;
+  const now = week === c.weekIndex;
+  const prep = (SHABBAT_ROTATION[c.sessionWeeks][week] ?? []).includes(v);
+  const row = now ? c.grid[b] : c.weeks.weeks[week - 1]?.bunks.find((x) => x.name.trim() === c.roster.names[b])?.slots;
+  let days = 0;
+  for (let day = 0; day < (last ? 4 : 6); day++) {
+    let free = 0;
+    for (let p = 0; p < 4; p++) {
+      if (row && row[day * 4 + p] !== '') continue;
+      // a week that is not in hand yet: Friday morning is hobbies and, on the village's turn, the afternoon is Shabbat Prep
+      if (!now && ((day === 5 && (p < 2 || prep)) || (last && day === 1 && p < 2))) continue;
+      free++;
+    }
+    if (free > 0) days++;
+  }
+  const upkeep = MUSIC_PER_WEEK + (POOL_TARGETS[v]?.perWeek ?? 1) + 1;
+  const periods = Math.max(0, expectedSpare(c, b, week)) + upkeep; // what Waterfront, league and the calendar leave
+  const perDay = Math.min(2, (DAY_CAP.Athletics + DAY_CAP['A&C']) / c.roster.byVillage[v].length);
+  return perDay * Math.min(days, periods / 2);
+}
 
 /**
  * What share of the rare areas a bunk still needs should be done this week. The periods left over after them can only be
- * Athletics, A&C or Time with UH, and every period of the camp has room for only so many of those, so the leftover is spread
- * over the weeks in step with how many periods each week has; the rare areas take the rest of this week's room.
+ * Athletics, A&C or Time with UH, and a week has room for only so many of those, so the leftover is spread over the weeks
+ * in step with the room each week has for it; the rare areas take the rest of this week's periods.
  */
 function shareForThisWeek(c: Ctx, rareNeed: (b: number) => number): number[] {
   const weeks = remainingWeeks(c);
@@ -194,7 +229,7 @@ function shareForThisWeek(c: Ctx, rareNeed: (b: number) => number): number[] {
     const spare = weeks.map((w) => Math.max(0, expectedSpare(c, b, w)));
     const now = spare[weeks.indexOf(c.weekIndex)];
     const leftover = Math.max(0, spare.reduce((a, x) => a + x, 0) - need);
-    const periods = weeks.map((w, i) => (spare[i] >= MIN_WEEK_CAPACITY ? periodsIn(c, w) : 0));
+    const periods = weeks.map((w, i) => (spare[i] >= MIN_WEEK_CAPACITY ? leftoverRoom(c, b, w) : 0));
     const allPeriods = periods.reduce((a, x) => a + x, 0);
     const leftoverNow = allPeriods > 0 ? Math.min(now, (leftover * periods[weeks.indexOf(c.weekIndex)]) / allPeriods) : now;
     return Math.max(0, Math.min(1, (now - leftoverNow) / need));
@@ -251,7 +286,7 @@ export function planWeek(c: Ctx): Plan {
   draw(
     'Pool',
     'Pool',
-    (b) => POOL_TARGETS[c.roster.village[b]]?.perSession ?? (POOL_TARGETS[c.roster.village[b]] ? 0 : POOL_TARGET_OTHER.perSession),
+    (b) => (POOL_TARGETS[c.roster.village[b]]?.perWeek !== undefined ? 0 : sessionTargetOf(c.roster.village[b], c.sessionWeeks, 'Pool')),
     () => 1,
   );
   const poolMins = mins.Pool;
@@ -262,7 +297,9 @@ export function planWeek(c: Ctx): Plan {
   // a weekly minimum (O, C, T) is never put off; the per-session villages follow the draw
   mins.Pool = plan.Pool.map((k, b) => (POOL_TARGETS[c.roster.village[b]]?.perWeek !== undefined ? k : poolMins[b]));
 
-  plan.Music = Array.from({ length: n }, (_, b) => Math.max(0, MUSIC_PER_WEEK - (inWeek[b].Music ?? 0)));
+  plan.Music = Array.from({ length: n }, (_, b) =>
+    musicDue(c.roster.village[b], c.roster.pos[b], c.weekIndex) ? Math.max(0, MUSIC_PER_WEEK - (inWeek[b].Music ?? 0)) : 0,
+  );
   limitMusicToRoom(c, plan.Music);
   mins.Music = plan.Music.slice();
 

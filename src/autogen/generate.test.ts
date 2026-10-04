@@ -92,6 +92,29 @@ describe('session totals', () => {
     }
   });
 
+  it('keeps the pool even: villages within one swim of each other, and no bunk more than two from another', () => {
+    for (const run of sessions) {
+      const bunks = weekOf(run, 1).bunks.map((b) => b.name);
+      const swims = bunks.map((n) => sessionBlocks(run.weeks, n, 'Pool'));
+      expect(Math.max(...swims) - Math.min(...swims)).toBeLessThanOrEqual(2);
+      const most = ['O', 'C', 'S', 'M', 'T'].map((v) => Math.max(...bunks.filter((n) => n.startsWith(v)).map((n) => sessionBlocks(run.weeks, n, 'Pool'))));
+      expect(Math.max(...most) - Math.min(...most), most.join(' ')).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('gives every Mohawk bunk A&C, and Music twice instead of every week', () => {
+    for (const run of sessions) {
+      for (const n of villageNames(weekOf(run, 1), 'M')) {
+        expect(sessionBlocks(run.weeks, n, 'A&C'), n).toBeGreaterThanOrEqual(1);
+        expect(sessionBlocks(run.weeks, n, 'Music'), n).toBeLessThanOrEqual(2);
+      }
+    }
+  });
+
+  it('gives Teva up to three times a session', () => {
+    for (const run of sessions) for (const b of weekOf(run, 1).bunks) expect(sessionBlocks(run.weeks, b.name, 'Teva'), b.name).toBeLessThanOrEqual(3);
+  });
+
   it('sends Tusc to the pool together, and every O and C bunk once or twice a week', () => {
     for (const run of sessions) {
       run.weeks.weeks.forEach((w) => {
