@@ -8,6 +8,7 @@ import { shareLevel } from './roster';
 import {
   ALL_SLOTS,
   areaOnDay,
+  backToBack,
   buildDayMasks,
   daySlots,
   fillable,
@@ -128,6 +129,7 @@ export function placeWaterfront(c: Ctx, plan: Plan): void {
     const slots = halfSlots(day, half);
     if (villageAreaOnDay(c, v, day, 'Waterfront') || !villageFree(c, v, slots)) return false;
     if (slots.some((s) => slotHas(c, s, 'Waterfront'))) return false; // one village at Waterfront per half-day
+    if (idx(c, v).some((b) => backToBack(c, b, slots, 'Waterfront'))) return false;
     return leagueDaysLeft(c, v, slots) >= pendingLeagueBlocks(c, v);
   };
 
@@ -206,7 +208,7 @@ export function placeLeague(c: Ctx): void {
         if (villageAreaOnDay(c, v, day, 'League')) continue;
         const options = doubles ? [[...halfSlots(day, 0)], [...halfSlots(day, 1)]] : [0, 1, 2, 3].map((p) => [slotAt(day, p)]);
         for (const slots of options) {
-          if (!villageFree(c, v, slots)) continue;
+          if (!villageFree(c, v, slots) || members.some((b) => backToBack(c, b, slots, 'League'))) continue;
           const score = c.rng() + 0.4 * leftover(c, members, day, slots.length) - BUSY_WEIGHT * busyness(c, slots);
           if (!best || score < best.score) best = { slots, score };
         }
@@ -241,7 +243,7 @@ export function placeTri(c: Ctx): void {
       if (usedDays.has(day) || villageAreaOnDay(c, v, day, 'League')) continue;
       const options = kind === 'double' ? [[...halfSlots(day, 0)], [...halfSlots(day, 1)]] : [0, 1, 2, 3].map((p) => [slotAt(day, p)]);
       for (const slots of options) {
-        if (!villageFree(c, v, slots)) continue;
+        if (!villageFree(c, v, slots) || members.some((b) => backToBack(c, b, slots, 'League'))) continue;
         if (slots.some((s) => poolLoad(c, s).count > 0 && !members.some((b) => c.grid[b][s] === label))) continue;
         const score = c.rng() + 0.4 * leftover(c, members, day, slots.length) - BUSY_WEIGHT * busyness(c, slots);
         if (!best || score < best.score) best = { slots, score };
@@ -336,7 +338,7 @@ export function placeRopes(c: Ctx, plan: Plan): void {
       for (const day of c.days) {
         for (const half of [0, 1]) {
           const slots = halfSlots(day, half);
-          if (!unit.every((b) => rangeFree(c, b, slots) && !areaOnDay(c, b, day, 'Ropes'))) continue;
+          if (!unit.every((b) => rangeFree(c, b, slots) && !areaOnDay(c, b, day, 'Ropes') && !backToBack(c, b, slots, 'Ropes'))) continue;
           if (ropesInHalf(c, slots) || !okPlaceGroup(c, unit, slots, 'Low Ropes')) continue;
           out.push({ value: { day, half }, score: c.rng() + 0.4 * leftover(c, unit, day, 2) - BUSY_WEIGHT * busyness(c, slots) });
         }
@@ -497,7 +499,7 @@ function placePoolUnits(c: Ctx, units: number[][], extra: boolean): void {
         const poolToday = daySlots(day).filter((s) => poolLoad(c, s).count > 0).length;
         for (let p = 0; p < 4; p++) {
           const s = slotAt(day, p);
-          if (!unit.every((b) => isFree(c, b, s))) continue;
+          if (!unit.every((b) => isFree(c, b, s) && !backToBack(c, b, [s], 'Pool'))) continue;
           if (poolLoad(c, s).count > 0) continue;
           out.push({ value: s, score: c.rng() + 0.25 * poolToday + 0.4 * leftover(c, unit, day, 1) - BUSY_WEIGHT * busyness(c, [s]) });
         }
@@ -524,12 +526,13 @@ function swimInsteadOfLeague(c: Ctx, unit: number[]): boolean {
   const label = leagueLabelFor(v, c.sessionWeeks);
   for (const s of shuffle(c.rng, ALL_SLOTS)) {
     const day = Math.floor(s / 4);
-    if (!fillable(c, s) || poolLoad(c, s).count > 0 || unit.some((b) => areaOnDay(c, b, day, 'Pool'))) continue;
+    if (!fillable(c, s) || poolLoad(c, s).count > 0 || unit.some((b) => areaOnDay(c, b, day, 'Pool') || backToBack(c, b, [s], 'Pool'))) continue;
     if (!members.every((b) => c.grid[b][s] === label && !c.locked[b][s])) continue;
     for (const t of shuffle(c.rng, ALL_SLOTS)) {
       const other = Math.floor(t / 4);
       if (t === s || !fillable(c, t) || !villageFree(c, v, [t])) continue;
       if (other !== day && villageAreaOnDay(c, v, other, 'League')) continue;
+      if (members.some((b) => backToBack(c, b, [t], 'League'))) continue;
       for (const b of members) c.grid[b][s] = '';
       for (const b of members) c.dayMask[b] = buildDayMasks([c.grid[b]])[0];
       putVillage(c, v, [t], label);

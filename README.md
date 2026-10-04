@@ -93,7 +93,8 @@ Day details (RH & LOD, birthdays, EVP, notes) are never touched.
 
 **While it runs** the button shows a spinner and which week it is on, and a **Cancel** button appears. Cancelling
 changes nothing. A week usually takes a second or two; a tight one can take longer, because the generator keeps trying
-until the week breaks no rule and is not short on anything that matters. It never shows warnings. If you want to see
+until the week breaks no rule and is not short on anything that matters. After 45 seconds it stops and uses the best
+week it found. It never shows warnings. If you want to see
 what it settled for, the browser console has a line per week.
 
 **Regenerate as often as you like.** Every run uses a fresh random seed (shown next to the status line), so pressing

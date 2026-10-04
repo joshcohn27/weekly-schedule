@@ -179,8 +179,12 @@ describe('who may share a period and an area', () => {
     expect(problems('A&C', ['O2', 'O3', 'C2', 'C3'])).toEqual(['H14']);
   });
 
-  it('one bunk at a time at Judaics, Israel, Yoga and Ceramics; two of one village at Time with UH', () => {
-    for (const area of ['Judaics', 'Israel Education', 'Yoga', 'Ceramics']) expect(problems(area, ['C2', 'C3']), area).toEqual(['H14']);
+  it('one bunk at a time at Judaics, Yoga and Ceramics; two similar bunks at Israel; two of one village at Time with UH', () => {
+    for (const area of ['Judaics', 'Yoga', 'Ceramics']) expect(problems(area, ['C2', 'C3']), area).toEqual(['H14']);
+    expect(problems('Israel Education', ['C2', 'C3'])).toEqual([]);
+    expect(problems('Israel Education', ['O1', 'C1'])).toEqual([]); // the same age across O and C
+    expect(problems('Israel Education', ['O1', 'O4'])).toEqual(['H13']);
+    expect(problems('Israel Education', ['C1', 'C2', 'C3'])).toEqual(['H14']);
     expect(problems('TW UH', ['O1', 'O4'])).toEqual([]);
     expect(problems('TW UH', ['O1', 'C1'])).toEqual(['H13']);
     expect(problems('TW UH', ['O1', 'O2', 'O3'])).toEqual(['H14']);

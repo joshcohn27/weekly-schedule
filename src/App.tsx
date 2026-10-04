@@ -6,7 +6,7 @@ import BuildGrid from './components/BuildGrid';
 import ScheduleView from './components/ScheduleView';
 import TrackingView from './components/TrackingView';
 import { bunkIdsForLabel, slotsForLabel, villageOf } from './autofill';
-import { BUILT_WEEK_MAX_EMPTY } from './autogen/config';
+import { APP_MAX_MS, BUILT_WEEK_MAX_EMPTY } from './autogen/config';
 import { isBuiltWeek } from './autogen/history';
 import { generateWeekAsync } from './autogen';
 import { WEEK_COUNT } from './config';
@@ -196,6 +196,7 @@ export default function App() {
           seed: (seed + n * 7919) | 0,
           keepTrips: plan.keepTrips,
           signal: abort.signal,
+          maxMs: APP_MAX_MS,
         });
         if (!result) return; // cancelled: nothing is changed
         // Nothing about shortfalls is ever shown; this is only for whoever has the console open.

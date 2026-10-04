@@ -58,7 +58,7 @@ export const AGE_ALLOWED = 1;
 /** S with M at the pool must be the same age. */
 export const POOL_AGE_MAX = 0.5;
 /** Areas where an O bunk may share with a C bunk, or an S bunk with an M bunk. Pool is S with M only. */
-export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Pool'];
+export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Israel Education', 'Pool'];
 /** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Time with UH takes two bunks of one village. Ropes is one group of 2 (3 as a trio). */
 export const SLOT_CAP: Record<string, number> = {
   Athletics: 3,
@@ -69,7 +69,7 @@ export const SLOT_CAP: Record<string, number> = {
   Yoga: 1,
   Ceramics: 1,
   Judaics: 1,
-  'Israel Education': 1,
+  'Israel Education': 2,
   'TW UH': 2,
   Ropes: 2,
 };
@@ -83,11 +83,13 @@ export const DAY_CAP: Record<string, number> = {
   Yoga: 1,
   Ceramics: 1,
   Judaics: 1,
-  'Israel Education': 1,
+  'Israel Education': 2,
   'TW UH': 2,
 };
+/** H17: these areas are never a double period. A block of them is always one period. */
+export const SINGLE_PERIOD_AREAS = ['Athletics', 'A&C'];
 /** H15: most blocks of this area one bunk may have in a week. */
-export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 2, 'A&C': 2 };
+export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 3, 'A&C': 3, Music: 2 };
 
 // ---- Pool (H16) ---------------------------------------------------------------------------------
 
@@ -127,6 +129,8 @@ export const NORMAL_WEEK_PERIODS = 20;
 export const LAST_WEEK_PERIODS = 14;
 /** A bunk away on trips for at least this many periods of a week is not expected to get its weekly Music. */
 export const AWAY_PERIODS_NO_MUSIC = 12;
+/** Extra periods a later week is assumed to have when sharing out the rare areas, so they are not all used up early. */
+export const LATER_WEEK_ROOM_BONUS = 0;
 /** A week never counts as having less than this many spare periods when spreading quotas, so it is never fully shut out. */
 export const MIN_WEEK_CAPACITY = 0.1;
 /** The last week of a 4-week session is short and crowded, so it takes this share of what a bunk still needs compared with its room. */
@@ -150,8 +154,8 @@ export const RARE_AREAS = ['Yoga', 'Ceramics', 'Teva', 'Israel Education', 'Juda
 export const RARE_SHORT_MAJOR_AT = 2;
 /** O, C and S bunks may each be one block short on a rare area, but only this many bunks in a week. */
 export const RARE_OCS_MAX_SHORT_BUNKS = 2;
-/** A Mohawk or Tusc bunk with this many rare-area blocks short in one week is not acceptable. */
-export const RARE_MT_MAX_SHORT_PER_BUNK = 1;
+/** A Mohawk or Tusc bunk may end the session one block short on this many rare areas. More is not acceptable. */
+export const RARE_MT_MAX_SHORT_PER_BUNK = 2;
 /** Athletics and A&C may differ by this much per bunk (O, C, S) or (M, T). Exactly at the limit is fine, beyond it is not. */
 export const GAP_MAX_OCS = 1;
 export const GAP_MAX_MT = 2;
@@ -159,6 +163,11 @@ export const GAP_MAX_MT = 2;
 export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
 /** Attempts (counted over the whole search) made before three consecutive bunks of one village may share Ropes. */
 export const TRIO_AFTER = 64;
+/**
+ * In the app a week is retried until it is good, but not for ever: after this long the best week found is used, so a week
+ * that cannot be made good (because of what the earlier weeks already hold) still comes back. Cancel stops it sooner.
+ */
+export const APP_MAX_MS = 45000;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
 export const SYNC_MAX_MS = 10000;
 
@@ -210,6 +219,10 @@ export const WEIGHTS = {
   gapOver: 300,
   /** Athletics ahead of A&C (when they differ, A&C should be the higher one). */
   athleticsAhead: 2,
+  /** A second Music in a week: allowed when it fits, but it is there to fill a period, not a target. */
+  musicExtra: 6,
+  /** Each Time with UH beyond a bunk's first: it is there to fill a period nothing else can, so it is saved for when it is needed. */
+  uhExtra: 15,
   /** Each block Athletics and A&C are more than one apart, even where that is still allowed: closer is better. */
   gapWide: 25,
 };

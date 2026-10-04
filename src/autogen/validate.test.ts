@@ -209,9 +209,29 @@ describe('validateWeek', () => {
     put(day, ['O1'], [S(1, 0)], 'Yoga');
     put(day, ['O2'], [S(1, 2)], 'Yoga'); // two O bunks at Yoga in one day, and the most is 1
     expect(has(state(day), 1, 'H15')).toBe(true);
+    const uh = sampleSchedule();
+    for (const d of [0, 1, 2, 3]) put(uh, ['O1'], [S(d, 0)], 'Time with UH');
+    expect(validateWeek(state(uh), 1, 4).some((v) => v.rule === 'H15' && v.message.includes('Time with UH 4 times'))).toBe(true);
     const week = sampleSchedule();
     for (const d of [0, 1, 2]) put(week, ['O1'], [S(d, 0)], 'A&C');
-    expect(validateWeek(state(week), 1, 4).some((v) => v.rule === 'H15' && v.message.includes('3 A&C blocks'))).toBe(true);
+    expect(has(state(week), 1, 'H15')).toBe(false); // three single periods a week is the most
+    put(week, ['O1'], [S(3, 0)], 'A&C');
+    expect(validateWeek(state(week), 1, 4).some((v) => v.rule === 'H15' && v.message.includes('4 A&C blocks'))).toBe(true);
+  });
+
+  it('H17: nothing back to back', () => {
+    const double = sampleSchedule();
+    put(double, ['O1'], [S(1, 0), S(1, 1)], 'Athletics');
+    expect(validateWeek(state(double), 1, 4).some((v) => v.rule === 'H17' && v.message.includes('double period of Athletics'))).toBe(true);
+    const across = sampleSchedule();
+    put(across, ['O1'], [S(1, 3), S(2, 0)], 'Music'); // Monday period 4, then Tuesday period 1
+    expect(has(state(across), 1, 'H17')).toBe(true);
+    const apart = sampleSchedule();
+    put(apart, ['O1'], [S(1, 3), S(2, 1)], 'Music');
+    expect(has(state(apart), 1, 'H17')).toBe(false);
+    const trip = sampleSchedule();
+    put(trip, village(trip, 'S'), [S(1, 2), S(1, 3), S(2, 0), S(2, 1)], 'Tiyul'); // an overnight trip is not back to back
+    expect(has(state(trip), 1, 'H17')).toBe(false);
   });
 
   it('H11: hobbies must be camp-wide, on the right periods, and follow the calendar', () => {

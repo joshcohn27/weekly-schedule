@@ -9,12 +9,14 @@ import { generateWeek } from './index';
 import { blankCopy, rosterOf, runSession, sessionBlocks, weekWithTrips, type SessionRun } from './testUtil';
 import { validateWeek, type Rule } from './validate';
 
-type Env = { AUTOGEN_SEEDS?: string; AUTOGEN_REPORT?: string };
+type Env = { AUTOGEN_SEEDS?: string; AUTOGEN_FIRST?: string; AUTOGEN_REPORT?: string };
 const env: Env = (globalThis as unknown as { process?: { env?: Env } }).process?.env ?? {};
 
 /** Full sessions generated and checked on the default roster. Set AUTOGEN_SEEDS=100 for the long run. */
 const SESSIONS = Math.max(1, Number(env.AUTOGEN_SEEDS ?? 3));
-const RULES: Rule[] = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15', 'H16'];
+/** The first seed, so a long run can be split into parts (AUTOGEN_FIRST=21 AUTOGEN_SEEDS=20 runs seeds 21 to 40). */
+const FIRST = Math.max(1, Number(env.AUTOGEN_FIRST ?? 1));
+const RULES: Rule[] = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17'];
 const KNOWN = new Set(ACTIVITIES.map((a) => a.label));
 const TRIPS = ['Bike Trip', 'Tiyul'];
 
@@ -27,7 +29,7 @@ const hardViolations = (run: SessionRun, sessionWeeks: 3 | 4 = 4) =>
 
 let sessions: SessionRun[] = [];
 beforeAll(() => {
-  sessions = Array.from({ length: SESSIONS }, (_, i) => runSession(sampleSchedule(), i + 1));
+  sessions = Array.from({ length: SESSIONS }, (_, i) => runSession(sampleSchedule(), FIRST + i));
 }, 3_600_000);
 
 describe('hard rules', () => {
@@ -35,7 +37,7 @@ describe('hard rules', () => {
     for (const run of sessions) expect(hardViolations(run)).toEqual([]);
   });
 
-  it('checks each rule H1 to H16 on its own', () => {
+  it('checks each rule H1 to H17 on its own', () => {
     for (const rule of RULES) {
       const found = sessions.flatMap((run) => run.weeks.weeks.flatMap((_, i) => validateWeek(run.weeks, i + 1, 4).filter((v) => v.rule === rule)));
       expect(found, rule).toEqual([]);
@@ -53,7 +55,7 @@ describe('hard rules', () => {
 
   it('says what a returned week is short on, in the console only', () => {
     // A report, not a pass or fail: the app keeps retrying until a week has none of these.
-    const lines = sessions.flatMap((run, s) => run.results.flatMap((r, i) => r.quality.major.map((m) => `session ${s + 1} week ${i + 1}: ${m}`)));
+    const lines = sessions.flatMap((run, s) => run.results.flatMap((r, i) => r.quality.major.map((m) => `session ${FIRST + s} week ${i + 1}: ${m}`)));
     console.log(lines.length === 0 ? 'Every week came back with nothing short.' : ['Short after the time limit:', ...lines].join('\n'));
     for (const run of sessions) for (const r of run.results) expect(r.quality.hard).toEqual([]);
   });

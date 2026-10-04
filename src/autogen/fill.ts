@@ -25,7 +25,7 @@ import { ALL_SLOTS, buildDayMasks, fillable, isFree, type Ctx } from './state';
 // Areas that may fall a block short when a bunk has no room. Music is only ever dropped as a last resort.
 const MAY_FALL_SHORT = ['TW UH', 'Yoga', 'Ceramics', 'Teva', 'Dance', 'Israel Education', 'Judaics'];
 /** What a leftover period may be. */
-const LEFTOVER = ['Athletics', 'A&C', 'Time with UH'];
+const LEFTOVER = ['Athletics', 'A&C', 'Time with UH', 'Music'];
 /** A rule break counts this much, so a move that fixes one always beats any change of preference. */
 const HARD = 1000;
 
@@ -139,6 +139,8 @@ class FillSearch {
   private readonly badRow: boolean[];
   /** A cell that was just changed is left alone until this step, so the search does not undo itself. */
   private readonly restUntil: number[][];
+  /** Bunks whose weekly Music is planned: the search may add a second one, but never take the only one away. */
+  private musicPlanned: boolean[] = [];
   private step = 0;
   private readonly allowedGap: number[];
   private readonly base: { ath: number; ac: number; uh: number }[];
@@ -161,6 +163,7 @@ class FillSearch {
   /** Put every bunk's planned blocks and leftover areas down roughly: the search does the rest. */
   seed(tok: Record<string, number>[]): void {
     const c = this.c;
+    this.musicPlanned = tok.map((t) => (t.Music ?? 0) > 0);
     const at = (s: number, label: string): number => this.grid.reduce((k, row) => k + (row[s] === label ? 1 : 0), 0);
     for (const b of shuffle(c.rng, Array.from({ length: this.n }, (_, i) => i))) {
       const row = this.grid[b];
@@ -186,19 +189,15 @@ class FillSearch {
         row[best] = label;
         open.delete(best);
       }
-      // each run of empty periods in a day becomes one block, Athletics or A&C, whichever the bunk has fewer of
+      // every other empty period is Athletics or A&C, one period at a time, whichever the bunk has fewer of
       let ath = this.base[b].ath + inWeekCount(c, b, 'Athletics');
       let ac = this.base[b].ac + inWeekCount(c, b, 'A&C');
-      let prev = -2;
-      let label = '';
       for (const s of [...open].sort((x, y) => x - y)) {
-        if (s !== prev + 1 || dayOf(s) !== dayOf(prev)) {
-          label = ath < ac ? 'Athletics' : 'A&C';
-          if (label === 'Athletics') ath++;
-          else ac++;
-        }
+        const before = s % 4 !== 0 ? row[s - 1] : '';
+        const label = before === 'Athletics' ? 'A&C' : before === 'A&C' ? 'Athletics' : ath < ac ? 'Athletics' : 'A&C';
+        if (label === 'Athletics') ath++;
+        else ac++;
         row[s] = label;
-        prev = s;
       }
     }
     for (let b = 0; b < this.n; b++) this.refresh(b);
@@ -273,6 +272,7 @@ class FillSearch {
     let uh = 0;
     let athWeek = 0;
     let acWeek = 0;
+    let music = 0;
     const today: string[] = [];
     for (let day = 0; day < 6; day++) {
       const first = day * 4;
@@ -280,15 +280,24 @@ class FillSearch {
       today.length = 0;
       for (let s = first; s < first + 4; s++) {
         const label = row[s];
-        if (label === '' || (s > first && row[s - 1] === label)) continue; // only the start of a block
+        if (label === '') continue;
+        if (s > first && row[s - 1] === label) {
+          // the second period of a block: Athletics and A&C are never a double period
+          if (!locked[s] && (label === 'Athletics' || label === 'A&C')) cost += HARD;
+          continue;
+        }
         const area = areaOf(label);
         if (!area) continue;
+        // nothing in period 4 and again in period 1 the next day
+        if (s === first && day > 0 && !locked[s] && !locked[s - 1] && area !== 'Trips' && areaOf(row[s - 1]) === area) cost += HARD;
         if (!trip && !locked[s]) {
           if (today.includes(area)) cost += HARD;
           else today.push(area);
         }
         if (area === 'TW UH') uh++;
-        else if (area === 'Athletics') {
+        else if (area === 'Music') {
+          if (!locked[s]) music++;
+        } else if (area === 'Athletics') {
           ath++;
           if (!locked[s] && !(fixedAthletics && s === 3)) athWeek++;
         } else if (area === 'A&C') {
@@ -297,8 +306,10 @@ class FillSearch {
         }
       }
     }
-    cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']));
-    cost += HARD * Math.max(0, this.base[b].uh + uh - UH_MAX_PER_SESSION);
+    cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']) + Math.max(0, music - WEEK_BLOCK_MAX.Music));
+    if (this.musicPlanned[b] && music === 0) cost += HARD; // the week's own Music is never given up
+    cost += WEIGHTS.musicExtra * Math.max(0, music - 1);
+    cost += HARD * Math.max(0, this.base[b].uh + uh - UH_MAX_PER_SESSION) + WEIGHTS.uhExtra * Math.max(0, this.base[b].uh + uh - 1);
     const gap = this.base[b].ac + ac - (this.base[b].ath + ath);
     cost += WEIGHTS.gapOver * Math.max(0, Math.abs(gap) - this.allowedGap[b]) + WEIGHTS.gapWide * Math.max(0, Math.abs(gap) - 1) + (gap < 0 ? WEIGHTS.athleticsAhead : 0);
     return cost;

@@ -2,6 +2,7 @@ import {
   BUILT_WEEK_MAX_EMPTY,
   DAY_CAP,
   LAST_WEEK_PERIODS,
+  LATER_WEEK_ROOM_BONUS,
   NORMAL_WEEK_PERIODS,
   FLEXIBLE_LATER_WEEK_SHARE,
   FLEXIBLE_VILLAGES,
@@ -114,7 +115,9 @@ export function expectedSpare(c: Ctx, b: number, week: number): number {
   free -= last ? WATERFRONT_PER_WEEK : WATERFRONT_PER_WEEK * 2; // the short last week has room for about one Waterfront each
   if ((SHABBAT_ROTATION[c.sessionWeeks][week] ?? []).includes(v)) free -= 3;
   free -= tripCells(c, b, week);
-  return free - upkeep + (last ? 1 : 0); // Ropes are done before the last week
+  // Ropes are done before the last week. A later week tends to have more room than this count says (a tight village gets
+  // one Waterfront fewer), and guessing low makes the early weeks use up the rare areas, so the guess leans high.
+  return free - upkeep + (last ? 1 : 0) + LATER_WEEK_ROOM_BONUS;
 }
 
 /** A week with (almost) no room gets no share, so what a bunk needs is done in the weeks that have room. */

@@ -57,6 +57,7 @@ describe('weekQuality', () => {
     const end = judge(4); // nobody has anything: everyone is short
     expect(end.major.some((m) => /bunks in O, C and S are short on a rare area/.test(m))).toBe(true);
     expect(end.major).toContain('T1 is short on several rare areas.');
+    // one block short on two areas is still fine for Mohawk and Tusc: they are over-subscribed by design
   });
 
   it('judges Athletics against A&C: fine within the limit, minor at it, major beyond it', () => {

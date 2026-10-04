@@ -1,4 +1,4 @@
-import { ACTIVITIES } from '../config';
+import { ACTIVITIES, areaOf } from '../config';
 import type { WeeksState } from '../types';
 import {
   DAY_CAP,
@@ -6,7 +6,9 @@ import {
   POOL_MAX_CAMPERS,
   POOL_MAX_PER_WEEK,
   SHABBAT_ROTATION,
+  SINGLE_PERIOD_AREAS,
   TRIP_LABELS,
+  UH_MAX_PER_SESSION,
   VILLAGE_LEVEL_LABELS,
   WEEK_BLOCK_MAX,
   type SessionWeeks,
@@ -27,7 +29,7 @@ import {
 import { buildRoster, isRun, shareLevel, type Roster } from './roster';
 import { OPEN, isFixedMohawkAthletics, sharedArea, slotGroupProblems } from './share';
 
-export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16';
+export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16' | 'H17';
 
 export interface Violation {
   rule: Rule;
@@ -160,6 +162,15 @@ export function validateGrid(input: ValidationInput): Violation[] {
     for (const [area, max] of Object.entries(WEEK_BLOCK_MAX)) {
       const count = blocks[b].filter((k) => k.area === area && !lockedAny(b, k.start, k.len) && !isFixedMohawkAthletics(weekIndex, roster.village[b], k.start, k.label)).length;
       if (count > max) add('H15', `${roster.names[b]} has ${count} ${area} blocks this week, and the most is ${max}.`, b);
+    }
+  }
+
+  // H15: Time with UH at most so many times a session
+  for (let b = 0; b < n; b++) {
+    const mine = blocks[b].filter((k) => k.area === 'TW UH');
+    const total = (hist[b].earlier['TW UH'] ?? 0) + (hist[b].later['TW UH'] ?? 0) + mine.length;
+    if (total > UH_MAX_PER_SESSION && mine.some((k) => !lockedAny(b, k.start, k.len))) {
+      add('H15', `${roster.names[b]} has Time with UH ${total} times in the session, and the most is ${UH_MAX_PER_SESSION}.`, b);
     }
   }
 
@@ -312,6 +323,23 @@ export function validateGrid(input: ValidationInput): Violation[] {
     for (const h of halves) if (!allowed.has(h)) add('H11', `Hobbies on an unexpected half-day (${h}).`, undefined, undefined);
     if (halves.has('3P') && halves.has('2A')) add('H11', 'Both Tuesday morning and Wednesday afternoon hobbies.', undefined, undefined);
     if (!halves.has('3P') && !halves.has('2A') && !locked(0, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
+  }
+
+  // H17: nothing back to back. Athletics and A&C are single periods, and no area is in period 4 and again in period 1 the next day.
+  for (let b = 0; b < n; b++) {
+    for (const k of blocks[b]) {
+      if (k.len > 1 && k.area && SINGLE_PERIOD_AREAS.includes(k.area) && !lockedAny(b, k.start, k.len)) {
+        add('H17', `${roster.names[b]} has a double period of ${k.area} on ${where(k.start)}.`, b, k.start);
+      }
+    }
+    for (let day = 0; day < 5; day++) {
+      const last = slotAt(day, 3);
+      const first = slotAt(day + 1, 0);
+      const area = areaOf(grid[b][last]);
+      if (!area || area !== areaOf(grid[b][first]) || locked(b, last) || locked(b, first)) continue;
+      if (TRIP_LABELS.includes(grid[b][last]) || TRIP_LABELS.includes(grid[b][first])) continue;
+      add('H17', `${roster.names[b]} has ${area} in period 4 on ${DAY_NAMES[day]} and again in period 1 the next day.`, b, last);
+    }
   }
 
   // H12: only known activity labels (cells already filled before generating may be write-ins)

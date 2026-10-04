@@ -87,6 +87,19 @@ export function areaOnDay(c: Ctx, b: number, day: number, area: string): boolean
 export const villageAreaOnDay = (c: Ctx, v: string, day: number, area: string): boolean =>
   c.roster.byVillage[v].some((b) => areaOnDay(c, b, day, area));
 
+/**
+ * Nothing back to back across days (H17): would this area in these periods sit in period 4 right before the same area in
+ * period 1 of the next day, or in period 1 right after it in period 4 of the day before? Friday into Sunday does not count.
+ */
+export function backToBack(c: Ctx, b: number, slots: readonly number[], area: string): boolean {
+  for (const s of slots) {
+    const p = s % 4;
+    if (p === 3 && s + 1 < SLOTS && areaOf(c.grid[b][s + 1]) === area) return true;
+    if (p === 0 && s > 0 && areaOf(c.grid[b][s - 1]) === area) return true;
+  }
+  return false;
+}
+
 /** Slots the generator may fill: empty cells, except Friday of the last week of a 4-week session. */
 export const fillable = (c: Ctx, s: number): boolean => !(c.lastWeek && dayOf(s) === 5);
 
