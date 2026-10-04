@@ -42,19 +42,20 @@ describe('weekQuality', () => {
     expect(two.major).toContain('O1 is short 2 on Yoga.');
   });
 
-  it('allows at most two O, C and S bunks to be short by 1 on a rare area', () => {
+  it('treats a block put off before the last week as a delay, never as major', () => {
     const carried = (names: string[]) => names.map((n) => ({ bunk: at(n), area: 'Teva' }));
-    const two = judge(1, () => {}, { carried: carried(['O1', 'C1']) });
-    expect(two.minor).toEqual(expect.arrayContaining(['O1 is short 1 on Teva.', 'C1 is short 1 on Teva.']));
-    expect(two.major.filter((m) => m.includes('rare area'))).toEqual([]);
     const three = judge(1, () => {}, { carried: carried(['O1', 'C1', 'S1']) });
-    expect(three.major).toContain('3 bunks in O, C and S are short on a rare area.');
+    expect(three.minor).toEqual(expect.arrayContaining(['O1 is short 1 on Teva.', 'C1 is short 1 on Teva.', 'S1 is short 1 on Teva.']));
+    expect(three.major.filter((m) => m.includes('rare area'))).toEqual([]);
+    const tusc = judge(1, () => {}, { carried: [{ bunk: at('T1'), area: 'Yoga' }, { bunk: at('T1'), area: 'Israel Education' }] });
+    expect(tusc.major).not.toContain('T1 is short on several rare areas.');
+    expect(tusc.minor).toEqual(expect.arrayContaining(['T1 is short 1 on Yoga.', 'T1 is short 1 on Israel.']));
   });
 
-  it('counts two rare-area shortfalls on the same Mohawk or Tusc bunk as major', () => {
-    const q = judge(1, () => {}, { carried: [{ bunk: at('T1'), area: 'Yoga' }, { bunk: at('T1'), area: 'Israel Education' }] });
-    expect(q.major).toContain('T1 is short on several rare areas.');
-    expect(q.minor).toEqual(expect.arrayContaining(['T1 is short 1 on Yoga.', 'T1 is short 1 on Israel.']));
+  it('holds the shortfall limits at the end of the session', () => {
+    const end = judge(4); // nobody has anything: everyone is short
+    expect(end.major.some((m) => /bunks in O, C and S are short on a rare area/.test(m))).toBe(true);
+    expect(end.major).toContain('T1 is short on several rare areas.');
   });
 
   it('judges Athletics against A&C: fine within the limit, minor at it, major beyond it', () => {
@@ -70,7 +71,7 @@ describe('weekQuality', () => {
     expect(gapMessage(m2, 'minor', 'M1')).toBe(true);
     expect(gapMessage(m2, 'major', 'M1')).toBe(false);
     expect(gapMessage(judge(4, put('M1', ['Athletics', 'Athletics', 'Athletics'])), 'major', 'M1')).toBe(true);
-    // the same limits apply in earlier weeks (GAP_SLACK_BEFORE_LAST_WEEK is 0)
+    // the same limits apply in every week (GAP_SLACK_BEFORE_LAST_WEEK is 0)
     expect(gapMessage(judge(1, put('O1', ['Athletics'])), 'major', 'O1')).toBe(false);
     expect(gapMessage(judge(1, put('O1', ['Athletics', 'Athletics'])), 'major', 'O1')).toBe(true);
   });

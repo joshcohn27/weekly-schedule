@@ -73,13 +73,19 @@ describe('validateWeek', () => {
 
   it('H5: two related bunks in the same area at the same slot must be on the same ordinal', () => {
     const week1 = sampleSchedule();
-    put(week1, ['C1'], [S(0, 0)], 'Athletics'); // C1 has done Athletics once
+    put(week1, ['C1'], [S(0, 0)], 'A&C'); // C1 has done A&C once
     const week2 = sampleSchedule();
-    put(week2, ['C1', 'C2'], [S(1, 0)], 'Athletics'); // C1 second time, C2 first time
+    put(week2, ['C1', 'C2'], [S(1, 0)], 'A&C'); // C1 second time, C2 first time
     expect(has(state(week1, week2), 2, 'H5')).toBe(true);
     const fine = sampleSchedule();
-    put(fine, ['C1', 'C2'], [S(1, 0)], 'Athletics');
+    put(fine, ['C1', 'C2'], [S(1, 0)], 'A&C');
     expect(has(state(sampleSchedule(), fine), 2, 'H5')).toBe(false);
+    // at Athletics the same visit is only preferred
+    const athWeek1 = sampleSchedule();
+    put(athWeek1, ['C1'], [S(0, 0)], 'Athletics');
+    const athWeek2 = sampleSchedule();
+    put(athWeek2, ['C1', 'C2'], [S(1, 0)], 'Athletics');
+    expect(has(state(athWeek1, athWeek2), 2, 'H5')).toBe(false);
     const cross = sampleSchedule();
     put(cross, ['S1', 'M1'], [S(1, 0)], 'Music'); // S with M is checked
     const crossWeek1 = sampleSchedule();
@@ -123,7 +129,7 @@ describe('validateWeek', () => {
     expect(has(state(mk(), mk(), mk()), 3, 'H7')).toBe(true);
   });
 
-  it('H8: Shabbat Prep and Tiyul once per village, on the calendar', () => {
+  it('H8: Shabbat Prep follows the calendar; Tiyul is entered by hand and never checked', () => {
     const shabbat = (s: Schedule, names: string[]) => put(s, names, [S(5, 2), S(5, 3)], 'Shabbat Prep');
     const w2 = sampleSchedule();
     shabbat(w2, [...village(w2, 'O'), ...village(w2, 'C')]);
@@ -131,15 +137,10 @@ describe('validateWeek', () => {
     const wrongVillage = sampleSchedule();
     shabbat(wrongVillage, village(wrongVillage, 'S'));
     expect(has(state(sampleSchedule(), wrongVillage), 2, 'H8')).toBe(true);
-    const tiyulA = sampleSchedule();
-    put(tiyulA, village(tiyulA, 'O'), [S(1, 2), S(1, 3)], 'Tiyul');
-    const tiyulB = sampleSchedule();
-    put(tiyulB, village(tiyulB, 'O'), [S(1, 2), S(1, 3)], 'Tiyul');
-    const tiyulMessages = (w: WeeksState, week: number) =>
-      validateWeek(w, week, 4).filter((v) => v.rule === 'H8' && v.message.includes('Tiyul'));
-    expect(tiyulMessages(state(sampleSchedule(), tiyulA, tiyulB), 3).length).toBeGreaterThan(0); // twice
-    expect(tiyulMessages(state(sampleSchedule(), tiyulA), 2)).toEqual([]); // once, in one of its weeks
-    expect(tiyulMessages(state(tiyulA), 1).length).toBeGreaterThan(0); // week 1 is not on O's calendar
+    const tiyul = sampleSchedule();
+    put(tiyul, village(tiyul, 'O'), [S(1, 2), S(1, 3)], 'Tiyul');
+    // twice, and in a week that was never on the old calendar: both are the user's call
+    expect(validateWeek(state(tiyul, tiyul), 1, 4).filter((v) => v.message.includes('Tiyul'))).toEqual([]);
   });
 
   it('H9: triathlon training needs the pool to itself', () => {
@@ -152,19 +153,65 @@ describe('validateWeek', () => {
     expect(has(state(ok), 1, 'H9')).toBe(false);
   });
 
-  it('H10: pool capacity, with the young cap for O and C', () => {
+  it('H10: at most 80 campers at the pool, except a whole village', () => {
     const big = sampleSchedule();
     put(big, ['O1', 'O2', 'C1', 'S1', 'S2', 'M1', 'M2', 'T1'], [S(1, 0)], 'Pool');
     expect(has(state(big), 1, 'H10')).toBe(true); // 11+12+12+10+14+11+13+14 = 97
-    const young = sampleSchedule();
-    put(young, ['O1', 'O2'], [S(1, 0)], 'Pool'); // 23 campers of O and C together
-    expect(has(state(young), 1, 'H10')).toBe(true);
     const single = sampleSchedule();
     put(single, ['S2'], [S(1, 0)], 'Pool');
     expect(has(state(single), 1, 'H10')).toBe(false);
     const swim = sampleSchedule();
     put(swim, village(swim, 'S'), [S(0, 0)], 'Swim Test'); // a whole village is the unit
     expect(has(state(swim), 1, 'H10')).toBe(false);
+  });
+
+  it('H16: one group at the pool, lessons alone, O and C apart, Tusc together, one or two swims a week', () => {
+    const lesson = sampleSchedule();
+    put(lesson, ['O1', 'O2'], [S(1, 0)], 'Pool'); // both on a lesson: a lesson is one bunk alone
+    expect(has(state(lesson), 1, 'H16')).toBe(true);
+    const mixed = sampleSchedule();
+    put(mixed, ['O1', 'C1'], [S(1, 0)], 'Pool');
+    expect(validateWeek(state(mixed), 1, 4).some((v) => v.rule === 'H16' && v.message.includes('never share the pool'))).toBe(true);
+    const tusc = sampleSchedule();
+    put(tusc, ['T1', 'T2'], [S(1, 0)], 'Pool');
+    expect(validateWeek(state(tusc), 1, 4).some((v) => v.rule === 'H16' && v.message.includes('every Tusc bunk'))).toBe(true);
+    const allTusc = sampleSchedule();
+    put(allTusc, village(allTusc, 'T'), [S(1, 0)], 'Pool');
+    expect(validateWeek(state(allTusc), 1, 4).some((v) => v.rule === 'H16' && v.message.includes('Tusc'))).toBe(false);
+    const swims = (count: number) => {
+      const s = sampleSchedule();
+      for (let day = 0; day < count; day++) put(s, ['O1'], [S(day, 0)], 'Pool');
+      return validateWeek(state(s), 1, 4).some((v) => v.rule === 'H16' && v.bunk === 'O1' && v.message.includes('swims'));
+    };
+    expect(swims(0)).toBe(true);
+    expect(swims(1)).toBe(false);
+    expect(swims(2)).toBe(false); // a second swim in a week is always allowed
+    expect(swims(3)).toBe(true);
+  });
+
+  it('H14 and H15: slot caps, village day caps and the weekly Athletics and A&C limit', () => {
+    const judaics = sampleSchedule();
+    put(judaics, ['O1', 'S1'], [S(1, 0)], 'Judaics');
+    expect(has(state(judaics), 1, 'H14')).toBe(true);
+    const both = sampleSchedule();
+    put(both, ['O1'], [S(1, 0)], 'Judaics');
+    put(both, ['S1'], [S(1, 0)], 'Israel'); // Judaics and Israel may run in the same period
+    expect(has(state(both), 1, 'H14')).toBe(false);
+    expect(has(state(both), 1, 'H13')).toBe(false);
+    const four = sampleSchedule();
+    put(four, ['O1', 'C1', 'S1', 'M1'], [S(1, 0)], 'Athletics');
+    expect(has(state(four), 1, 'H14')).toBe(true);
+    const three = sampleSchedule();
+    put(three, ['O1', 'C1', 'S1'], [S(1, 0)], 'Athletics'); // any three bunks may be at Athletics
+    expect(has(state(three), 1, 'H14')).toBe(false);
+    expect(has(state(three), 1, 'H13')).toBe(false);
+    const day = sampleSchedule();
+    put(day, ['O1'], [S(1, 0)], 'Yoga');
+    put(day, ['O2'], [S(1, 2)], 'Yoga'); // two O bunks at Yoga in one day, and the most is 1
+    expect(has(state(day), 1, 'H15')).toBe(true);
+    const week = sampleSchedule();
+    for (const d of [0, 1, 2]) put(week, ['O1'], [S(d, 0)], 'A&C');
+    expect(validateWeek(state(week), 1, 4).some((v) => v.rule === 'H15' && v.message.includes('3 A&C blocks'))).toBe(true);
   });
 
   it('H11: hobbies must be camp-wide, on the right periods, and follow the calendar', () => {

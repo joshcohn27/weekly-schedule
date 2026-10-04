@@ -4,7 +4,8 @@ import { emptySchedule, newBunk, sampleSchedule } from '../sample';
 import type { WeeksState } from '../types';
 import { blocksOf, buildHistory, villageWeeksWithLabel } from './history';
 import { mulberry32, shuffle, weightedSample } from './rng';
-import { buildRoster, parseAge, shareLevel } from './roster';
+import { buildRoster, isSameAgeGroup, parseAge, shareLevel } from './roster';
+import { OPEN, STRICT, groupBreaks, slotGroupProblems } from './share';
 
 describe('rng', () => {
   it('is deterministic per seed and differs between seeds', () => {
@@ -113,6 +114,100 @@ describe('activities', () => {
   it('has the three week-4 labels, all uncounted in tracking', () => {
     for (const label of ['Hobby Culmination', 'Packing Time', 'Banquet Prep']) {
       expect(ACTIVITIES.find((a) => a.label === label)?.area).toBeNull();
+    }
+  });
+});
+
+describe('who may share a period and an area', () => {
+  const grades: [string, string][] = [
+    ['O1', '4th'], ['O2', '4th/5th'], ['O3', '5th'], ['O4', '5th/6th'],
+    ['C1', '4th'], ['C2', '5th'], ['C3', '5th'],
+    ['S1', '7th'], ['S2', '7th/8th'], ['S3', '8th/9th'],
+    ['M1', '7th/8th'], ['M2', '8th'], ['M3', '8th/9th'],
+    ['T1', '10th'], ['T2', '10th'], ['T3', '10th'],
+  ];
+  const r = buildRoster(grades.map(([name, grade]) => newBunk(name, grade, '12')));
+  const i = (name: string): number => r.names.indexOf(name);
+  const level = (a: string, b: string, area: string) => shareLevel(r, i(a), i(b), area);
+  const problems = (area: string, names: string[], ordinals: number[] = names.map(() => 1), relax = OPEN) =>
+    slotGroupProblems(r, area, names.map(i), (b) => ordinals[names.map(i).indexOf(b)], relax).map((p) => p.rule);
+
+  it('only lets neighbours in a village share', () => {
+    for (const area of ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Ropes', 'Pool']) {
+      expect(level('O1', 'O4', area), area).toBe(0);
+      expect(level('O4', 'M2', area), area).toBe(0);
+      expect(level('C2', 'C3', area), area).toBe(2);
+    }
+  });
+
+  it('lets O share with C and S with M only within the grade rule, never at Ropes, and O with C never at the pool', () => {
+    expect(level('O1', 'C1', 'Music')).toBe(2);
+    expect(level('O1', 'C2', 'Music')).toBe(1); // a grade apart: allowed, not preferred
+    expect(level('O1', 'C1', 'Ropes')).toBe(0);
+    expect(level('O1', 'C1', 'Pool')).toBe(0);
+    expect(level('O1', 'C1', 'Yoga')).toBe(0);
+    expect(level('O1', 'S1', 'Athletics')).toBe(0);
+    expect(level('S1', 'M2', 'Athletics')).toBe(1);
+    expect(level('S1', 'M3', 'Athletics')).toBe(0);
+  });
+
+  it('lets S and M share the pool only at the same age', () => {
+    expect(level('S1', 'M1', 'Pool')).toBeGreaterThan(0); // 7th with 7th/8th
+    expect(level('S1', 'M2', 'Pool')).toBe(0); // 7th with 8th
+    expect(level('S2', 'M3', 'Pool')).toBe(0); // 7th/8th with 8th/9th
+  });
+
+  it('lets any Tusc bunks share, and Tusc with nobody else', () => {
+    expect(level('T1', 'T3', 'Music')).toBe(2);
+    expect(level('T1', 'S3', 'Athletics')).toBe(0);
+  });
+
+  it('Athletics: any two or three bunks on any visit, never four', () => {
+    expect(problems('Athletics', ['O1', 'S1', 'T1'])).toEqual([]);
+    expect(problems('Athletics', ['C2', 'C3'], [1, 2])).toEqual([]);
+    expect(problems('Athletics', ['O1', 'O2', 'S1', 'T1'])).toEqual(['H14']);
+  });
+
+  it('A&C: a pair that may share or three of the same age, always on the same visit', () => {
+    expect(problems('A&C', ['C2', 'C3'])).toEqual([]);
+    expect(problems('A&C', ['C2', 'C3'], [1, 2])).toEqual(['H5']);
+    expect(problems('A&C', ['O1', 'O4'])).toEqual(['H13']);
+    expect(isSameAgeGroup(r, ['O2', 'O3', 'C2'].map(i))).toBe(true);
+    expect(problems('A&C', ['O2', 'O3', 'C2'])).toEqual([]);
+    expect(problems('A&C', ['O2', 'O3', 'C2'], [2, 2, 3])).toEqual(['H5']);
+    expect(problems('A&C', ['O1', 'O3', 'C2'])).toEqual(['H13']); // 4th with 5th is not the same age
+    expect(problems('A&C', ['O2', 'O3', 'C2', 'C3'])).toEqual(['H14']);
+  });
+
+  it('one bunk at a time at Judaics, Israel, Yoga and Ceramics; two of one village at Time with UH', () => {
+    for (const area of ['Judaics', 'Israel Education', 'Yoga', 'Ceramics']) expect(problems(area, ['C2', 'C3']), area).toEqual(['H14']);
+    expect(problems('TW UH', ['O1', 'O4'])).toEqual([]);
+    expect(problems('TW UH', ['O1', 'C1'])).toEqual(['H13']);
+    expect(problems('TW UH', ['O1', 'O2', 'O3'])).toEqual(['H14']);
+  });
+
+  it('Ropes: neighbours of one village, and three in a row only as a last resort', () => {
+    expect(problems('Ropes', ['O1', 'O2'])).toEqual([]);
+    expect(problems('Ropes', ['O1', 'C1'])).toEqual(['H13']);
+    expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1], OPEN)).toEqual([]);
+    expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1], STRICT)).toEqual(['H13']);
+  });
+
+  it('counts breaks the same way the search does', () => {
+    const rng = mulberry32(5);
+    for (let k = 0; k < 4000; k++) {
+      const area = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Yoga', 'Judaics', 'TW UH', 'Ropes'][Math.floor(rng() * 9)];
+      const size = 2 + Math.floor(rng() * 3);
+      const group: number[] = [];
+      while (group.length < size) {
+        const b = Math.floor(rng() * r.n);
+        if (!group.includes(b)) group.push(b);
+      }
+      const ord = group.map(() => 1 + Math.floor(rng() * 2));
+      const ordinal = (b: number): number => ord[group.indexOf(b)];
+      for (const relax of [OPEN, STRICT]) {
+        expect(groupBreaks(r, area, group, ordinal, relax), `${area} ${group.join(',')} ${ord.join(',')}`).toBe(slotGroupProblems(r, area, group, ordinal, relax).length);
+      }
     }
   });
 });

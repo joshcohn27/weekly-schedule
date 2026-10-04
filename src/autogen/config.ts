@@ -156,7 +156,7 @@ export const RARE_MT_MAX_SHORT_PER_BUNK = 1;
 export const GAP_MAX_OCS = 1;
 export const GAP_MAX_MT = 2;
 /** Before the last week of a session a gap can still be levelled out, so it may go this much past the limit. */
-export const GAP_SLACK_BEFORE_LAST_WEEK = 1;
+export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
 /** Attempts (counted over the whole search) made before three consecutive bunks of one village may share Ropes. */
 export const TRIO_AFTER = 64;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
