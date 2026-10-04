@@ -111,10 +111,10 @@ export function expectedSpare(c: Ctx, b: number, week: number): number {
   if (week === 1) free -= 1; // Sunday swim test, or Mohawk's Athletics
   if (v === 'T') free -= last ? 0 : LEAGUE_PER_WEEK + 1; // triathlon: one double and two singles
   else free -= v === 'M' ? LEAGUE_PER_WEEK * 2 : LEAGUE_PER_WEEK;
-  free -= last ? WATERFRONT_PER_WEEK * 1.5 : WATERFRONT_PER_WEEK * 2;
+  free -= last ? WATERFRONT_PER_WEEK : WATERFRONT_PER_WEEK * 2; // the short last week has room for about one Waterfront each
   if ((SHABBAT_ROTATION[c.sessionWeeks][week] ?? []).includes(v)) free -= 3;
   free -= tripCells(c, b, week);
-  return free - upkeep;
+  return free - upkeep + (last ? 1 : 0); // Ropes are done before the last week
 }
 
 /** A week with (almost) no room gets no share, so what a bunk needs is done in the weeks that have room. */

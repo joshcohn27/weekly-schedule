@@ -93,6 +93,10 @@ export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 2, 'A&C': 2 }
 
 /** Total campers at the pool in one period, except a whole village. */
 export const POOL_MAX_CAMPERS = 80;
+/** When a week has more than this many leftover bunk-periods per period, villages get a second Pool block. */
+export const EXTRA_POOL_ABOVE = 3.5;
+/** Most times a bunk swims in one week. */
+export const POOL_MAX_PER_WEEK = 2;
 /** An O or C bunk's first this many regular Pool blocks are lessons, one bunk alone. The Swim Test is not a lesson. */
 export const POOL_LESSONS = 2;
 
@@ -136,7 +140,7 @@ export const DEFAULT_CAMPERS = 12;
 /** Most randomized attempts per generate; the lowest-scoring valid one wins. */
 export const ATTEMPTS = 40;
 /** DEFAULT: stop early once this many attempts came out with no rule breaks, to keep generating fast. */
-export const ENOUGH_VALID_ATTEMPTS = 3;
+export const ENOUGH_VALID_ATTEMPTS = 1;
 
 // ---- Quality: when is a generated week good enough to hand back? ------------------------------
 
@@ -152,7 +156,7 @@ export const RARE_MT_MAX_SHORT_PER_BUNK = 1;
 export const GAP_MAX_OCS = 1;
 export const GAP_MAX_MT = 2;
 /** Before the last week of a session a gap can still be levelled out, so it may go this much past the limit. */
-export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
+export const GAP_SLACK_BEFORE_LAST_WEEK = 1;
 /** Attempts (counted over the whole search) made before three consecutive bunks of one village may share Ropes. */
 export const TRIO_AFTER = 64;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
@@ -162,9 +166,11 @@ export const SYNC_MAX_MS = 10000;
 export const FILL_MAX_STEPS = 6000;
 export const FILL_POLISH_STEPS = 150;
 /** The fill search gives up on an attempt after this many steps without getting any closer. */
-export const FILL_STALL_STEPS = 1500;
+export const FILL_STALL_STEPS = 500;
+/** A period the fill search just changed is left alone for about this many steps. */
+export const FILL_REST_STEPS = 8;
 /** Chance the fill search takes its best move even when it does not help, to get out of a dead end. */
-export const FILL_NOISE = 0.08;
+export const FILL_NOISE = 0.25;
 
 export const HOBBY_WED_PM_PROBABILITY = 0.65; // otherwise Tuesday AM
 export const HOBBY_SUNDAY_PROBABILITY = 0.2;

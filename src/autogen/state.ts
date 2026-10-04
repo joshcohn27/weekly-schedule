@@ -47,6 +47,8 @@ export interface Ctx {
   missing: string[];
   /** Rare-area blocks planned but not placed this week. They carry over to later weeks. */
   carried: { bunk: number; area: string }[];
+  /** Bunks whose weekly Music could not fit under their village's day cap. They are not held against the week. */
+  excused: number[];
   /** Which last-resort groupings this attempt may use. */
   relax: Relax;
   /** Program areas each bunk already has on each day (bit flags), kept in step with the grid by put(). */

@@ -4,16 +4,18 @@ import {
   FILL_MAX_STEPS,
   FILL_NOISE,
   FILL_POLISH_STEPS,
+  FILL_REST_STEPS,
   FILL_STALL_STEPS,
   FLEXIBLE_VILLAGES,
   GAP_MAX_MT,
   GAP_MAX_OCS,
+  GAP_SLACK_BEFORE_LAST_WEEK,
   SLOT_CAP,
   UH_MAX_PER_SESSION,
   WEEK_BLOCK_MAX,
   WEIGHTS,
 } from './config';
-import { SLOTS, blocksOf, dayOf } from './history';
+import { SLOTS, dayOf } from './history';
 import { TOKEN_AREAS, TOKEN_LABEL, inWeekCount, sessionTargetOf, type Plan } from './planner';
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
@@ -75,11 +77,48 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
     }
   }
 
+  fitToVillageDays(c, tok, free);
+
   const search = new FillSearch(c, free);
   search.seed(tok);
   const clean = search.run();
   c.dayMask = buildDayMasks(c.grid);
   return clean;
+}
+
+/**
+ * A village may only have so many bunks at an area in one day. When its bunks are free on too few days for all of them
+ * (Mohawk around its Tiyul, Tusc back from the bike trip), the blocks that cannot fit are put off instead of being forced in.
+ * Music that cannot fit is excused for the week.
+ */
+function fitToVillageDays(c: Ctx, tok: Record<string, number>[], free: number[][]): void {
+  for (const v of c.roster.villages) {
+    const members = c.roster.byVillage[v];
+    for (const area of TOKEN_AREAS) {
+      const cap = DAY_CAP[area];
+      if (cap === undefined) continue;
+      const used = [0, 0, 0, 0, 0, 0];
+      // days the village already has bunks at this area (placed by hand)
+      for (const b of members) for (let day = 0; day < 6; day++) if ([0, 1, 2, 3].some((p) => areaOf(c.grid[b][day * 4 + p]) === area)) used[day]++;
+      const daysOf = (b: number): number[] => [...new Set(free[b].map(dayOf))].filter((day) => ![0, 1, 2, 3].some((p) => areaOf(c.grid[b][day * 4 + p]) === area));
+      const want = shuffle(c.rng, members.filter((b) => (tok[b][area] ?? 0) > 0)).sort((x, y) => daysOf(x).length - daysOf(y).length);
+      for (const b of want) {
+        const mine = new Set<number>();
+        for (let k = 0; k < tok[b][area]; k++) {
+          const day = daysOf(b).filter((d) => !mine.has(d) && used[d] < cap).sort((x, y) => used[x] - used[y])[0];
+          if (day === undefined) {
+            tok[b][area] -= tok[b][area] - k;
+            c.unmet++;
+            if (area === 'Music') c.excused.push(b);
+            else c.carried.push({ bunk: b, area });
+            break;
+          }
+          mine.add(day);
+          used[day]++;
+        }
+      }
+    }
+  }
 }
 
 interface Move {
@@ -98,6 +137,9 @@ class FillSearch {
   private readonly badGroup: boolean[][];
   private readonly badCap: Record<string, boolean[][]> = {};
   private readonly badRow: boolean[];
+  /** A cell that was just changed is left alone until this step, so the search does not undo itself. */
+  private readonly restUntil: number[][];
+  private step = 0;
   private readonly allowedGap: number[];
   private readonly base: { ath: number; ac: number; uh: number }[];
 
@@ -109,7 +151,9 @@ class FillSearch {
     this.badGroup = Array.from({ length: SLOTS }, () => Array<boolean>(SHARED.length).fill(false));
     for (const v of c.roster.villages) this.badCap[v] = Array.from({ length: 6 }, () => Array<boolean>(SHARED.length).fill(false));
     this.badRow = Array<boolean>(c.roster.n).fill(false);
-    this.allowedGap = c.roster.village.map((v) => (FLEXIBLE_VILLAGES.includes(v) ? GAP_MAX_MT : GAP_MAX_OCS));
+    this.restUntil = c.grid.map(() => Array<number>(SLOTS).fill(0));
+    const slack = c.weekIndex >= c.sessionWeeks ? 0 : GAP_SLACK_BEFORE_LAST_WEEK; // a gap can still be levelled out in a later week
+    this.allowedGap = c.roster.village.map((v) => (FLEXIBLE_VILLAGES.includes(v) ? GAP_MAX_MT : GAP_MAX_OCS) + slack);
     const other = (b: number, area: string): number => (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0);
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));
   }
@@ -221,34 +265,36 @@ class FillSearch {
   private rowCost(b: number): number {
     const c = this.c;
     const row = this.grid[b];
-    const village = c.roster.village[b];
+    const locked = c.locked[b];
+    const fixedAthletics = c.weekIndex === 1 && c.roster.village[b] === 'M';
     let cost = 0;
     let ath = 0;
     let ac = 0;
     let uh = 0;
     let athWeek = 0;
     let acWeek = 0;
-    const blocks = blocksOf(row);
+    const today: string[] = [];
     for (let day = 0; day < 6; day++) {
-      const today = blocks.filter((k) => k.day === day);
-      if (today.some((k) => k.label === 'Bike Trip')) continue;
-      const seen: Record<string, number> = {};
-      for (const k of today) {
-        if (!k.area || c.locked[b][k.start]) continue;
-        seen[k.area] = (seen[k.area] ?? 0) + 1;
-        if (seen[k.area] > 1) cost += HARD;
-      }
-    }
-    for (const k of blocks) {
-      if (k.area === 'TW UH') uh++;
-      if (k.area !== 'Athletics' && k.area !== 'A&C') continue;
-      const counted = !c.locked[b][k.start] && !isFixedMohawkAthletics(c.weekIndex, village, k.start, k.label);
-      if (k.area === 'Athletics') {
-        ath++;
-        if (counted) athWeek++;
-      } else {
-        ac++;
-        if (counted) acWeek++;
+      const first = day * 4;
+      const trip = row[first] === 'Bike Trip' || row[first + 1] === 'Bike Trip' || row[first + 2] === 'Bike Trip' || row[first + 3] === 'Bike Trip';
+      today.length = 0;
+      for (let s = first; s < first + 4; s++) {
+        const label = row[s];
+        if (label === '' || (s > first && row[s - 1] === label)) continue; // only the start of a block
+        const area = areaOf(label);
+        if (!area) continue;
+        if (!trip && !locked[s]) {
+          if (today.includes(area)) cost += HARD;
+          else today.push(area);
+        }
+        if (area === 'TW UH') uh++;
+        else if (area === 'Athletics') {
+          ath++;
+          if (!locked[s] && !(fixedAthletics && s === 3)) athWeek++;
+        } else if (area === 'A&C') {
+          ac++;
+          if (!locked[s]) acWeek++;
+        }
       }
     }
     cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']));
@@ -316,16 +362,19 @@ class FillSearch {
     const row = this.grid[b];
     const here = row[s];
     const moves: Move[] = [];
-    for (const j of this.cells[b]) if (j !== s && row[j] !== here) moves.push({ cells: [s, j], labels: [row[j], here] });
+    const resting = this.restUntil[b];
+    for (const j of this.cells[b]) if (j !== s && row[j] !== here && resting[j] <= this.step) moves.push({ cells: [s, j], labels: [row[j], here] });
     if (LEFTOVER.includes(here)) for (const to of LEFTOVER) if (to !== here) moves.push({ cells: [s], labels: [to] });
     let best: { move: Move; delta: number } | null = null;
-    for (const move of moves) {
+    for (const move of shuffle(this.c.rng, moves)) {
       const areas = this.areasOf(b, move);
       const before = this.localCost(b, move.cells, areas);
       const old = this.apply(b, move);
       const delta = this.localCost(b, move.cells, areas) - before + this.c.rng() * 0.01;
       this.apply(b, { cells: move.cells, labels: old });
+      if (resting[s] > this.step && delta > -HARD / 2) continue; // a cell that just moved only moves again to fix a break
       if (!best || delta < best.delta) best = { move, delta };
+      if (delta <= -HARD / 2) break; // it fixes a rule break: good enough, take it
     }
     return best;
   }
@@ -337,12 +386,14 @@ class FillSearch {
       const areas = this.areasOf(b, move);
       this.apply(b, move);
       this.sync(b, move.cells, areas);
+      for (const x of move.cells) this.restUntil[b][x] = this.step + FILL_REST_STEPS + Math.floor(c.rng() * FILL_REST_STEPS);
     };
     this.syncAll();
     let clean = false;
     let fewest = Infinity;
     let fewestAt = 0;
     for (let step = 0; step < FILL_MAX_STEPS; step++) {
+      this.step = step;
       const bad: [number, number][] = [];
       for (let b = 0; b < this.n; b++) for (const s of this.cells[b]) if (this.broken(b, s)) bad.push([b, s]);
       if (bad.length === 0) {
@@ -355,8 +406,10 @@ class FillSearch {
       } else if (step - fewestAt > FILL_STALL_STEPS) break;
       const [b, s] = bad[Math.floor(c.rng() * bad.length)];
       const best = this.bestMove(b, s);
-      if (best && (best.delta < -0.5 || c.rng() < FILL_NOISE)) take(b, best.move);
+      // take the best move even when it does not help (a sideways step always, a step back sometimes): the rest rule keeps it from going in circles
+      if (best && (best.delta < 0.5 || c.rng() < FILL_NOISE)) take(b, best.move);
     }
+    this.step = Infinity;
     for (let step = 0; clean && step < FILL_POLISH_STEPS; step++) {
       const b = Math.floor(c.rng() * this.n);
       if (this.cells[b].length === 0) continue;

@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { AGE_ALLOWED, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
+import { AGE_ALLOWED, EXTRA_POOL_ABOVE, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
 import { ropeGroups } from './groups';
 import { blocksOf, halfSlots, slotAt } from './history';
 import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
@@ -400,9 +400,8 @@ function seniorPoolGroups(c: Ctx, wanted: Set<number>): number[][] {
  * Who goes to the pool together this week. O and C bunks on their first two regular Pool blocks are lessons, one bunk alone;
  * after that a run of one village's bunks on the same time, up to the whole village (O and C never mix). Tusc always goes as one.
  */
-function poolUnits(c: Ctx, plan: Plan): number[][] {
+function poolUnits(c: Ctx, wanted: Set<number>): number[][] {
   const r = c.roster;
-  const wanted = new Set(plan.Pool.map((k, b) => (k > 0 ? b : -1)).filter((b) => b >= 0));
   const units: number[][] = [];
   for (const v of r.villages) {
     const members = r.byVillage[v].filter((b) => wanted.has(b));
@@ -466,11 +465,12 @@ function splitPoolUnits(c: Ctx, units: number[][]): number[][] {
   return out;
 }
 
-export function placePool(c: Ctx, plan: Plan): void {
+/** Give each pool group a period: one group at the pool at a time, and never while the Swim Test or Tusc training is on. */
+function placePoolUnits(c: Ctx, units: number[][], extra: boolean): void {
   const names = (unit: number[]): string => unit.map((b) => c.roster.names[b]).join(' and ');
   placeMostConstrainedFirst<number>(
     c,
-    shuffle(c.rng, splitPoolUnits(c, poolUnits(c, plan))),
+    shuffle(c.rng, units),
     (unit) => {
       const out: { value: number; score: number }[] = [];
       for (const day of c.days) {
@@ -479,7 +479,7 @@ export function placePool(c: Ctx, plan: Plan): void {
         for (let p = 0; p < 4; p++) {
           const s = slotAt(day, p);
           if (!unit.every((b) => isFree(c, b, s))) continue;
-          if (poolLoad(c, s).count > 0) continue; // one group at the pool per period, and none while the Swim Test or Tusc training is on
+          if (poolLoad(c, s).count > 0) continue;
           out.push({ value: s, score: c.rng() + 0.25 * poolToday + 0.4 * leftover(c, unit, day, 1) - BUSY_WEIGHT * busyness(c, [s]) });
         }
       }
@@ -488,6 +488,35 @@ export function placePool(c: Ctx, plan: Plan): void {
     (unit, slot) => {
       for (const b of unit) put(c, b, [slot], 'Pool');
     },
-    (unit) => `Pool for ${names(unit)} could not be placed this week.`,
+    (unit) => `${extra ? 'A second Pool' : 'Pool'} for ${names(unit)} could not be placed this week.`,
+    extra ? 'Pool' : undefined, // a second swim that does not fit is simply not given
   );
+}
+
+export function placePool(c: Ctx, plan: Plan): void {
+  const wanted = new Set(plan.Pool.map((k, b) => (k > 0 ? b : -1)).filter((b) => b >= 0));
+  placePoolUnits(c, splitPoolUnits(c, poolUnits(c, wanted)), false);
+}
+
+/**
+ * A crowded week has more empty periods than Athletics, A&C and Time with UH can take. Pool may always be given a second
+ * time in a week, so while the week is crowded a village at a time gets a second swim, the whole village together where it can.
+ * O and C bunks only once their lessons are behind them.
+ */
+export function placeExtraPool(c: Ctx, plan: Plan): void {
+  const tokens = (b: number): number => TOKEN_AREAS.reduce((sum, a) => sum + plan[a][b], 0);
+  const crowding = (): number => {
+    let periods = 0;
+    for (const s of ALL_SLOTS) if (fillable(c, s) && c.grid.some((row) => row[s] === '')) periods++;
+    let left = 0;
+    for (let b = 0; b < c.roster.n; b++) left += Math.max(0, ALL_SLOTS.filter((s) => fillable(c, s) && isFree(c, b, s)).length - tokens(b));
+    return periods > 0 ? left / periods : 0;
+  };
+  for (const v of shuffle(c.rng, c.roster.villages)) {
+    if (crowding() <= EXTRA_POOL_ABOVE) return;
+    const members = idx(c, v);
+    if ((v === 'O' || v === 'C') && members.some((b) => (c.hist[b].earlierLabels.Pool ?? 0) < POOL_LESSONS)) continue;
+    if (members.some((b) => inWeekCount(c, b, 'Pool') !== 1)) continue;
+    placePoolUnits(c, splitPoolUnits(c, poolUnits(c, new Set(members))), true);
+  }
 }

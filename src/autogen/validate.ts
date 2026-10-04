@@ -4,6 +4,7 @@ import {
   DAY_CAP,
   POOL_LESSONS,
   POOL_MAX_CAMPERS,
+  POOL_MAX_PER_WEEK,
   SHABBAT_ROTATION,
   TRIP_LABELS,
   VILLAGE_LEVEL_LABELS,
@@ -253,12 +254,12 @@ export function validateGrid(input: ValidationInput): Violation[] {
     const ords = pool.map((b) => ordinalAt(grid[b], hist[b].earlier, s));
     if (ords.some((o) => o !== ords[0])) add('H5', `${names} are at the pool together on ${where(s)} on different times (${ords.join(', ')}).`, pool[0], s);
   }
-  // H16: every O and C bunk swims exactly once a week, at the pool or with the Swim Test
+  // H16: every O and C bunk swims every week, at the pool or with the Swim Test, and nobody more than twice
   for (let b = 0; b < n; b++) {
     if (roster.village[b] !== 'O' && roster.village[b] !== 'C') continue;
     const swims = blocks[b].filter((k) => k.label === 'Pool' || k.label === 'Swim Test');
-    if (swims.length !== 1 && !swims.some((k) => lockedAny(b, k.start, k.len)) && !(weekIsLocked(b))) {
-      add('H16', `${roster.names[b]} swims ${swims.length} times this week, and it should be once.`, b);
+    if ((swims.length < 1 || swims.length > POOL_MAX_PER_WEEK) && !swims.some((k) => lockedAny(b, k.start, k.len)) && !(weekIsLocked(b))) {
+      add('H16', `${roster.names[b]} swims ${swims.length} times this week, and it should be once or twice.`, b);
     }
   }
 

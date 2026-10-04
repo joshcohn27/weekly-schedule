@@ -3,7 +3,7 @@ import { placeCalendar, planCalendar } from './calendar';
 import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
-import { placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
+import { placeExtraPool, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_LABEL, planWeek, sessionTargetOf, type TokenArea } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
@@ -152,6 +152,7 @@ class WeekSearch {
         unmet: 0,
         missing: [],
         carried: [],
+        excused: [],
         relax: { trio: round * ATTEMPTS + attempt >= TRIO_AFTER },
         dayMask: buildDayMasks(start),
         days: [0, 1, 2, 3, 4, 5].filter((d) => !(lastWeek && d === 5)),
@@ -164,6 +165,7 @@ class WeekSearch {
       placeTri(c);
       placeRopes(c, plan);
       placePool(c, plan);
+      placeExtraPool(c, plan);
       fillFlexible(c, plan);
       relabelRopes(c);
 
@@ -177,6 +179,7 @@ class WeekSearch {
         locked,
         missing: c.missing,
         carried: c.carried,
+        musicExcused: c.excused,
       });
       // rule breaks first, then anything not acceptable, then the small stuff, then the soft preferences
       const score = quality.hard.length * 1e6 + quality.major.length * 1e4 + quality.minor.length * 50 + softScore(c);

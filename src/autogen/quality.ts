@@ -50,6 +50,8 @@ export interface QualityInput {
   missing?: string[];
   /** Rare-area blocks planned but not placed this week (they carry over unless this is the last week). */
   carried?: { bunk: number; area: string }[];
+  /** Bunks whose Music could not fit under their village's day cap this week. */
+  musicExcused?: number[];
 }
 
 export const isBad = (q: WeekQuality): boolean => q.hard.length > 0 || q.major.length > 0;
@@ -77,7 +79,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
 
   // Music every week, for every bunk
   const away = (b: number): boolean => grid[b].filter((l) => TRIP_LABELS.includes(l)).length >= AWAY_PERIODS_NO_MUSIC;
-  for (let b = 0; b < n; b++) if (count(b, 'Music') < MUSIC_PER_WEEK && !away(b)) major.push(`${roster.names[b]} has no Music this week.`);
+  for (let b = 0; b < n; b++) if (count(b, 'Music') < MUSIC_PER_WEEK && !away(b) && !input.musicExcused?.includes(b)) major.push(`${roster.names[b]} has no Music this week.`);
 
   for (const v of roster.villages) {
     const f = first(v);
