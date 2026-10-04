@@ -1,3 +1,4 @@
+import { isDefaultSettings, normalizeSettings } from './autogen/settings';
 import { DAYS, SLOT_COUNT, WEEK_COUNT } from './config';
 import { emptyDay, sampleSchedule, uid } from './sample';
 import type { Bunk, DayInfo, Schedule, WeeksState } from './types';
@@ -41,7 +42,8 @@ export function normalizeWeeksState(raw: unknown): WeeksState | null {
 
   const weeks: (Schedule | null)[] = Array.from({ length: WEEK_COUNT }, (_, i) => normalize(rawWeeks[i]));
   const current = typeof obj.current === 'number' && obj.current >= 0 && obj.current < WEEK_COUNT ? obj.current : 0;
-  return { weeks, current };
+  const settings = normalizeSettings((raw as { settings?: unknown }).settings);
+  return isDefaultSettings(settings) ? { weeks, current } : { weeks, current, settings };
 }
 
 export function loadWeeks(): WeeksState | null {

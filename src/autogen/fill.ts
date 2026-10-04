@@ -29,9 +29,8 @@ import { ALL_SLOTS, buildDayMasks, fillable, isFree, type Ctx } from './state';
 
 // Areas that may fall a block short when a bunk has no room. Music is only ever dropped as a last resort.
 const MAY_FALL_SHORT = ['TW UH', 'Yoga', 'Ceramics', 'Teva', 'Dance', 'Israel Education', 'Judaics'];
-/** What a leftover period may be. Yoga, Ceramics and Judaics only up to SESSION_FILLER_MAX a session. */
-const LEFTOVER = ['Athletics', 'A&C', 'Time with UH', 'Music', 'Yoga', 'Ceramics', 'Judaics'];
-const FILLERS = Object.keys(SESSION_FILLER_MAX);
+/** What a leftover period may always be. The areas in SESSION_FILLER_MAX may fill one too, up to that many a session. */
+const LEFTOVER_ALWAYS = ['Athletics', 'A&C', 'Time with UH', 'Music'];
 /** Does the row have this program area on this day? A day off either end of the week has nothing. */
 const has = (row: readonly string[], day: number, area: string): boolean =>
   day >= 0 && day < 6 && (areaOf(row[day * 4]) === area || areaOf(row[day * 4 + 1]) === area || areaOf(row[day * 4 + 2]) === area || areaOf(row[day * 4 + 3]) === area);
@@ -156,6 +155,9 @@ class FillSearch {
   private fillerPlanned: number[][] = [];
   /** How many of each filler area each bunk has in the other weeks. */
   private readonly fillerBase: number[][];
+  /** The areas that may fill a leftover period this run (they come from the settings), and every label a leftover period may be. */
+  private readonly fillers: string[];
+  private readonly leftover: string[];
   private step = 0;
   private readonly allowedGap: number[];
   private readonly flexible: boolean[];
@@ -191,7 +193,9 @@ class FillSearch {
     });
     this.allowedGap = c.roster.village.map((v) => (FLEXIBLE_VILLAGES.includes(v) ? GAP_MAX_MT : GAP_MAX_OCS) + slack + c.stretch);
     const other = (b: number, area: string): number => (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0);
-    this.fillerBase = c.grid.map((_, b) => FILLERS.map((a) => other(b, a)));
+    this.fillers = Object.keys(SESSION_FILLER_MAX).filter((a) => (TOKEN_AREAS as readonly string[]).includes(a) && a !== 'Music' && a !== 'TW UH');
+    this.leftover = [...LEFTOVER_ALWAYS, ...this.fillers.map(labelOf)];
+    this.fillerBase = c.grid.map((_, b) => this.fillers.map((a) => other(b, a)));
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));
   }
 
@@ -199,7 +203,7 @@ class FillSearch {
   seed(tok: Record<string, number>[]): void {
     const c = this.c;
     this.musicPlanned = tok.map((t) => (t.Music ?? 0) > 0);
-    this.fillerPlanned = tok.map((t) => FILLERS.map((a) => t[a] ?? 0));
+    this.fillerPlanned = tok.map((t) => this.fillers.map((a) => t[a] ?? 0));
     const at = (s: number, label: string): number => this.grid.reduce((k, row) => k + (row[s] === label ? 1 : 0), 0);
     for (const b of shuffle(c.rng, Array.from({ length: this.n }, (_, i) => i))) {
       const row = this.grid[b];
@@ -319,8 +323,8 @@ class FillSearch {
     let athWeek = 0;
     let acWeek = 0;
     let music = 0;
-    const fillers = FILLERS.map(() => 0);
-    const fillersOwn = FILLERS.map(() => 0);
+    const fillers = this.fillers.map(() => 0);
+    const fillersOwn = this.fillers.map(() => 0);
     const today: string[] = [];
     // the areas the search places that the bunk has today and had the day before, and which of them the search may move
     let before: string[] = [];
@@ -362,7 +366,7 @@ class FillSearch {
         }
         // Athletics on the bunk's Athletics days and A&C on the others
         if (!locked[s] && ((area === 'A&C' && athleticsToday) || (area === 'Athletics' && !athleticsToday && !(fixedAthletics && s === 3)))) cost += HARD;
-        const filler = FILLERS.indexOf(area);
+        const filler = this.fillers.indexOf(area);
         if (filler >= 0) {
           fillers[filler]++;
           if (!locked[s]) fillersOwn[filler]++;
@@ -389,10 +393,10 @@ class FillSearch {
     // no bunk goes without A&C: one that has had none yet gets it before any leftover period goes to Athletics or Time with UH
     if (this.base[b].ac + ac === 0 && (athWeek > 0 || uhOwn > 0)) cost += WEIGHTS.gapOver;
     if (this.musicPlanned[b] && music === 0) cost += HARD; // the week's own Music is never given up
-    for (let k = 0; k < FILLERS.length; k++) {
+    for (let k = 0; k < this.fillers.length; k++) {
       // a planned Yoga or Ceramics stays; one more may fill a period, up to the most a session allows
       cost += HARD * Math.max(0, this.fillerPlanned[b][k] - fillers[k]);
-      cost += HARD * Math.min(fillersOwn[k], Math.max(0, this.fillerBase[b][k] + fillers[k] - SESSION_FILLER_MAX[FILLERS[k]]));
+      cost += HARD * Math.min(fillersOwn[k], Math.max(0, this.fillerBase[b][k] + fillers[k] - SESSION_FILLER_MAX[this.fillers[k]]));
       cost += WEIGHTS.fillerExtra * Math.max(0, fillers[k] - this.fillerPlanned[b][k]);
     }
     cost += WEIGHTS.musicExtra * Math.max(0, music - 1);
@@ -464,7 +468,7 @@ class FillSearch {
     const moves: Move[] = [];
     const resting = this.restUntil[b];
     for (const j of this.cells[b]) if (j !== s && row[j] !== here && resting[j] <= this.step) moves.push({ cells: [s, j], labels: [row[j], here] });
-    if (LEFTOVER.includes(here)) for (const to of LEFTOVER) if (to !== here) moves.push({ cells: [s], labels: [to] });
+    if (this.leftover.includes(here)) for (const to of this.leftover) if (to !== here) moves.push({ cells: [s], labels: [to] });
     let best: { move: Move; delta: number } | null = null;
     // every move is tried and taken back: the bunk's tables are copied once and put back, which is cheaper than recounting
     const ord = this.ord[b];

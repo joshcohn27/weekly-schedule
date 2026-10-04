@@ -1,3 +1,5 @@
+import type { Settings } from './autogen/settings';
+
 export interface Bunk {
   id: string;
   name: string;
@@ -28,6 +30,8 @@ export interface Schedule {
 export interface WeeksState {
   weeks: (Schedule | null)[];
   current: number;
+  /** The numbers Auto generate works with, when they are not the defaults. */
+  settings?: Settings;
 }
 
 /** A rectangle of the schedule grid that displays as one merged cell. */

@@ -5,7 +5,6 @@ import {
   FLEXIBLE_LATER_WEEK_SHARE,
   FLEXIBLE_VILLAGES,
   DANCE_TARGETS,
-  DANCE_TARGET_OTHER,
   LEAGUE_PER_WEEK,
   LAST_WEEK_SHARE,
   LATER_WEEKS_NEGLIGIBLE,
@@ -55,7 +54,7 @@ export function musicDue(v: string, pos: number, weekIndex: number): boolean {
 
 /** How many blocks of an area a bunk should have over the whole session (Music and some Pool targets are weekly). */
 export function sessionTargetOf(v: string, sessionWeeks: number, area: string): number {
-  if (area === 'Dance') return DANCE_TARGETS[v] ?? DANCE_TARGET_OTHER;
+  if (area === 'Dance') return DANCE_TARGETS[v] ?? DANCE_TARGETS['*'];
   if (area === 'Music') return MUSIC_LIGHT_VILLAGES.includes(v) ? MUSIC_LIGHT_PER_SESSION : MUSIC_PER_WEEK * sessionWeeks;
   if (area === 'Pool') {
     const t = POOL_TARGETS[v];
@@ -303,7 +302,7 @@ export function planWeek(c: Ctx): Plan {
   limitMusicToRoom(c, plan.Music);
   mins.Music = plan.Music.slice();
 
-  const danceTarget = (b: number) => DANCE_TARGETS[c.roster.village[b]] ?? DANCE_TARGET_OTHER;
+  const danceTarget = (b: number) => DANCE_TARGETS[c.roster.village[b]] ?? DANCE_TARGETS['*'];
   const rareTarget = (b: number, area: string): number => (area === 'Dance' ? danceTarget(b) : SESSION_TARGETS[area]);
   const nowShare = shareForThisWeek(c, (b) => RARE.reduce((sum, a) => sum + Math.max(0, rareTarget(b, a) - counted(c, inWeek, b, a)), 0));
 

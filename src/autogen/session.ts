@@ -4,6 +4,7 @@ import { APP_BACK_UP_AFTER, APP_MAX_MS, APP_TOTAL_MAX_MS, type SessionWeeks } fr
 import { isFilledWeek } from './history';
 import { generateWeekAsync, isBad, type AutoGenResult } from './index';
 import { compareQuality } from './quality';
+import { applySettings, type Settings } from './settings';
 
 export interface RunStep {
   /** 0-based week. */
@@ -23,6 +24,8 @@ export interface RunOptions {
   /** Take the weeks that are not being generated into account. */
   useOtherWeeks: boolean;
   seed: number;
+  /** The numbers to generate with; the defaults when left out. */
+  settings?: Settings;
   signal?: AbortSignal;
   /** Called each time a week is started. `tries` counts the failed tries at it so far. A step lower than the last one means that week is being redone. */
   onProgress?: (step: number, tries: number) => void;
@@ -52,6 +55,7 @@ export interface RunResult {
  */
 export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
   const { steps } = opts;
+  applySettings(opts.settings);
   const started = performance.now();
   const maxTotalMs = opts.maxTotalMs ?? APP_TOTAL_MAX_MS;
   const generated = new Set(steps.map((s) => s.index));

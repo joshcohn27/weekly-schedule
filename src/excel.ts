@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { SETTING_AREAS, defaultSettings, normalizeSettings, type Settings } from './autogen/settings';
 import { DAYS, PERIODS_PER_DAY, SLOT_COUNT } from './config';
 import { SPECIALIST_HEADER, specialistRows, specialistSchedules, specialistSheetName } from './specialist';
 import { normalize } from './storage';
@@ -75,16 +76,49 @@ function trackingSheetFromResult(result: TrackingResult): XLSX.WorkSheet {
   return XLSX.utils.aoa_to_sheet(rows);
 }
 
-/** One week's workbook: its own tab (re-imported on upload) plus a read-only Tracking tab. */
-export function buildWeekWorkbook(schedule: Schedule, weekNumber: number): XLSX.WorkBook {
+const SETTINGS_SHEET = 'Settings';
+const SETTINGS_HEADER = ['Program area', 'Times per session: at least', 'At most', 'Bunks at once', 'Bunks of one village in a day', 'By village'];
+
+/** The Settings tab: one row per program area. "By village" reads "O 3, S 3, C 2" for an area that is set village by village. */
+function buildSettingsSheet(settings: Settings): XLSX.WorkSheet {
+  const rows = SETTING_AREAS.map((area) => {
+    const a = settings.areas[area];
+    const byVillage = a.villages ? Object.entries(a.villages).map(([v, n]) => `${v} ${n}`).join(', ') : '';
+    return [area, a.min, a.max, a.atOnce, a.villagePerDay, byVillage];
+  });
+  const sheet = XLSX.utils.aoa_to_sheet([SETTINGS_HEADER, ...rows]);
+  sheet['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 9 }, { wch: 14 }, { wch: 28 }, { wch: 28 }];
+  return sheet;
+}
+
+/** Reads the Settings tab back. Null when the workbook has none; anything missing or odd in it falls back to the default. */
+export function parseSettingsSheet(wb: XLSX.WorkBook): Settings | null {
+  const sheet = wb.Sheets[SETTINGS_SHEET];
+  if (!sheet) return null;
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  const areas: Record<string, unknown> = {};
+  for (const row of rows.slice(1)) {
+    const villages: Record<string, number> = {};
+    for (const part of String(row[5] ?? '').split(',')) {
+      const match = part.trim().match(/^(\S+)\s+(\d+)$/);
+      if (match) villages[match[1]] = Number(match[2]);
+    }
+    areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], villages };
+  }
+  return normalizeSettings({ areas });
+}
+
+/** One week's workbook: its own tab (re-imported on upload), a read-only Tracking tab, and the Settings tab. */
+export function buildWeekWorkbook(schedule: Schedule, weekNumber: number, settings: Settings = defaultSettings()): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildWeekSheet(schedule), weekSheetName(weekNumber));
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeTracking(schedule.bunks)), 'Tracking');
+  XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
   return wb;
 }
 
-/** One workbook covering every loaded week, each on its own "Week N" tab, plus a session Tracking tab. */
-export function buildAllWeeksWorkbook(weeks: (Schedule | null)[]): XLSX.WorkBook {
+/** One workbook covering every loaded week, each on its own "Week N" tab, plus a session Tracking tab and the Settings tab. */
+export function buildAllWeeksWorkbook(weeks: (Schedule | null)[], settings: Settings = defaultSettings()): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   const loadedWeeks: Schedule[] = [];
 
@@ -95,6 +129,7 @@ export function buildAllWeeksWorkbook(weeks: (Schedule | null)[]): XLSX.WorkBook
   });
 
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeSessionTracking(loadedWeeks)), 'Whole Session Tracking');
+  XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
   return wb;
 }
 
@@ -117,12 +152,12 @@ export function downloadSpecialists(weeks: (Schedule | null)[]): void {
   XLSX.writeFile(buildSpecialistWorkbook(weeks), 'specialist-schedules.xlsx');
 }
 
-export function downloadWeek(schedule: Schedule, weekNumber: number): void {
-  XLSX.writeFile(buildWeekWorkbook(schedule, weekNumber), `${weekSheetName(weekNumber)}.xlsx`);
+export function downloadWeek(schedule: Schedule, weekNumber: number, settings?: Settings): void {
+  XLSX.writeFile(buildWeekWorkbook(schedule, weekNumber, settings), `${weekSheetName(weekNumber)}.xlsx`);
 }
 
-export function downloadAllWeeks(weeks: (Schedule | null)[]): void {
-  XLSX.writeFile(buildAllWeeksWorkbook(weeks), 'all-weeks.xlsx');
+export function downloadAllWeeks(weeks: (Schedule | null)[], settings?: Settings): void {
+  XLSX.writeFile(buildAllWeeksWorkbook(weeks, settings), 'all-weeks.xlsx');
 }
 
 export interface ParsedUpload {
@@ -147,8 +182,9 @@ export function parseUploadedWorkbook(wb: XLSX.WorkBook): ParsedUpload[] {
   return out.sort((a, b) => a.weekNumber - b.weekNumber);
 }
 
-export async function readUploadedFile(file: File): Promise<ParsedUpload[]> {
+/** The weeks in an uploaded file, and the settings it carries (null when it has no Settings tab). */
+export async function readUploadedFile(file: File): Promise<{ weeks: ParsedUpload[]; settings: Settings | null }> {
   const data = await file.arrayBuffer();
   const wb = XLSX.read(data, { type: 'array' });
-  return parseUploadedWorkbook(wb);
+  return { weeks: parseUploadedWorkbook(wb), settings: parseSettingsSheet(wb) };
 }

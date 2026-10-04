@@ -9,6 +9,9 @@ export const leagueLabelFor = (village: string, sessionWeeks: SessionWeeks): str
   village === 'M' && sessionWeeks === 3 ? 'MAL' : (LEAGUE_LABEL[village] ?? 'League');
 export const ALL_LEAGUE_LABELS = ['League', 'CHL', 'SSL', 'MNL', 'MAL', 'Tusc Triathlon Training'];
 
+// The numbers in SESSION_TARGETS, DANCE_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SLOT_CAP and DAY_CAP below are the
+// defaults. The Settings tab can change them for a schedule: settings.ts then overwrites these objects in place.
+
 /** Per bunk, over the whole session. Keys are program areas. */
 export const SESSION_TARGETS: Record<string, number> = {
   Ropes: 2,
@@ -24,11 +27,10 @@ export const SESSION_TARGETS: Record<string, number> = {
  * per session. They are one bunk at a time, so asking every bunk for a third would use up nearly every period they have.
  */
 export const SESSION_FILLER_MAX: Record<string, number> = { Yoga: 3, Ceramics: 3, Judaics: 3 };
-/** H7: the most Judaics and Israel a bunk may have in a session. */
-export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2 };
-export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1 }; // area 'Dance'
-/** DEFAULT: a village letter not listed above gets this many Dance blocks per session. */
-export const DANCE_TARGET_OTHER = 2;
+/** H7: the most of each of these a bunk may have in a session. */
+export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2, Teva: 3, Ceramics: 3, Yoga: 3, Dance: 3 };
+/** Dance blocks per session for each village letter. '*' is a village not listed. */
+export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1, '*': 2 };
 /**
  * Every village swims about once a week, so the villages end the session with very nearly the same number of swims.
  * perWeek is a swim that must be there every week; perSession is a total (never more than one for each week of the session)

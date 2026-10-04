@@ -126,6 +126,24 @@ the button again gives a different schedule.
 **Undo** puts back every week the run made, and leaves alone anything you changed in other weeks meanwhile. It is kept
 in memory only, and goes away when you edit a cell or upload a file.
 
+### Settings
+
+The **Settings** tab holds the numbers Auto generate works with, one row per program area (Judaics, Israel, Teva,
+Ceramics, Yoga, Dance):
+
+- **Times per bunk per session, at least and at most.** "At least" is what every bunk is given. When "at most" is
+  higher, the extra visit only fills a period that would otherwise be Athletics or A&C. Dance is set village by village.
+- **Bunks at once** (1 or 2) and **bunks of one village in a day.**
+
+Whatever periods these areas do not use become Athletics, A&C or Time with UH. So raising a number means less of
+those, and lowering one means more. Lowering is the risky direction: Athletics and A&C can only take so much (two
+bunks of a village a day each, on alternating days), and with too little else to do no schedule exists. With Yoga
+cut to 1 and no third Ceramics, for example, a run tried for its full ten minutes and did not find a good session.
+
+Settings are saved with the schedule in the browser and written to a **Settings** tab in the Excel file, so a file
+carries its own rules; uploading a file that has that tab replaces the settings here. **Reset to the default
+settings** puts everything back. The rules listed under "Always kept" on that tab are not settings.
+
 ### The rules it keeps
 
 Who may share a period in the same area:
@@ -224,6 +242,7 @@ as `npx vitest run --pool=forks`.
     src/storage.ts         load, save and repair the saved weeks (localStorage)
     src/sample.ts          default roster, blank schedule, helpers
     src/autogen/           Auto generate: calendar, quota planner, placement, the fill search, and the rule checker;
+                           settings.ts holds the numbers the Settings tab can change (config.ts has the defaults);
                            session.ts redoes a week until it is good, background.ts and worker.ts run it off the page
     src/components/        BuildGrid, ActivityPicker (the dropdown), ScheduleView, TrackingView, DayDetails
     src/theme.css          all styling, in one file

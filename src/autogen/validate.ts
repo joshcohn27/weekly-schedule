@@ -190,7 +190,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     if (total > 2) add('H6', `${roster.names[b]} has ${total} ropes blocks in the session.`, b);
   }
 
-  // H7: Judaics at most three times and Israel at most twice per bunk per session
+  // H7: no more of an area in a session than its setting allows (Judaics three, Israel two, ...)
   for (let b = 0; b < n; b++) {
     for (const [area, max] of Object.entries(SESSION_HARD_MAX)) {
       const total = (hist[b].earlier[area] ?? 0) + (hist[b].later[area] ?? 0) + blocks[b].filter((k) => k.area === area).length;
