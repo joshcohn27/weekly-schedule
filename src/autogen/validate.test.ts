@@ -119,14 +119,18 @@ describe('validateWeek', () => {
     expect(has(state(w1, right, third), 3, 'H6')).toBe(true);
   });
 
-  it('H7: Judaics and Israel at most twice per bunk per session', () => {
-    const mk = () => {
+  it('H7: Judaics at most three times and Israel at most twice per bunk per session', () => {
+    const mk = (label: string) => () => {
       const s = sampleSchedule();
-      put(s, ['O1'], [S(1, 0)], 'Judaics');
+      put(s, ['O1'], [S(1, 0)], label);
       return s;
     };
-    expect(has(state(mk(), mk()), 2, 'H7')).toBe(false);
-    expect(has(state(mk(), mk(), mk()), 3, 'H7')).toBe(true);
+    const judaics = mk('Judaics');
+    expect(has(state(judaics(), judaics(), judaics()), 3, 'H7')).toBe(false);
+    expect(has(state(judaics(), judaics(), judaics(), judaics()), 4, 'H7')).toBe(true);
+    const israel = mk('Israel');
+    expect(has(state(israel(), israel()), 2, 'H7')).toBe(false);
+    expect(has(state(israel(), israel(), israel()), 3, 'H7')).toBe(true);
   });
 
   it('H8: Shabbat Prep follows the calendar; Tiyul is entered by hand and never checked', () => {
@@ -232,6 +236,37 @@ describe('validateWeek', () => {
     const trip = sampleSchedule();
     put(trip, village(trip, 'S'), [S(1, 2), S(1, 3), S(2, 0), S(2, 1)], 'Tiyul'); // an overnight trip is not back to back
     expect(has(state(trip), 1, 'H17')).toBe(false);
+  });
+
+  it('H18: nothing two days in a row', () => {
+    const message = (s: Schedule, locked?: boolean[][]): string[] => validateWeek(state(s), 1, 4, { locked }).filter((v) => v.rule === 'H18').map((v) => v.message);
+    const next = sampleSchedule();
+    put(next, ['O1'], [S(1, 1), S(2, 2)], 'Athletics'); // Monday and Tuesday, different periods
+    expect(message(next)).toEqual(['O1 has Athletics on Monday and again on Tuesday.']);
+    const skip = sampleSchedule();
+    put(skip, ['O1'], [S(1, 1), S(3, 2)], 'Athletics'); // Monday and Wednesday
+    expect(message(skip)).toEqual([]);
+    // it goes by program area: Low Ropes and then High Ropes the next day is Ropes twice, and league counts for the whole village
+    const ropes = sampleSchedule();
+    put(ropes, ['O1'], [S(1, 0), S(1, 1)], 'Low Ropes');
+    put(ropes, ['O1'], [S(2, 0), S(2, 1)], 'High Ropes');
+    expect(message(ropes)).toEqual(['O1 has Ropes on Monday and again on Tuesday.']);
+    const league = sampleSchedule();
+    put(league, village(league, 'C'), [S(3, 0)], 'CHL');
+    put(league, village(league, 'C'), [S(4, 3)], 'CHL');
+    expect(message(league)).toHaveLength(village(league, 'C').length);
+    // Friday into Sunday does not count (they are the two ends of the week), and trips are exempt
+    const ends = sampleSchedule();
+    put(ends, ['O1'], [S(0, 0), S(5, 3)], 'Music');
+    expect(message(ends)).toEqual([]);
+    const trip = sampleSchedule();
+    put(trip, village(trip, 'S'), [S(1, 2), S(1, 3), S(2, 0), S(2, 1)], 'Tiyul');
+    expect(message(trip)).toEqual([]);
+    // two days that were both filled in by hand are left alone; one of them is enough to flag it
+    const o1 = next.bunks.findIndex((b) => b.name === 'O1');
+    const lock = (slots: number[]): boolean[][] => next.bunks.map((_, b) => Array.from({ length: 24 }, (_x, s) => b === o1 && slots.includes(s)));
+    expect(message(next, lock([S(1, 1), S(2, 2)]))).toEqual([]);
+    expect(message(next, lock([S(1, 1)]))).toHaveLength(1);
   });
 
   it('H11: hobbies must be camp-wide, on the right periods, and follow the calendar', () => {

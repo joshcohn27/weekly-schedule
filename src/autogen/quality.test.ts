@@ -82,22 +82,24 @@ describe('weekQuality', () => {
   it('judges Athletics against A&C: fine within the limit, minor at it, major beyond it', () => {
     const put = (name: string, labels: string[]) => (g: string[][]) => labels.forEach((l, i) => (g[at(name)][slotAt(i, 0)] = l));
     const gapMessage = (q: WeekQuality, list: 'major' | 'minor', name: string) => q[list].some((m) => m.startsWith(`${name} has Athletics and A&C`));
-    // last week of the session: O may be 1 apart, M may be 2 apart
-    const o1 = judge(4, put('O1', ['Athletics']));
-    expect(gapMessage(o1, 'minor', 'O1')).toBe(true);
-    expect(gapMessage(o1, 'major', 'O1')).toBe(false);
-    expect(gapMessage(judge(4, put('O1', ['Athletics', 'Athletics'])), 'major', 'O1')).toBe(true);
+    const times = (k: number): string[] => Array<string>(k).fill('Athletics');
+    // every village may be 2 apart
+    for (const name of ['O1', 'M1']) {
+      const one = judge(4, put(name, times(1)));
+      expect(gapMessage(one, 'minor', name)).toBe(false);
+      expect(gapMessage(one, 'major', name)).toBe(false);
+      const two = judge(4, put(name, times(2)));
+      expect(gapMessage(two, 'minor', name)).toBe(true);
+      expect(gapMessage(two, 'major', name)).toBe(false);
+      expect(gapMessage(judge(4, put(name, times(3))), 'major', name)).toBe(true);
+    }
     expect(gapMessage(judge(4, put('O1', ['Athletics', 'A&C'])), 'minor', 'O1')).toBe(false);
-    const m2 = judge(4, put('M1', ['Athletics', 'Athletics']));
-    expect(gapMessage(m2, 'minor', 'M1')).toBe(true);
-    expect(gapMessage(m2, 'major', 'M1')).toBe(false);
-    expect(gapMessage(judge(4, put('M1', ['Athletics', 'Athletics', 'Athletics'])), 'major', 'M1')).toBe(true);
     // a week built around periods filled in by hand may go one further
-    expect(gapMessage(judge(4, put('O1', ['Athletics', 'Athletics']), { stretch: 1 }), 'major', 'O1')).toBe(false);
-    expect(gapMessage(judge(4, put('O1', ['Athletics', 'Athletics', 'Athletics']), { stretch: 1 }), 'major', 'O1')).toBe(true);
+    expect(gapMessage(judge(4, put('O1', times(3)), { stretch: 1 }), 'major', 'O1')).toBe(false);
+    expect(gapMessage(judge(4, put('O1', times(4)), { stretch: 1 }), 'major', 'O1')).toBe(true);
     // the same limits apply in every week (GAP_SLACK_BEFORE_LAST_WEEK is 0)
-    expect(gapMessage(judge(1, put('O1', ['Athletics'])), 'major', 'O1')).toBe(false);
-    expect(gapMessage(judge(1, put('O1', ['Athletics', 'Athletics'])), 'major', 'O1')).toBe(true);
+    expect(gapMessage(judge(1, put('O1', times(2))), 'major', 'O1')).toBe(false);
+    expect(gapMessage(judge(1, put('O1', times(3))), 'major', 'O1')).toBe(true);
   });
 
   it('does not accept a bunk ending the session with Athletics but no A&C at all', () => {

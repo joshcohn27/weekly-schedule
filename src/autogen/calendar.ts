@@ -126,9 +126,9 @@ function placeShabbatPrep(c: Ctx): void {
     const friday = [...halfSlots(5, 1)];
     if (villageFree(c, v, friday)) putVillage(c, v, friday, 'Shabbat Prep');
     else warn(c, `Shabbat Prep on Friday afternoon could not be placed for village ${v} because that time is already filled in.`);
-    // one single period earlier in the week, in period 1 or 2, Monday to Thursday (Thursday last: it is the day before the Friday block)
+    // one single period earlier in the week, in period 1 or 2, Monday to Wednesday (Thursday is the day before the Friday block)
     const singles: number[][] = [];
-    for (const day of [...shuffle(c.rng, [1, 2, 3]), 4]) for (const p of shuffle(c.rng, [0, 1])) singles.push([slotAt(day, p)]);
+    for (const day of shuffle(c.rng, [1, 2, 3])) for (const p of shuffle(c.rng, [0, 1])) singles.push([slotAt(day, p)]);
     if (!placeVillageFirstFit(c, v, singles, 'Shabbat Prep', 'Shabbat Prep')) {
       warn(c, `The extra Shabbat Prep period for village ${v} could not be placed earlier in the week.`);
     }

@@ -68,6 +68,11 @@ replaces whatever was in the cells it fills, without asking.
   (RH & LOD, TS, General Day, DOD, Birthdays, EVP, Notes).
 - **Upload** reads every tab named `Week 1` ... `Week 4` (one week or several) and loads each into its matching week
   after a confirm that lists what will be overwritten. Tracking tabs are ignored. Weeks numbered above 4 are skipped.
+- **Specialist schedules** saves a separate workbook with one tab per program area (Waterfront, Pool, Ropes,
+  Athletics, A&C, Music and so on; not hobbies or trips). Each tab lists that area's blocks in order for every loaded
+  week: Week, Day, Period, Activity, Bunks, Visit and Campers. Visit is which time it is for the bunk in that area,
+  counted from the start of the session ("2nd", or "O1 3rd, O2 2nd" when they differ). A whole village is written as
+  "O village". It is for printing and handing out; uploading it does nothing.
 - You can edit the file in Excel or Sheets and upload it again. Keep the tab names and the header rows. Numbers typed
   into Grades or Count are fine.
 
@@ -139,25 +144,27 @@ Who may share a period in the same area:
 How much:
 
 - **Nothing back to back.** Athletics and A&C are always single periods, never a double. No area is in period 4 and
-  again in period 1 the next day (trips are exempt, and Friday into Sunday does not count).
+  again in period 1 the next day. **No bunk has the same kind of period two days in a row**: not Athletics, not
+  league, not Waterfront, not the pool, nothing. (Trips are exempt, and Friday into Sunday does not count.) To keep
+  that, each bunk has its Athletics on every other day and its A&C on the days between; bunks next to each other in
+  a village have the same days, so they can still share A&C.
 - At most 3 Athletics periods and 3 A&C periods per bunk per week, a second Music in a week only to fill a period, and
   no area twice in one day.
 - At most 2 bunks of one village at Athletics, A&C, Music, Teva, Dance, Israel or Time with UH in one day, and 1 at
   Yoga, Ceramics or Judaics.
-- Athletics and A&C stay within one block of each other per bunk (two for Mohawk and Tusc).
+- Athletics and A&C stay within two blocks of each other per bunk over the session.
 - Time with UH is planned once a session and may be used up to three times to fill periods. The third is held back
   for the last week, or for a week the bunk is away on a trip.
-- Per session: Ropes 2, Judaics 2, Israel 2, Teva 3, Ceramics 2, Yoga 2, Dance 3 (O, S), 2 (C, T) or 1 (M).
+- Per session: Ropes 2, Judaics 2, Israel 2, Teva 3, Ceramics 2, Yoga 2, Dance 3 (O, S), 2 (C, T) or 1 (M). A third
+  Yoga, Ceramics or Judaics may be given to fill a period. (They take one bunk at a time, so a third for everyone
+  would not fit.) Israel is never more than 2.
 - Music every week, except Mohawk: two of the first three weeks, a different week off for each bunk, so the little
   time Mohawk has left over goes to A&C.
-- League three times a week (Mohawk three double periods), on days that are not next to each other where the week
-  allows it.
+- League three times a week (Mohawk three double periods), never on days next to each other. A week too short for
+  three such days has two: weekly numbers are an average over the session, and a short week gets fewer.
 
 Preferred, not required:
 
-- **The same kind of period is kept off back-to-back days** (Athletics on Monday and again on Tuesday). Waterfront,
-  league, pool and every area the generator fills are steered away from it. In a simulated session about 1 day in 14
-  still repeats something from the day before, most of it league in the short last week.
 - Hobbies go on Wednesday afternoon or Tuesday morning; when a village is away on a trip for one of them, the other is
   used, so nobody misses hobbies.
 
@@ -213,6 +220,7 @@ as `npx vitest run --pool=forks`.
     src/activitySearch.ts  dropdown filtering and name snapping
     src/slotUsage.ts       the "who else has it this period" notes
     src/excel.ts           build workbooks, download, and read uploads
+    src/specialist.ts      the session from each specialist's side: blocks, bunks and visit numbers per program area
     src/storage.ts         load, save and repair the saved weeks (localStorage)
     src/sample.ts          default roster, blank schedule, helpers
     src/autogen/           Auto generate: calendar, quota planner, placement, the fill search, and the rule checker;

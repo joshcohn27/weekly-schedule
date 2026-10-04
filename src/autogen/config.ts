@@ -19,6 +19,13 @@ export const SESSION_TARGETS: Record<string, number> = {
   Yoga: 2,
   'TW UH': 1,
 };
+/**
+ * Areas a bunk may have once more than its target, to fill a period that would otherwise be Athletics or A&C: the most
+ * per session. They are one bunk at a time, so asking every bunk for a third would use up nearly every period they have.
+ */
+export const SESSION_FILLER_MAX: Record<string, number> = { Yoga: 3, Ceramics: 3, Judaics: 3 };
+/** H7: the most Judaics and Israel a bunk may have in a session. */
+export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2 };
 export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1 }; // area 'Dance'
 /** DEFAULT: a village letter not listed above gets this many Dance blocks per session. */
 export const DANCE_TARGET_OTHER = 2;
@@ -167,7 +174,7 @@ export const RARE_OCS_MAX_SHORT_BUNKS = 2;
 /** A Mohawk or Tusc bunk may end the session one block short on this many rare areas. More is not acceptable. */
 export const RARE_MT_MAX_SHORT_PER_BUNK = 2;
 /** Athletics and A&C may differ by this much per bunk (O, C, S) or (M, T). Exactly at the limit is fine, beyond it is not. */
-export const GAP_MAX_OCS = 1;
+export const GAP_MAX_OCS = 2;
 export const GAP_MAX_MT = 2;
 /** Before the last week of a session a gap can still be levelled out, so it may go this much past the limit. */
 export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
@@ -209,9 +216,12 @@ export const BUILD_AROUND_STRETCH = 1;
 export const WATERFRONT_HALF_DAY_OFF = false;
 
 /**
- * The same kind of period on back-to-back days (Athletics on Monday and again on Tuesday) is avoided where possible. It is a
- * preference, not a rule: this is how strongly Waterfront, league and the pool are pushed off a day next to one they are already on.
+ * H18: a bunk never has the same kind of period two days in a row (Athletics on Monday and again on Tuesday). Trips are
+ * exempt, and Friday into Sunday does not count. League is three times a week where three days that are not next to each
+ * other can be found; a week too short for that (the last week of a 4-week session has four days) has this many.
  */
+export const LEAGUE_MIN_PER_WEEK = 2;
+/** How strongly league is drawn to the set of days it is aiming for. */
 export const NEXT_DAY_WEIGHT = 3;
 /** Sets of three days with none next to each other, for a village's three league periods (0 is Sunday). */
 export const LEAGUE_DAY_PATTERNS = [
@@ -258,10 +268,10 @@ export const WEIGHTS = {
   uhExtra: 15,
   /** Each block Athletics and A&C are more than one apart, even where that is still allowed: closer is better. */
   gapWide: 25,
+  /** A Yoga, Ceramics or Judaics beyond what was planned for the week: there to fill a period, not a target. */
+  fillerExtra: 4,
   /** A Mohawk or Tusc bunk whose leftover periods this week hold no A&C at all. */
   noAcWeek: 30,
   /** Mohawk and Tusc: each block their A&C is not at least one ahead of their Athletics, so the little they have left over leans to A&C. */
   flexibleAcBehind: 40,
-  /** An area on a day right after a day that already has it. */
-  nextDay: 4,
 };

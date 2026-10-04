@@ -1,6 +1,6 @@
 import { emptySchedule, newBunk } from '../sample';
 import type { Schedule, WeeksState } from '../types';
-import { generateWeek, type AutoGenResult, type SessionWeeks } from './index';
+import { generateWeek, isBad, type AutoGenResult, type SessionWeeks } from './index';
 import { blocksOf, halfSlots, slotAt } from './history';
 
 /** Same bunks, all activities blank. */
@@ -42,15 +42,23 @@ export interface SessionRun {
   warnings: string[];
 }
 
-/** Enter the trips for every week, then generate weeks 1..sessionWeeks in order, each building around its trips and reading the others. */
-export function runSession(roster: Schedule, seed: number, sessionWeeks: SessionWeeks = 4, maxMs = 20_000): SessionRun {
+/**
+ * Enter the trips for every week, then generate weeks 1..sessionWeeks in order, each building around its trips and reading the
+ * others. A week that does not come out good is generated again with a new seed, up to `tries` times, the way the app does
+ * (the app also redoes the week before; this does not). `ms` is the time of the try that was kept.
+ */
+export function runSession(roster: Schedule, seed: number, sessionWeeks: SessionWeeks = 4, maxMs = 20_000, tries = 8): SessionRun {
   const weeks: WeeksState = { current: 0, weeks: [null, null, null, null] };
   for (let w = 1; w <= sessionWeeks; w++) weeks.weeks[w - 1] = weekWithTrips(roster, w, sessionWeeks);
   const results: AutoGenResult[] = [];
   const ms: number[] = [];
   for (let w = 1; w <= sessionWeeks; w++) {
-    const t0 = performance.now();
-    const res = generateWeek({ weeks, weekIndex: w, mode: 'fill-empty', sessionWeeks, seed: seed * 101 + w, maxMs });
+    let t0 = performance.now();
+    let res = generateWeek({ weeks, weekIndex: w, mode: 'fill-empty', sessionWeeks, seed: seed * 101 + w, maxMs });
+    for (let k = 1; k < tries && isBad(res.quality); k++) {
+      t0 = performance.now();
+      res = generateWeek({ weeks, weekIndex: w, mode: 'fill-empty', sessionWeeks, seed: seed * 101 + w + k * 104729, maxMs });
+    }
     ms.push(performance.now() - t0);
     weeks.weeks[w - 1] = res.schedule;
     results.push(res);

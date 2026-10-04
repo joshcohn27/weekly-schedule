@@ -100,6 +100,11 @@ export function backToBack(c: Ctx, b: number, slots: readonly number[], area: st
   return false;
 }
 
+/** Nothing two days in a row (H18): does the bunk already have this area the day before or the day after? Friday into Sunday does not count. */
+export const onNextDay = (c: Ctx, b: number, day: number, area: string): boolean =>
+  (day > 0 && areaOnDay(c, b, day - 1, area)) || (day < 5 && areaOnDay(c, b, day + 1, area));
+export const villageOnNextDay = (c: Ctx, v: string, day: number, area: string): boolean => c.roster.byVillage[v].some((b) => onNextDay(c, b, day, area));
+
 /** Slots the generator may fill: empty cells, except Friday of the last week of a 4-week session. */
 export const fillable = (c: Ctx, s: number): boolean => !(c.lastWeek && dayOf(s) === 5);
 

@@ -5,6 +5,7 @@ import {
   POOL_LESSONS,
   POOL_MAX_CAMPERS,
   POOL_MAX_PER_WEEK,
+  SESSION_HARD_MAX,
   SHABBAT_ROTATION,
   SINGLE_PERIOD_AREAS,
   TRIP_LABELS,
@@ -29,7 +30,7 @@ import {
 import { buildRoster, isRun, shareLevel, type Roster } from './roster';
 import { OPEN, isFixedMohawkAthletics, sharedArea, slotGroupProblems } from './share';
 
-export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16' | 'H17';
+export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16' | 'H17' | 'H18';
 
 export interface Violation {
   rule: Rule;
@@ -189,11 +190,11 @@ export function validateGrid(input: ValidationInput): Violation[] {
     if (total > 2) add('H6', `${roster.names[b]} has ${total} ropes blocks in the session.`, b);
   }
 
-  // H7: Judaics and Israel at most twice per bunk per session
+  // H7: Judaics at most three times and Israel at most twice per bunk per session
   for (let b = 0; b < n; b++) {
-    for (const area of ['Judaics', 'Israel Education']) {
+    for (const [area, max] of Object.entries(SESSION_HARD_MAX)) {
       const total = (hist[b].earlier[area] ?? 0) + (hist[b].later[area] ?? 0) + blocks[b].filter((k) => k.area === area).length;
-      if (total > 2) add('H7', `${roster.names[b]} has ${area} ${total} times in the session.`, b);
+      if (total > max) add('H7', `${roster.names[b]} has ${area} ${total} times in the session.`, b);
     }
   }
 
@@ -339,6 +340,21 @@ export function validateGrid(input: ValidationInput): Violation[] {
       if (!area || area !== areaOf(grid[b][first]) || locked(b, last) || locked(b, first)) continue;
       if (TRIP_LABELS.includes(grid[b][last]) || TRIP_LABELS.includes(grid[b][first])) continue;
       add('H17', `${roster.names[b]} has ${area} in period 4 on ${DAY_NAMES[day]} and again in period 1 the next day.`, b, last);
+    }
+  }
+
+  // H18: nothing two days in a row. A bunk never has the same program area on back-to-back days (trips are exempt, Friday
+  // into Sunday does not count, and two days that were both filled in by hand are left alone).
+  for (let b = 0; b < n; b++) {
+    for (let day = 0; day < 5; day++) {
+      const today = blocks[b].filter((k) => k.day === day && k.area && k.area !== 'Trips');
+      const tomorrow = blocks[b].filter((k) => k.day === day + 1);
+      for (const area of new Set(today.map((k) => k.area as string))) {
+        const next = tomorrow.filter((k) => k.area === area);
+        if (next.length === 0) continue;
+        const byHand = [...today.filter((k) => k.area === area), ...next].every((k) => lockedAny(b, k.start, k.len));
+        if (!byHand) add('H18', `${roster.names[b]} has ${area} on ${DAY_NAMES[day]} and again on ${DAY_NAMES[day + 1]}.`, b, slotAt(day + 1, 0));
+      }
     }
   }
 

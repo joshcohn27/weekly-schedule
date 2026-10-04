@@ -5,7 +5,7 @@ import {
   GAP_MAX_MT,
   GAP_MAX_OCS,
   GAP_SLACK_BEFORE_LAST_WEEK,
-  LEAGUE_PER_WEEK,
+  LEAGUE_MIN_PER_WEEK,
   MUSIC_PER_WEEK,
   POOL_SHORT_OK,
   POOL_TARGETS,
@@ -93,10 +93,10 @@ export function weekQuality(input: QualityInput): WeekQuality {
     if (v === 'T') {
       // triathlon: one double and two singles; skipped in the last week of a 4-week session, and never mentioned then
       if (!lastWeek4) {
-        const periods = grid[f].filter((l) => l === 'Tusc Triathlon Training').length;
-        if (periods < LEAGUE_PER_WEEK + 1) major.push(`Village ${v} is short on triathlon training this week.`);
+        const sessions = blocks[f].filter((k) => k.label === 'Tusc Triathlon Training').length;
+        if (sessions < LEAGUE_MIN_PER_WEEK) major.push(`Village ${v} is short on triathlon training this week.`);
       }
-    } else if (count(f, 'League') < LEAGUE_PER_WEEK) {
+    } else if (count(f, 'League') < LEAGUE_MIN_PER_WEEK) {
       major.push(`Village ${v} is short on league this week.`);
     }
   }

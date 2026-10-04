@@ -5,7 +5,7 @@ import { computeSessionTracking } from '../tracking';
 import type { Schedule, WeeksState } from '../types';
 import { DANCE_TARGETS } from './config';
 import { blocksOf, slotAt } from './history';
-import { generateWeek } from './index';
+import { generateWeek, isBad } from './index';
 import { blankCopy, rosterOf, runSession, sessionBlocks, weekWithTrips, type SessionRun } from './testUtil';
 import { validateWeek, type Rule } from './validate';
 
@@ -16,7 +16,7 @@ const env: Env = (globalThis as unknown as { process?: { env?: Env } }).process?
 const SESSIONS = Math.max(1, Number(env.AUTOGEN_SEEDS ?? 3));
 /** The first seed, so a long run can be split into parts (AUTOGEN_FIRST=21 AUTOGEN_SEEDS=20 runs seeds 21 to 40). */
 const FIRST = Math.max(1, Number(env.AUTOGEN_FIRST ?? 1));
-const RULES: Rule[] = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17'];
+const RULES: Rule[] = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18'];
 const KNOWN = new Set(ACTIVITIES.map((a) => a.label));
 const TRIPS = ['Bike Trip', 'Tiyul'];
 
@@ -37,7 +37,7 @@ describe('hard rules', () => {
     for (const run of sessions) expect(hardViolations(run)).toEqual([]);
   });
 
-  it('checks each rule H1 to H17 on its own', () => {
+  it('checks each rule H1 to H18 on its own', () => {
     for (const rule of RULES) {
       const found = sessions.flatMap((run) => run.weeks.weeks.flatMap((_, i) => validateWeek(run.weeks, i + 1, 4).filter((v) => v.rule === rule)));
       expect(found, rule).toEqual([]);
@@ -82,10 +82,10 @@ describe('session totals', () => {
     }
   });
 
-  it('never gives a bunk more than two Judaics, two Israel, or three Time with UH', () => {
+  it('never gives a bunk more than three Judaics, two Israel, or three Time with UH', () => {
     for (const run of sessions) {
       for (const b of weekOf(run, 1).bunks) {
-        expect(sessionBlocks(run.weeks, b.name, 'Judaics')).toBeLessThanOrEqual(2);
+        expect(sessionBlocks(run.weeks, b.name, 'Judaics')).toBeLessThanOrEqual(3);
         expect(sessionBlocks(run.weeks, b.name, 'Israel Education')).toBeLessThanOrEqual(2);
         expect(sessionBlocks(run.weeks, b.name, 'TW UH')).toBeLessThanOrEqual(3);
       }
@@ -111,8 +111,27 @@ describe('session totals', () => {
     }
   });
 
-  it('gives Teva up to three times a session', () => {
-    for (const run of sessions) for (const b of weekOf(run, 1).bunks) expect(sessionBlocks(run.weeks, b.name, 'Teva'), b.name).toBeLessThanOrEqual(3);
+  it('gives Teva, Yoga and Ceramics up to three times a session', () => {
+    for (const run of sessions) {
+      for (const b of weekOf(run, 1).bunks) for (const area of ['Teva', 'Yoga', 'Ceramics']) expect(sessionBlocks(run.weeks, b.name, area), `${b.name} ${area}`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('never has a bunk at the same kind of period two days in a row, and plays league two or three times a week', () => {
+    for (const run of sessions) {
+      run.weeks.weeks.forEach((w, i) => {
+        const s = w as Schedule;
+        for (const b of s.bunks) {
+          const days = [0, 1, 2, 3, 4, 5].map((d) => new Set(blocksOf(b.slots).filter((k) => k.day === d && k.area && k.area !== 'Trips').map((k) => k.area)));
+          for (let d = 0; d < 5; d++) for (const area of days[d]) expect(days[d + 1].has(area), `week ${i + 1} ${b.name} ${area} day ${d}`).toBe(false);
+        }
+        for (const v of ['O', 'C', 'S', 'M']) {
+          const league = blocksOf(row(s, villageNames(s, v)[0])).filter((k) => k.area === 'League').length;
+          expect(league, `week ${i + 1} village ${v}`).toBeGreaterThanOrEqual(2);
+          expect(league).toBeLessThanOrEqual(3);
+        }
+      });
+    }
   });
 
   it('sends Tusc to the pool together, and every O and C bunk once or twice a week', () => {
@@ -308,7 +327,9 @@ describe('building around what is already there', () => {
   it('leaves everything already filled in exactly as it was, fills the rest, and counts it toward the quotas', () => {
     const { weeks, w2 } = setup();
     const before = w2.bunks.map((b) => [...b.slots]);
-    const out = generateWeek({ weeks, weekIndex: 2, mode: 'fill-empty', seed: 5, maxMs: 15_000 });
+    // a week that does not come out good is generated again, as the app does
+    let out = generateWeek({ weeks, weekIndex: 2, mode: 'fill-empty', seed: 5, maxMs: 15_000 });
+    for (let k = 1; k < 8 && isBad(out.quality); k++) out = generateWeek({ weeks, weekIndex: 2, mode: 'fill-empty', seed: 5 + k * 104729, maxMs: 15_000 });
     out.schedule.bunks.forEach((b, i) => {
       before[i].forEach((label, s) => {
         if (label) expect(b.slots[s]).toBe(label);
