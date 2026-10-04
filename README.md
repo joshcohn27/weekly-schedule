@@ -63,39 +63,100 @@ replaces whatever was in the cells it fills, without asking.
 - You can edit the file in Excel or Sheets and upload it again. Keep the tab names and the header rows. Numbers typed
   into Grades or Count are fine.
 
-## Auto generate a week
+## Auto generate
 
-The **Auto generate Week N** button in the week bar builds a complete schedule for the selected week from the bunks on
-the Build tab. It is disabled until the week has bunks.
+The **Auto generate Week N** button in the week bar builds the periods for one week, or for the whole session, from
+the bunks on the Build tab. It is disabled until the selected week has bunks.
 
-- **What it builds:** a fixed calendar first (hobbies, the Sunday swim tests in week 1, the Tusc bike trips, the
-  Shabbat Prep rotation, one Tiyul per village), then Waterfront, league (Tusc plays triathlon training), ropes and
-  pool, then it fills every remaining period. It reads the other weeks you have loaded, matching bunks by name, so each
-  bunk's totals stay fair across the whole session (for example two ropes per bunk, low first and then high, and
-  Waterfront equal across villages). Bunks that share a period in the same activity, in one village or Seneca with
-  Mohawk, are always on the same "time number" for that activity.
-- **The confirm dialog** explains this, and asks two things. If the week already has activities: keep what is filled in
-  and only fill the empty cells (good when you already placed an All-Camp Event or Village Day; those cells count toward
-  the quotas, and a planned block that one of them makes impossible is skipped with a warning), or replace everything in
-  the week. And the session length: 4 weeks (Mohawk plays MNL) or 3 weeks (Mohawk plays MAL). Day details (RH & LOD,
-  birthdays, EVP, notes) are never touched.
-- **Regenerate as often as you like.** Every click uses a fresh random seed, so pressing the button again gives a
-  different valid schedule. The seed is shown next to the status line.
-- **Undo** puts the week back the way it was. It is kept in memory only, and goes away as soon as you edit a cell,
-  switch weeks or upload a file.
-- **The last week of a 4-week session** has its own calendar: hobbies only on Monday morning, Hobby Culmination on
-  Thursday morning, Packing Time on Thursday afternoon (Banquet Prep for Tusc), Tusc on the bike trip Sunday to Tuesday,
-  and Friday left empty. Those three new labels are not counted in Tracking.
-- **What to expect in the totals.** Ropes, Waterfront, league, pool, Music, Shabbat Prep and Tiyul come out exact. Mohawk
-  and Tusc are over-subscribed by design (league doubles, Waterfront, trips and a short last week), so they may end one
-  block short on Yoga, Ceramics, Teva, Israel, Judaics, Dance or Time with UH, or with Athletics and A&C two apart. O, C
-  and Seneca normally hit every target, and now and then miss one. Every shortfall is listed under **A few things could
-  not be met** after generating, so nothing is silent. Check the Tracking tab for the real totals.
+**Put the trips in first.** Auto generate never adds the Tusc bike trips or a Tiyul. Enter those by hand (the bulk
+fill tools make it quick), then generate: the schedule is built around them.
 
-Everything it decides lives in `src/autogen/`. Targets, the Shabbat and Tiyul calendars, pool limits and the soft
-preference weights are in `src/autogen/config.ts`; the hard rules it must never break are checked by `validateWeek` in
-`src/autogen/validate.ts`. `npm test` covers the generator; `AUTOGEN_SEEDS=100 npm test` runs the hard-rule check over
-100 full sessions, and `AUTOGEN_REPORT=1 npm test` prints a per-bunk tracking table for a simulated session.
+**What it builds.** A fixed calendar first: hobbies, the Sunday swim tests in week 1, the Shabbat Prep rotation, and in
+the last week of Session 1 the Monday hobbies, Hobby Culmination, Packing Time and Banquet Prep, with Friday left
+empty. Then Waterfront, league (Tusc has triathlon training), ropes and pool. Then every remaining period: Music and
+the rarer areas first, and whatever is left becomes Athletics, A&C or Time with UH. It reads the other weeks you have
+loaded, matching bunks by name, so totals stay fair across the session (two ropes per bunk, low then high, and
+Waterfront within one block between villages).
+
+**The dialog asks:**
+
+- **Just this week, or the whole session.** For the whole session you choose for each week: *Lock* (leave it exactly as
+  it is), *Build around what is there* (only the empty periods are filled) or *Regenerate* (clear it and build it
+  again). A week that is already filled in starts as Lock. A week with no bunks takes the bunks of the week on screen.
+- **For one week that already has activities:** keep what is there and build around it, or replace it.
+- **When replacing, keep Bike Trip and Tiyul where they are.** On by default.
+- **Stay consistent with the weeks that are not being generated.** On by default, so locked weeks count toward totals
+  and visit numbers. Untick it to start fresh, as if those weeks were not there.
+- **Session 1 (4 weeks, Mohawk plays MNL) or Session 2 (3 weeks, Mohawk plays MAL).**
+
+Day details (RH & LOD, birthdays, EVP, notes) are never touched.
+
+**While it runs** the button shows a spinner and which week it is on, and a **Cancel** button appears. Cancelling
+changes nothing. A week usually takes a second or two; a tight one can take longer, because the generator keeps trying
+until the week breaks no rule and is not short on anything that matters. It never shows warnings. If you want to see
+what it settled for, the browser console has a line per week.
+
+**Regenerate as often as you like.** Every run uses a fresh random seed (shown next to the status line), so pressing
+the button again gives a different schedule.
+
+**Undo** puts back every week the run touched. It is kept in memory only, and goes away when you edit a cell or upload
+a file.
+
+### The rules it keeps
+
+Who may share a period in the same area:
+
+- Bunks in O, C, S and M share only with the bunk next to them in the village list, within one grade.
+- Across villages only O with C and S with M, within one grade, and only at Athletics, A&C, Music, Teva, Dance and
+  (S with M only, same age) the pool. Tusc bunks share with each other and with nobody else.
+- **Athletics:** any two or three bunks. Being on the same visit number is preferred, not required.
+- **A&C:** two bunks that may share, or three bunks of the same age, always on the same visit number.
+- **Music, Teva, Dance:** two bunks that may share, on the same visit number; one bunk is preferred.
+- **Yoga, Ceramics, Judaics, Israel:** one bunk at a time. Judaics and Israel may run in the same period.
+- **Time with UH:** one bunk, or two of the same village.
+- **Ropes:** one group per half-day in the whole camp, two bunks next to each other in a village (three in a row only
+  as a last resort), low ropes first and high ropes second.
+
+How much:
+
+- At most 2 Athletics blocks and 2 A&C blocks per bunk per week, and no area twice in one day.
+- At most 2 bunks of one village at Athletics, A&C, Music, Teva, Dance or Time with UH in one day, and 1 at Yoga,
+  Ceramics, Judaics or Israel.
+- Athletics and A&C stay within one block of each other per bunk (two for Mohawk and Tusc).
+- Time with UH is planned once a session and may be used up to three times to fill periods.
+
+The pool:
+
+- One group at the pool per period, and Tusc triathlon training only when nobody is swimming.
+- An O or C bunk's first two regular Pool blocks are lessons, one bunk alone. After that a run of bunks from one
+  village may go together. O and C never share the pool. Tusc always goes as a whole village.
+- Every O and C bunk swims every week. Any bunk may swim a second time in a week when the week is crowded.
+- At most 80 campers at the pool at once, except when a whole village goes.
+
+Building around periods you filled in by hand (other than trips) can put a target out of reach, so for such a week
+each limit on shortfalls is one looser.
+
+### What to expect
+
+- The default roster (22 bunks) and smaller rosters generate with no rule breaks.
+- Mohawk and Tusc have the least room (league doubles, Waterfront, trips, a short last week), so they may end the
+  session one block short on a rarer area. Check the Tracking tab for the real totals.
+- In the last week Tusc comes back from the bike trip with one free day, so only two of its bunks get Music that week.
+- **A roster with six bunks in each of O, C, S and M does not fit under these limits.** There are more leftover periods
+  than Athletics, A&C and Time with UH can hold, and weeks come back with rule breaks. The limits that would have to
+  give are in `src/autogen/config.ts`: `DAY_CAP` (bunks of one village per day) and `SLOT_CAP` (bunks per period).
+- A Waterfront half-day off each week is written but switched off (`WATERFRONT_HALF_DAY_OFF`), because the periods it
+  frees made weeks fail to generate.
+
+### For whoever changes it
+
+Everything lives in `src/autogen/`. Every number is in `src/autogen/config.ts`. The hard rules are checked by
+`validateWeek` in `src/autogen/validate.ts`, independently of the code that builds the week. The remaining periods are
+filled by a local search in `src/autogen/fill.ts`.
+
+`npm test` covers the generator. `AUTOGEN_SEEDS=100 npm test` checks 100 full sessions, and `AUTOGEN_REPORT=1 npm test`
+prints a per-bunk tracking table for a simulated session. If a long run stops with "Worker exited unexpectedly", run it
+as `npx vitest run --pool=forks`.
 
 ## How it is organized
 
@@ -108,7 +169,7 @@ preference weights are in `src/autogen/config.ts`; the hard rules it must never 
     src/excel.ts           build workbooks, download, and read uploads
     src/storage.ts         load, save and repair the saved weeks (localStorage)
     src/sample.ts          default roster, blank schedule, helpers
-    src/autogen/           Auto generate: calendar, quota planner, placement, fill, and the rule checker
+    src/autogen/           Auto generate: calendar, quota planner, placement, the fill search, and the rule checker
     src/components/        BuildGrid, ActivityPicker (the dropdown), ScheduleView, TrackingView, DayDetails
     src/theme.css          all styling, in one file
 
