@@ -1,7 +1,7 @@
 import { villageOf } from '../autofill';
 import type { Schedule } from '../types';
 import { DAY_CAP, LEAGUE_MIN_PER_WEEK, LEAGUE_PER_WEEK, MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, TIYUL_WEEKS, TRIP_LABELS, UH_MAX_PER_SESSION, WATERFRONT_PER_WEEK, WEEK_BLOCK_MAX, type SessionWeeks } from './config';
-import { SETTING_AREAS, type Settings } from './settings';
+import { settingAreas, type Settings } from './settings';
 
 /**
  * Arithmetic on the settings, before anything is generated: can a schedule exist, and if not, what to change.
@@ -49,7 +49,8 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
   const timesFor = (area: string, v: string): number => settings.areas[area].villages?.[v] ?? settings.areas[area].min;
 
   // 1. An area can only hold so many bunks in a session: (bunks at once) x (periods).
-  for (const area of SETTING_AREAS) {
+  const areas = settingAreas(settings);
+  for (const area of areas) {
     const a = settings.areas[area];
     const visits = villages.reduce((sum, v) => sum + membersOf(v) * timesFor(area, v), 0);
     const room = periods * a.atOnce;
@@ -94,8 +95,8 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
     if (v === 'T') return four ? 14 : 2; // the mini bike trip, and the three-day one in a 4-week session
     return TIYUL_WEEKS[sessionWeeks][v] ? (v === 'S' || v === 'M' ? 4 : 2) : 0;
   };
-  const flexible = SETTING_AREAS.reduce((sum, a) => sum + (settings.areas[a].villages ? 0 : settings.areas[a].max - settings.areas[a].min), 0) + (UH_MAX_PER_SESSION - 1);
-  const flexibleNames = SETTING_AREAS.filter((a) => !settings.areas[a].villages).map(nameOf);
+  const flexible = areas.reduce((sum, a) => sum + (settings.areas[a].villages ? 0 : settings.areas[a].max - settings.areas[a].min), 0) + (UH_MAX_PER_SESSION - 1);
+  const flexibleNames = areas.filter((a) => !settings.areas[a].villages).map(nameOf);
   let worst: { v: string; over: number; leftover: number; room: number; level: 'no' | 'unlikely' } | null = null;
   for (const v of villages) {
     const n = membersOf(v);
@@ -105,7 +106,7 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
     const waterfront = normalWeeks * WATERFRONT_PER_WEEK * 2 + (four ? 2 : 0);
     const music = MUSIC_LIGHT_VILLAGES.includes(v) ? MUSIC_LIGHT_PER_SESSION : sessionWeeks;
     const fixed = 3 /* Shabbat Prep */ + 1 /* the first Sunday */ + tripPeriods(v) + waterfront + league + sessionWeeks /* pool */ + music + 4 /* ropes */ + 1 /* Time with UH */;
-    const planned = SETTING_AREAS.reduce((sum, a) => sum + timesFor(a, v), 0);
+    const planned = areas.reduce((sum, a) => sum + timesFor(a, v), 0);
     const leftover = periods - fixed - planned - flexible;
     // Athletics and A&C: a village sends DAY_CAP bunks a day to each, and a bunk has each on every other day at most
     const perDay = Math.min(1, (DAY_CAP.Athletics + DAY_CAP['A&C']) / n);

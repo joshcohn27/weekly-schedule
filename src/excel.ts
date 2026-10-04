@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { SETTING_AREAS, defaultSettings, normalizeSettings, type Settings } from './autogen/settings';
+import { defaultSettings, normalizeSettings, settingAreas, type Settings } from './autogen/settings';
 import { DAYS, PERIODS_PER_DAY, SLOT_COUNT } from './config';
 import { SPECIALIST_HEADER, specialistRows, specialistSchedules, specialistSheetName } from './specialist';
 import { normalize } from './storage';
@@ -81,7 +81,7 @@ const SETTINGS_HEADER = ['Program area', 'Times per session: at least', 'At most
 
 /** The Settings tab: one row per program area. "By village" reads "O 3, S 3, C 2" for an area that is set village by village. */
 function buildSettingsSheet(settings: Settings): XLSX.WorkSheet {
-  const rows = SETTING_AREAS.map((area) => {
+  const rows = settingAreas(settings).map((area) => {
     const a = settings.areas[area];
     const byVillage = a.villages ? Object.entries(a.villages).map(([v, n]) => `${v} ${n}`).join(', ') : '';
     return [area, a.min, a.max, a.atOnce, a.villagePerDay, byVillage];
@@ -103,7 +103,7 @@ export function parseSettingsSheet(wb: XLSX.WorkBook): Settings | null {
       const match = part.trim().match(/^(\S+)\s+(\d+)$/);
       if (match) villages[match[1]] = Number(match[2]);
     }
-    areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], villages };
+    areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}) };
   }
   return normalizeSettings({ areas });
 }

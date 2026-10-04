@@ -25,14 +25,17 @@ import { ropeGroups } from './groups';
 import { weightedSample } from './rng';
 import type { Ctx } from './state';
 
-export const TOKEN_AREAS = ['Music', 'Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga', 'Dance', 'TW UH'] as const;
-export type TokenArea = (typeof TOKEN_AREAS)[number];
-export type PlanArea = 'Ropes' | 'Pool' | TokenArea;
+/** The areas planned as single periods, a count per bunk. The Settings tab can add to them (see settings.ts). */
+export const BUILT_IN_TOKEN_AREAS = ['Music', 'Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga', 'Dance', 'TW UH'];
+export const TOKEN_AREAS: string[] = [...BUILT_IN_TOKEN_AREAS];
+export type TokenArea = string;
+/** 'Ropes', 'Pool', or one of TOKEN_AREAS. */
+export type PlanArea = string;
 /** How many blocks of each area each bunk gets this week (Ropes are doubles, the rest single periods). */
 export type Plan = Record<PlanArea, number[]>;
 
 /** The label a token area is written as. */
-export const TOKEN_LABEL: Record<TokenArea, string> = {
+export const TOKEN_LABEL: Record<string, string> = {
   Music: 'Music',
   Judaics: 'Judaics',
   'Israel Education': 'Israel',
@@ -185,7 +188,6 @@ function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => 
   return { k, min };
 }
 
-const RARE = ['Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga', 'Dance', 'TW UH'];
 
 /**
  * Roughly how many leftover periods (Athletics and A&C) a bunk can take in a week. They are single periods, one of each a day
@@ -303,10 +305,12 @@ export function planWeek(c: Ctx): Plan {
   mins.Music = plan.Music.slice();
 
   const danceTarget = (b: number) => DANCE_TARGETS[c.roster.village[b]] ?? DANCE_TARGETS['*'];
-  const rareTarget = (b: number, area: string): number => (area === 'Dance' ? danceTarget(b) : SESSION_TARGETS[area]);
+  const rareTarget = (b: number, area: string): number => (area === 'Dance' ? danceTarget(b) : (SESSION_TARGETS[area] ?? 0));
+  const RARE = TOKEN_AREAS.filter((a) => a !== 'Music');
   const nowShare = shareForThisWeek(c, (b) => RARE.reduce((sum, a) => sum + Math.max(0, rareTarget(b, a) - counted(c, inWeek, b, a)), 0));
 
-  for (const area of ['Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga'] as const) draw(area, area, () => SESSION_TARGETS[area], () => null, nowShare);
+  // every area with a plain per-session number, the ones added on the Settings tab among them
+  for (const area of TOKEN_AREAS) if (!OWN_PLAN.includes(area)) draw(area, area, () => SESSION_TARGETS[area] ?? 0, () => null, nowShare);
   draw('Dance', 'Dance', danceTarget, (b) => capOf(danceTarget(b)), nowShare);
 
   // Time with the Unit Head: the youngest and oldest bunks go first (week 1, or week 2 at the latest).
@@ -322,8 +326,11 @@ export function planWeek(c: Ctx): Plan {
   return plan;
 }
 
-// Put off first: the rarer areas, then the core ones, then the structural ones.
-const TRIM_ORDER: PlanArea[] = ['TW UH', 'Yoga', 'Ceramics', 'Teva', 'Dance', 'Israel Education', 'Judaics', 'Pool', 'Ropes'];
+/** Areas that are planned by their own rule in planWeek, not by a plain per-session number. */
+const OWN_PLAN = ['Music', 'Dance', 'TW UH'];
+// Put off first: Time with UH and the areas added on the Settings tab, then the rarer areas, the core ones, the structural ones.
+const TRIM_BUILT_IN = ['Yoga', 'Ceramics', 'Teva', 'Dance', 'Israel Education', 'Judaics', 'Pool', 'Ropes'];
+const trimOrder = (): PlanArea[] => ['TW UH', ...TOKEN_AREAS.filter((a) => !BUILT_IN_TOKEN_AREAS.includes(a)), ...TRIM_BUILT_IN];
 
 /**
  * A bunk should not be planned more than it has room for once league and its share of Waterfront
@@ -339,7 +346,7 @@ function trimToRoom(c: Ctx, plan: Plan, mins: Plan): void {
     const league = v === 'T' ? (c.lastWeek ? 0 : LEAGUE_PER_WEEK + 1) : LEAGUE_PER_WEEK * (v === 'M' ? 2 : 1);
     const room = free - league - wf;
     const planned = (): number => plan.Pool[b] + 2 * plan.Ropes[b] + plan.Music[b] + TOKEN_AREAS.reduce((sum, a) => sum + (a === 'Music' ? 0 : plan[a][b]), 0);
-    for (const area of TRIM_ORDER) {
+    for (const area of trimOrder()) {
       while (planned() > room && plan[area][b] > mins[area][b]) plan[area][b]--;
     }
   }

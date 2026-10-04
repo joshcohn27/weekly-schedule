@@ -26,6 +26,8 @@ const VILLAGE_LEVEL = new Set(VILLAGE_LEVEL_LABELS);
  * empty cells, village-level blocks, hobbies, the pool (which has its own rule) and anything not capped.
  */
 const SHARED_AREA = new Map<string, string | null>();
+/** Forget what was worked out: call it when the program areas or their caps have changed. */
+export const resetSharedAreas = (): void => SHARED_AREA.clear();
 export function sharedArea(label: string): string | null {
   if (!label) return null;
   const known = SHARED_AREA.get(label);

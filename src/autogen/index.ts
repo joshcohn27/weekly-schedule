@@ -4,7 +4,7 @@ import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRI
 import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, halfSlots, isFilledWeek, type BunkHistory } from './history';
 import { placeExtraPool, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
-import { TOKEN_LABEL, planWeek, sessionTargetOf, type TokenArea } from './planner';
+import { TOKEN_AREAS, TOKEN_LABEL, planWeek, sessionTargetOf } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
 import { buildRoster, type Roster } from './roster';
@@ -57,12 +57,12 @@ export interface AutoGenResult {
 function sessionWarnings(roster: Roster, hist: BunkHistory[], grid: string[][], weekIndex: number, sessionWeeks: SessionWeeks): string[] {
   if (weekIndex < sessionWeeks) return [];
   const out: string[] = [];
-  const nameOf = (area: string): string => (area === 'Ropes' || area === 'Pool' ? area : (TOKEN_LABEL[area as TokenArea] ?? area));
+  const nameOf = (area: string): string => (area === 'Ropes' || area === 'Pool' ? area : (TOKEN_LABEL[area] ?? area));
   for (let b = 0; b < roster.n; b++) {
     const blocks = blocksOf(grid[b]);
     const total = (area: string): number =>
       (hist[b].earlier[area] ?? 0) + (hist[b].later[area] ?? 0) + blocks.filter((k) => k.area === area).length;
-    for (const area of ['Ropes', 'Pool', 'Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga', 'TW UH', 'Dance', 'Music']) {
+    for (const area of ['Ropes', 'Pool', ...TOKEN_AREAS]) {
       const want = sessionTargetOf(roster.village[b], sessionWeeks, area);
       const got = total(area);
       if (got < want) out.push(`${roster.names[b]} is short ${want - got} on ${nameOf(area)} (${got} of ${want} over the session).`);

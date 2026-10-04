@@ -131,6 +131,13 @@ td.filled.picked {
   color: var(--forest);
   font-weight: bold;
 }
+.settings-blocked {
+  color: #c62828;
+  margin: 4px 0;
+}
+tr.new-area th {
+  background: #fff;
+}
 .settings-problems {
   list-style: none;
   margin: 0 0 10px;

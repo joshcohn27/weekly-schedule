@@ -11,6 +11,7 @@ import {
   GAP_MAX_OCS,
   GAP_SLACK_BEFORE_LAST_WEEK,
   MUSIC_LIGHT_VILLAGES,
+  RARE_AREAS,
   SESSION_FILLER_MAX,
   SLOT_CAP,
   TRIP_LABELS,
@@ -27,8 +28,7 @@ import { shareLevel } from './roster';
 import { groupBreaks, isFixedMohawkAthletics, sharedArea } from './share';
 import { ALL_SLOTS, buildDayMasks, fillable, isFree, type Ctx } from './state';
 
-// Areas that may fall a block short when a bunk has no room. Music is only ever dropped as a last resort.
-const MAY_FALL_SHORT = ['TW UH', 'Yoga', 'Ceramics', 'Teva', 'Dance', 'Israel Education', 'Judaics'];
+// The areas that may fall a block short when a bunk has no room are RARE_AREAS. Music is only ever dropped as a last resort.
 /** What a leftover period may always be. The areas in SESSION_FILLER_MAX may fill one too, up to that many a session. */
 const LEFTOVER_ALWAYS = ['Athletics', 'A&C', 'Time with UH', 'Music'];
 /** Does the row have this program area on this day? A day off either end of the week has nothing. */
@@ -38,11 +38,18 @@ const has = (row: readonly string[], day: number, area: string): boolean =>
 const HARD = 1000;
 
 /** The areas the sharing rules cover, and their position in the search's tables. */
-const SHARED = Object.keys(SLOT_CAP);
-const SHARED_INDEX = new Map(SHARED.map((a, i) => [a, i]));
+const SHARED: string[] = [];
+const SHARED_INDEX = new Map<string, number>();
 const ix = (area: string): number => SHARED_INDEX.get(area) as number;
+/** The settings can add program areas, so the tables are laid out afresh for each fill. */
+function refreshShared(): void {
+  SHARED.length = 0;
+  SHARED.push(...Object.keys(SLOT_CAP));
+  SHARED_INDEX.clear();
+  SHARED.forEach((a, i) => SHARED_INDEX.set(a, i));
+}
 
-const labelOf = (area: string): string => TOKEN_LABEL[area as (typeof TOKEN_AREAS)[number]];
+const labelOf = (area: string): string => TOKEN_LABEL[area] ?? area;
 
 /**
  * Fill every remaining period. Each bunk gets its planned rare areas and Music, and its other empty periods become
@@ -52,6 +59,7 @@ const labelOf = (area: string): string => TOKEN_LABEL[area as (typeof TOKEN_AREA
  * ended with no rule break.
  */
 export function fillFlexible(c: Ctx, plan: Plan): boolean {
+  refreshShared();
   const n = c.roster.n;
   const tok: Record<string, number>[] = Array.from({ length: n }, () => ({}));
   const free: number[][] = Array.from({ length: n }, (_, b) => ALL_SLOTS.filter((s) => isFree(c, b, s) && fillable(c, s)));
@@ -65,7 +73,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
     const forAc = total(b, 'A&C') === 0 && free[b].length > 0 ? 1 : 0;
     while (planned > free[b].length - forAc) {
       // Put off the area this bunk can best spare: not one it is already short on, and the one hit least so far.
-      const options = MAY_FALL_SHORT.filter((a) => (tok[b][a] ?? 0) > 0);
+      const options = RARE_AREAS.filter((a) => (tok[b][a] ?? 0) > 0);
       const spare = options.filter((a) => sessionTargetOf(c.roster.village[b], c.sessionWeeks, a) - (total(b, a) + tok[b][a] - 1) <= 1);
       const candidates = spare.length ? spare : options;
       if (candidates.length === 0) {
@@ -193,7 +201,7 @@ class FillSearch {
     });
     this.allowedGap = c.roster.village.map((v) => (FLEXIBLE_VILLAGES.includes(v) ? GAP_MAX_MT : GAP_MAX_OCS) + slack + c.stretch);
     const other = (b: number, area: string): number => (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0);
-    this.fillers = Object.keys(SESSION_FILLER_MAX).filter((a) => (TOKEN_AREAS as readonly string[]).includes(a) && a !== 'Music' && a !== 'TW UH');
+    this.fillers = Object.keys(SESSION_FILLER_MAX).filter((a) => TOKEN_AREAS.includes(a) && a !== 'Music' && a !== 'TW UH');
     this.leftover = [...LEFTOVER_ALWAYS, ...this.fillers.map(labelOf)];
     this.fillerBase = c.grid.map((_, b) => this.fillers.map((a) => other(b, a)));
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));

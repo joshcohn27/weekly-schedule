@@ -44,7 +44,6 @@ export interface ValidateOptions {
   locked?: boolean[][];
 }
 
-const ACTIVITY_LABELS = new Set(ACTIVITIES.map((a) => a.label));
 const VILLAGE_LEVEL = new Set(VILLAGE_LEVEL_LABELS);
 const POOL_LABELS = new Set(['Pool', 'Swim Test', 'Tusc Triathlon Training']);
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -71,6 +70,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     return false;
   };
   const blocks = grid.map((row) => blocksOf(row));
+  const ACTIVITY_LABELS = new Set(ACTIVITIES.map((a) => a.label)); // read now: the Settings tab can add activities
   const out: Violation[] = [];
   const add = (rule: Rule, message: string, bunk?: number, slot?: number) =>
     out.push({ rule, message, bunk: bunk === undefined ? undefined : roster.names[bunk], slot });

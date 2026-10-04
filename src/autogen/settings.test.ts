@@ -4,13 +4,16 @@ import { createElement } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import SettingsView, { FIXED_RULES } from '../components/SettingsView';
 import { buildAllWeeksWorkbook, buildWeekWorkbook, parseSettingsSheet, parseUploadedWorkbook } from '../excel';
+import { ACTIVITIES, AREAS, OPTION_GROUPS, areaOf } from '../config';
 import { sampleSchedule } from '../sample';
+import { computeTracking } from '../tracking';
 import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
 import { DANCE_TARGETS, DAY_CAP, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP } from './config';
 import { checkSettings } from './feasibility';
 import { generateRun } from './session';
-import { SETTING_AREAS, applySettings, defaultSettings, isDefaultSettings, normalizeSettings, type Settings } from './settings';
+import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, isDefaultSettings, normalizeSettings, removeArea, settingAreas, whyNotAdd, type Settings } from './settings';
+import { TOKEN_AREAS } from './planner';
 import { sessionBlocks, weekWithTrips } from './testUtil';
 import { validateWeek } from './validate';
 
@@ -66,7 +69,10 @@ describe('settings', () => {
     expect(isDefaultSettings(normalizeSettings('nonsense'))).toBe(true);
     const s = normalizeSettings({ areas: { Yoga: { min: '4', max: 1, atOnce: 9, villagePerDay: 'x' }, Archery: { min: 2 }, Dance: { villages: { o: '5', '': 2 } } } });
     expect(s.areas.Yoga).toEqual({ min: 4, max: 4, atOnce: 2, villagePerDay: 1 });
-    expect(Object.keys(s.areas)).toEqual(SETTING_AREAS);
+    // an area that does not come with the app is taken as one that was added, with the defaults for what it leaves out
+    expect(Object.keys(s.areas)).toEqual([...SETTING_AREAS, 'Archery']);
+    expect(s.custom).toEqual(['Archery']);
+    expect(s.areas.Archery).toEqual({ min: 2, max: 2, atOnce: 1, villagePerDay: 2 });
     expect(s.areas.Dance.villages).toEqual({ O: 5 });
     expect(s.areas.Judaics).toEqual(defaultSettings().areas.Judaics);
   });
@@ -157,6 +163,107 @@ describe('the arithmetic check on the settings', () => {
     const fine = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop, problems: [] }));
     expect(fine).toContain('These settings add up');
   });
+});
+
+describe('adding and removing program areas', () => {
+  const archery = { min: 2, max: 2, atOnce: 2, villagePerDay: 2 };
+
+  it('adds an area with the numbers chosen for it, and removes it again', () => {
+    const added = addArea(defaultSettings(), '  Archery ', archery);
+    expect(added.custom).toEqual(['Archery']);
+    expect(added.areas.Archery).toEqual(archery);
+    expect(settingAreas(added)).toEqual([...SETTING_AREAS, 'Archery']);
+    expect(isDefaultSettings(added)).toBe(false);
+    const two = addArea(added, 'Martial Arts');
+    expect(two.custom).toEqual(['Archery', 'Martial Arts']);
+    expect(two.areas['Martial Arts']).toEqual({ min: 2, max: 2, atOnce: 1, villagePerDay: 2 });
+    expect(removeArea(two, 'Archery').custom).toEqual(['Martial Arts']);
+    expect(isDefaultSettings(removeArea(added, 'Archery'))).toBe(true);
+  });
+
+  it('refuses a name that is empty, taken, already added, or one too many', () => {
+    const s = addArea(defaultSettings(), 'Archery', archery);
+    expect(whyNotAdd(s, '   ')).toBe('Give the program area a name.');
+    expect(whyNotAdd(s, 'yoga')).toBe('"yoga" is already an activity.');
+    expect(whyNotAdd(s, 'Ropes')).toBe('"Ropes" is already an activity.'); // a program area that comes with the app
+    expect(whyNotAdd(s, 'ARCHERY')).toBe('"ARCHERY" has already been added.');
+    expect(whyNotAdd(s, 'Fencing')).toBeNull();
+    expect(addArea(s, 'Yoga')).toBe(s);
+    let full = defaultSettings();
+    for (const n of ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']) full = addArea(full, n);
+    expect(whyNotAdd(full, 'A7')).toBe('No more than 6 program areas can be added.');
+    expect(cleanAreaName('  Rock/Climbing:  wall ')).toBe('Rock Climbing wall');
+  });
+
+  it('makes an added area a real activity while its settings are in force, and takes it away again', () => {
+    applySettings(addArea(defaultSettings(), 'Archery', archery));
+    expect(areaOf('Archery')).toBe('Archery');
+    expect(AREAS).toContain('Archery');
+    expect(ACTIVITIES.some((a) => a.label === 'Archery')).toBe(true);
+    expect(OPTION_GROUPS.some((g) => g.items.some((a) => a.label === 'Archery'))).toBe(true);
+    expect(OPTION_GROUPS[OPTION_GROUPS.length - 1].group).toBe('Not counted in tracking'); // still the last group
+    expect(TOKEN_AREAS).toContain('Archery');
+    expect([SESSION_TARGETS.Archery, SLOT_CAP.Archery, DAY_CAP.Archery, SESSION_HARD_MAX.Archery]).toEqual([2, 2, 2, 2]);
+    expect(computeTracking([{ ...sampleSchedule().bunks[0], slots: ['Archery', ...Array<string>(23).fill('')] }]).areas).toContain('Archery');
+    // the rule checker accepts it as a known activity
+    const week = sampleSchedule();
+    week.bunks[0].slots[0] = 'Archery';
+    expect(validateWeek({ current: 0, weeks: [week] }, 1, 4).filter((v) => v.rule === 'H12')).toEqual([]);
+    applySettings();
+    expect(areaOf('Archery')).toBeNull();
+    expect(AREAS).not.toContain('Archery');
+    expect(TOKEN_AREAS).not.toContain('Archery');
+    expect(SLOT_CAP.Archery).toBeUndefined();
+    expect(validateWeek({ current: 0, weeks: [week] }, 1, 4).filter((v) => v.rule === 'H12')).toHaveLength(1);
+  });
+
+  it('keeps added areas when saved, and in the Excel file', () => {
+    const s = addArea(addArea(defaultSettings(), 'Archery', archery), 'Martial Arts', { min: 1, max: 2, atOnce: 1, villagePerDay: 1 });
+    expect(normalizeSettings(JSON.parse(JSON.stringify(s)))).toEqual(s);
+    const wb = XLSX.read(XLSX.write(buildWeekWorkbook(sampleSchedule(), 1, s), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
+    expect(parseSettingsSheet(wb)).toEqual(s);
+    // nonsense in a saved copy is dropped, not kept
+    expect(normalizeSettings({ areas: { ...s.areas, Yoga2: 'x' }, custom: ['Archery', 'Yoga', 'Yoga2', 'Archery'] }).custom).toEqual(['Archery']);
+  });
+
+  it('counts an added area in the arithmetic check', () => {
+    const weeks = [sampleSchedule(), null, null, null];
+    // one bunk at a time, four times each: 88 visits and only 74 periods
+    const s = addArea(defaultSettings(), 'Archery', { min: 4, max: 4, atOnce: 1, villagePerDay: 2 });
+    expect(checkSettings(s, weeks).some((p) => p.level === 'no' && p.text.startsWith('Archery is set to 88 visits'))).toBe(true);
+    expect(checkSettings(addArea(defaultSettings(), 'Archery', archery), weeks)).toEqual([]);
+  });
+
+  it('shows the added area on the page with a Remove button, and the row for adding another', () => {
+    const s = addArea(defaultSettings(), 'Archery', archery);
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: s, villages: ['O'], onChange: noop, onReset: noop }));
+    expect(html).toContain('aria-label="Remove Archery"');
+    expect(html).toContain('aria-label="Archery at least"');
+    expect(html).not.toContain('aria-label="Remove Yoga"');
+    expect(html).toContain('aria-label="New program area name"');
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>Add<\/button>/); // nothing typed yet
+  });
+
+  it('generates a session that gives every bunk the added area, with every rule kept', async () => {
+    const settings = addArea(defaultSettings(), 'Archery', archery);
+    const run = await generateRun({
+      weeks: [1, 2, 3, 4].map((w) => weekWithTrips(sampleSchedule(), w)),
+      steps: [0, 1, 2, 3].map((index) => ({ index, mode: 'fill-empty' as const })),
+      roster: sampleSchedule().bunks,
+      sessionWeeks: 4,
+      keepTrips: true,
+      useOtherWeeks: true,
+      seed: 31,
+      settings,
+    });
+    expect(run?.good).toBe(true);
+    const weeks: WeeksState = { current: 0, weeks: run?.weeks ?? [] };
+    const counts = (weeks.weeks[0] as Schedule).bunks.map((b) => sessionBlocks(weeks, b.name, 'Archery'));
+    expect(Math.max(...counts)).toBeLessThanOrEqual(2);
+    expect(counts.filter((n) => n === 2).length).toBeGreaterThanOrEqual(18); // a Mohawk or Tusc bunk may end one short
+    expect(Math.min(...counts)).toBeGreaterThanOrEqual(1);
+    for (let w = 1; w <= 4; w++) expect(validateWeek(weeks, w, 4)).toEqual([]);
+  }, 900_000);
 });
 
 describe('the generator follows the settings', () => {

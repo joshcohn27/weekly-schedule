@@ -7,10 +7,20 @@ import type { CalendarPlan } from './calendar';
 import type { Roster } from './roster';
 import { isFixedMohawkAthletics, sharedArea, slotGroupProblems, type Relax } from './share';
 
-const AREA_BIT = new Map<string, number>(AREAS.map((a, i) => [a, 1 << i]));
+const AREA_BIT = new Map<string, number>();
+/** One bit per program area. The Settings tab can add areas, so the table is rebuilt when the list has changed. */
+const bitFor = (area: string): number | undefined => {
+  if (AREA_BIT.size !== AREAS.length) {
+    AREA_BIT.clear();
+    AREAS.forEach((a, i) => AREA_BIT.set(a, 1 << i));
+  }
+  return AREA_BIT.get(area);
+};
+/** Forget the table: call it when the program areas have changed. */
+export const resetAreaBits = (): void => AREA_BIT.clear();
 const bitOf = (label: string): number => {
   const area = areaOf(label);
-  return area ? (AREA_BIT.get(area) ?? 0) : 0;
+  return area ? (bitFor(area) ?? 0) : 0;
 };
 
 /** Which program areas each bunk already has on each day, as bit flags: dayMask[bunk][day]. */
@@ -81,7 +91,7 @@ export const daySlots = (day: number): number[] => DAY_SLOTS[day];
 
 /** Is this program area already on the bunk's day? */
 export function areaOnDay(c: Ctx, b: number, day: number, area: string): boolean {
-  const bit = AREA_BIT.get(area);
+  const bit = bitFor(area);
   return bit !== undefined && (c.dayMask[b][day] & bit) !== 0;
 }
 export const villageAreaOnDay = (c: Ctx, v: string, day: number, area: string): boolean =>

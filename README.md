@@ -140,6 +140,13 @@ those, and lowering one means more. Lowering is the risky direction: Athletics a
 bunks of a village a day each, on alternating days), and with too little else to do no schedule exists. With Yoga
 cut to 1 and no third Ceramics, for example, a run tried for its full ten minutes and did not find a good session.
 
+**Adding a program area** (archery, martial arts: whatever was hired for). Type its name in the last row of the
+table, choose its numbers and press Add. It becomes an activity you can pick on the Build tab, a column on the
+Tracking tab and a tab in the specialist schedules, and Auto generate gives it to every bunk as single periods, like
+the rarer areas that come with the app. Up to six can be added, each with a Remove button. To stop using an area
+that comes with the app, set both of its numbers to 0. Every period an added area takes is one fewer Athletics or
+A&C; every area taken away is that many more.
+
 **The page checks the arithmetic as you type.** Above the table it says either that the settings add up, or what is
 wrong and what to try: "A schedule is not possible with these settings ... Try giving each bunk about 2 more visits
 a session". It counts periods; it does not build a schedule. "Not possible" means the periods cannot fit.

@@ -1,5 +1,6 @@
 import type { SettingsProblem } from '../autogen/feasibility';
-import { SETTING_AREAS, isDefaultSettings, type AreaSettings, type Settings } from '../autogen/settings';
+import { useState } from 'react';
+import { NEW_AREA, addArea, isDefaultSettings, removeArea, settingAreas, whyNotAdd, type AreaSettings, type Settings } from '../autogen/settings';
 
 interface Props {
   settings: Settings;
@@ -31,7 +32,31 @@ export const FIXED_RULES = [
  * and they are saved with the schedule.
  */
 export default function SettingsView({ settings, villages, onChange, onReset, disabled, problems = [] }: Props) {
-  const set = (area: string, patch: Partial<AreaSettings>) => onChange({ areas: { ...settings.areas, [area]: { ...settings.areas[area], ...patch } } });
+  const set = (area: string, patch: Partial<AreaSettings>) => onChange({ ...settings, areas: { ...settings.areas, [area]: { ...settings.areas[area], ...patch } } });
+  // the program area being added: its name and its numbers are chosen before it goes in
+  const [name, setName] = useState('');
+  const [draft, setDraft] = useState<AreaSettings>(NEW_AREA);
+  const blocked = name.trim() === '' ? null : whyNotAdd(settings, name);
+  const add = () => {
+    if (whyNotAdd(settings, name)) return;
+    onChange(addArea(settings, name, draft));
+    setName('');
+    setDraft(NEW_AREA);
+  };
+  const draftNumber = (label: string, value: number, least: number, most: number, change: (n: number) => void) => (
+    <input
+      type="number"
+      aria-label={`New program area ${label}`}
+      min={least}
+      max={most}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => {
+        const n = Math.round(Number(e.target.value));
+        if (e.target.value !== '' && Number.isFinite(n)) change(Math.min(most, Math.max(least, n)));
+      }}
+    />
+  );
   const number = (area: string, label: string, value: number, least: number, most: number, change: (n: number) => void) => (
     <input
       type="number"
@@ -80,11 +105,21 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
             </tr>
           </thead>
           <tbody>
-            {SETTING_AREAS.map((area) => {
+            {settingAreas(settings).map((area) => {
               const a = settings.areas[area];
               return (
                 <tr key={area}>
-                  <th scope="row">{nameOf(area)}</th>
+                  <th scope="row">
+                    {nameOf(area)}
+                    {settings.custom?.includes(area) && (
+                      <>
+                        {' '}
+                        <button type="button" disabled={disabled} onClick={() => onChange(removeArea(settings, area))} aria-label={`Remove ${area}`}>
+                          Remove
+                        </button>
+                      </>
+                    )}
+                  </th>
                   {a.villages ? (
                     <td colSpan={2} className="by-village">
                       {villages.map((v) => (
@@ -109,9 +144,45 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                 </tr>
               );
             })}
+            <tr className="new-area">
+              <th scope="row">
+                <input
+                  type="text"
+                  aria-label="New program area name"
+                  placeholder="Add a program area"
+                  size={16}
+                  value={name}
+                  disabled={disabled}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') add();
+                  }}
+                />
+              </th>
+              <td>{draftNumber('at least', draft.min, 0, 12, (n) => setDraft({ ...draft, min: n, max: Math.max(n, draft.max) }))}</td>
+              <td>{draftNumber('at most', draft.max, 0, 12, (n) => setDraft({ ...draft, max: n, min: Math.min(n, draft.min) }))}</td>
+              <td>
+                <select aria-label="New program area bunks at once" value={draft.atOnce} disabled={disabled} onChange={(e) => setDraft({ ...draft, atOnce: Number(e.target.value) })}>
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                </select>
+              </td>
+              <td>
+                {draftNumber('bunks of one village in a day', draft.villagePerDay, 1, 6, (n) => setDraft({ ...draft, villagePerDay: n }))}{' '}
+                <button type="button" onClick={add} disabled={disabled || name.trim() === '' || blocked !== null}>
+                  Add
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
+      {blocked && <p className="settings-blocked">{blocked}</p>}
+      <p className="hint">
+        To add a program area (archery, martial arts), type its name in the last row, choose its numbers and press Add. It becomes an
+        activity you can pick on the Build tab, a column on the Tracking tab and a tab in the specialist schedules, and Auto generate
+        gives it to every bunk as single periods. To stop using an area that comes with the app, set both of its numbers to 0.
+      </p>
       <p className="hint">
         "At least" is what every bunk is given. When "at most" is higher, the extra visit is only used to fill a period that would
         otherwise be Athletics or A&C, so it shows up in crowded weeks and not for everyone. Dance is set village by village. Whatever

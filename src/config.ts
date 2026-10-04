@@ -52,14 +52,12 @@ export const ACTIVITIES: Activity[] = [
   a('Banquet Prep', null),
 ];
 
-/** Program areas in tracking-column order. */
-export const AREAS: string[] = (() => {
-  const seen: string[] = [];
-  for (const act of ACTIVITIES) if (act.area && !seen.includes(act.area)) seen.push(act.area);
-  return seen;
-})();
+/** The list above as it is written here, before any program areas were added on the Settings tab. */
+const BUILT_IN: Activity[] = [...ACTIVITIES];
 
-const AREA_BY_LABEL = new Map(ACTIVITIES.map((act) => [act.label, act.area]));
+/** Program areas in tracking-column order. */
+export const AREAS: string[] = [];
+const AREA_BY_LABEL = new Map<string, string | null>();
 
 export const areaOf = (label: string): string | null => AREA_BY_LABEL.get(label) ?? null;
 
@@ -69,12 +67,34 @@ export interface OptionGroup {
 }
 
 /** Dropdown layout: areas with several labels get a heading, the rest are plain options. */
-export const OPTION_GROUPS: OptionGroup[] = (() => {
-  const out: OptionGroup[] = [];
+export const OPTION_GROUPS: OptionGroup[] = [];
+
+/** Is this name already an activity or a program area that comes with the app? */
+export const isBuiltInName = (name: string): boolean => {
+  const n = name.trim().toLowerCase();
+  return BUILT_IN.some((a) => a.label.toLowerCase() === n || a.area?.toLowerCase() === n);
+};
+
+/**
+ * Set the program areas that were added on the Settings tab (archery, martial arts, ...). Each is one activity that counts
+ * toward its own area. The lists above are rebuilt in place, so everything that reads them sees the change.
+ */
+export function setCustomAreas(names: readonly string[]): void {
+  const counted = BUILT_IN.filter((a) => a.area !== null);
+  const uncounted = BUILT_IN.filter((a) => a.area === null);
+  ACTIVITIES.length = 0;
+  ACTIVITIES.push(...counted, ...names.map((name) => a(name)), ...uncounted);
+  AREAS.length = 0;
+  AREA_BY_LABEL.clear();
+  for (const act of ACTIVITIES) {
+    if (act.area && !AREAS.includes(act.area)) AREAS.push(act.area);
+    AREA_BY_LABEL.set(act.label, act.area);
+  }
+  OPTION_GROUPS.length = 0;
   for (const area of AREAS) {
     const items = ACTIVITIES.filter((act) => act.area === area);
-    out.push({ group: items.length > 1 ? area : null, items });
+    OPTION_GROUPS.push({ group: items.length > 1 ? area : null, items });
   }
-  out.push({ group: 'Not counted in tracking', items: ACTIVITIES.filter((act) => act.area === null) });
-  return out;
-})();
+  OPTION_GROUPS.push({ group: 'Not counted in tracking', items: uncounted });
+}
+setCustomAreas([]);
