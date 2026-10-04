@@ -337,7 +337,8 @@ describe('building around what is already there', () => {
     const w1 = blankCopy(sampleSchedule());
     row(w1, 'O1').fill('Talent Show');
     const weeks: WeeksState = { current: 0, weeks: [w1, null, null, null] };
-    const res = generateWeek({ weeks, weekIndex: 1, mode: 'fill-empty', seed: 3, maxRounds: 2 });
+    // the time limit is set well out of the way, so it is the round limit that stops it
+    const res = generateWeek({ weeks, weekIndex: 1, mode: 'fill-empty', seed: 3, maxRounds: 2, maxMs: 100_000 });
     expect(res.quality.major).toContain('O1 has no Music this week.');
     expect(res.rounds).toBe(2);
     expect(row(res.schedule, 'O1').every((l) => l === 'Talent Show')).toBe(true);

@@ -57,7 +57,9 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
   for (const b of shuffle(c.rng, Array.from({ length: n }, (_, i) => i))) {
     for (const area of TOKEN_AREAS) if (plan[area][b] > 0) tok[b][area] = plan[area][b];
     let planned = Object.values(tok[b]).reduce((a, x) => a + x, 0);
-    while (planned > free[b].length) {
+    // a bunk that has had no A&C yet keeps one period for it, even if a rare area has to wait
+    const forAc = total(b, 'A&C') === 0 && free[b].length > 0 ? 1 : 0;
+    while (planned > free[b].length - forAc) {
       // Put off the area this bunk can best spare: not one it is already short on, and the one hit least so far.
       const options = MAY_FALL_SHORT.filter((a) => (tok[b][a] ?? 0) > 0);
       const spare = options.filter((a) => sessionTargetOf(c.roster.village[b], c.sessionWeeks, a) - (total(b, a) + tok[b][a] - 1) <= 1);
@@ -346,6 +348,8 @@ class FillSearch {
     cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']) + Math.max(0, music - musicMax));
     // Mohawk and Tusc have few periods left over, and those should not all go to Athletics and Time with UH
     if (this.flexible[b] && ac === 0 && (athWeek > 0 || uh > 0)) cost += WEIGHTS.noAcWeek;
+    // no bunk goes without A&C: one that has had none yet gets it before any leftover period goes to Athletics or Time with UH
+    if (this.base[b].ac + ac === 0 && (athWeek > 0 || uhOwn > 0)) cost += WEIGHTS.gapOver;
     if (this.musicPlanned[b] && music === 0) cost += HARD; // the week's own Music is never given up
     cost += WEIGHTS.musicExtra * Math.max(0, music - 1);
     // only what the search itself put down can be taken back
@@ -418,12 +422,21 @@ class FillSearch {
     for (const j of this.cells[b]) if (j !== s && row[j] !== here && resting[j] <= this.step) moves.push({ cells: [s, j], labels: [row[j], here] });
     if (LEFTOVER.includes(here)) for (const to of LEFTOVER) if (to !== here) moves.push({ cells: [s], labels: [to] });
     let best: { move: Move; delta: number } | null = null;
+    // every move is tried and taken back: the bunk's tables are copied once and put back, which is cheaper than recounting
+    const ord = this.ord[b];
+    const ga = this.ga[b];
+    const keptOrd = ord.slice();
+    const keptGa = ga.slice();
     for (const move of shuffle(this.c.rng, moves)) {
       const areas = this.areasOf(b, move);
       const before = this.localCost(b, move.cells, areas);
       const old = this.apply(b, move);
       const delta = this.localCost(b, move.cells, areas) - before + this.c.rng() * 0.01;
-      this.apply(b, { cells: move.cells, labels: old });
+      move.cells.forEach((x, i) => (row[x] = old[i]));
+      for (let k = 0; k < SLOTS; k++) {
+        ord[k] = keptOrd[k];
+        ga[k] = keptGa[k];
+      }
       if (resting[s] > this.step && delta > -HARD / 2) continue; // a cell that just moved only moves again to fix a break
       if (!best || delta < best.delta) best = { move, delta };
       if (delta <= -HARD / 2) break; // it fixes a rule break: good enough, take it

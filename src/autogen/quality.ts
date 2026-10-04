@@ -165,8 +165,9 @@ export function weekQuality(input: QualityInput): WeekQuality {
     for (const [b, by] of perBunk) if (flexible(b) && by > RARE_MT_MAX_SHORT_PER_BUNK + stretch) major.push(`${roster.names[b]} is short on several rare areas.`);
   }
 
-  // Athletics and A&C: not too far apart
+  // Athletics and A&C: not too far apart, and nobody ends a session without any A&C
   for (let b = 0; b < n; b++) {
+    if (lastOfSession && total(b, 'A&C') === 0 && total(b, 'Athletics') > 0) major.push(`${roster.names[b]} has had no A&C.`);
     const gap = Math.abs(total(b, 'A&C') - total(b, 'Athletics'));
     const allowed = (flexible(b) ? GAP_MAX_MT : GAP_MAX_OCS) + stretch;
     if (gap > allowed + (weekIndex >= sessionWeeks - 1 ? 0 : GAP_SLACK_BEFORE_LAST_WEEK)) major.push(`${roster.names[b]} has Athletics and A&C ${gap} apart.`);

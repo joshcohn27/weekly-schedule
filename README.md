@@ -169,7 +169,12 @@ each limit on shortfalls is one looser.
 
 ### What to expect
 
-- The default roster (22 bunks) and smaller rosters generate with no rule breaks.
+- The default roster (22 bunks): in 100 simulated sessions, about 97 or 98 weeks in 100 came back fully clean (no
+  rule break and nothing short) within the 45 seconds. The rest are weeks 3 and 4, where trips, Shabbat Prep and the
+  short last week leave the least room. Pressing Auto generate again for that week gives a new attempt. Smaller
+  rosters generate cleanly.
+- Every bunk gets A&C. Mohawk has about six spare periods all session, so it ends with 1 to 4 A&C per bunk.
+- Pool ends at 4 or 5 swims per bunk in every village; now and then a Seneca or Mohawk bunk ends on 3.
 - Mohawk and Tusc have the least room (league doubles, Waterfront, trips, a short last week), so they may end the
   session one block short on a rarer area. Check the Tracking tab for the real totals.
 - In the last week Tusc comes back from the bike trip with one free day, so only two of its bunks get Music that week.

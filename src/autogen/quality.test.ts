@@ -100,6 +100,13 @@ describe('weekQuality', () => {
     expect(gapMessage(judge(1, put('O1', ['Athletics', 'Athletics'])), 'major', 'O1')).toBe(true);
   });
 
+  it('does not accept a bunk ending the session with Athletics but no A&C at all', () => {
+    const only = (labels: string[]) => (g: string[][]) => labels.forEach((l, i) => (g[at('M1')][slotAt(i, 0)] = l));
+    expect(judge(4, only(['Athletics'])).major).toContain('M1 has had no A&C.');
+    expect(judge(4, only(['Athletics', 'A&C'])).major).not.toContain('M1 has had no A&C.');
+    expect(judge(2, only(['Athletics'])).major).not.toContain('M1 has had no A&C.'); // there are weeks left to give it
+  });
+
   it('never counts or mentions the triathlon in the last week of a 4-week session', () => {
     const say = (q: WeekQuality) => [...q.hard, ...q.major, ...q.minor].filter((m) => /triathlon/i.test(m));
     expect(say(judge(4))).toEqual([]);
