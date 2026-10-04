@@ -94,7 +94,7 @@ describe('rendering', () => {
 
 describe('Auto generate UI', () => {
   it('the week bar has an Auto generate button for the selected week', () => {
-    expect(renderToStaticMarkup(<App />)).toContain('Auto generate Week 1');
+    expect(renderToStaticMarkup(<App />)).toMatch(/>Auto generate<\/button>/);
   });
 
   it('the dialog explains what will happen and offers both sessions', () => {

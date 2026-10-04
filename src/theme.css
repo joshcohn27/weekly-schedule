@@ -386,12 +386,30 @@ fieldset.readonly {
 }
 /* the "?" in the header and the how-to panel it opens */
 .help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: 26px;
   height: 26px;
+  min-width: 0;
+  margin: 0 0 0 6px;
   padding: 0;
+  border: 2px solid var(--forest);
   border-radius: 50%;
-  font-weight: bold;
+  background: #fff;
+  color: var(--forest);
+  font: bold 15px/1 system-ui, sans-serif;
   vertical-align: middle;
+  cursor: pointer;
+}
+.modal.help {
+  position: relative;
+}
+.modal.help .close-top {
+  position: absolute;
+  top: 12px;
+  right: 14px;
 }
 .modal.help {
   max-width: 760px;

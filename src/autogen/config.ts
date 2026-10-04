@@ -160,6 +160,8 @@ export const UH_EARLY_MARGIN = 0.5;
 export const FLEXIBLE_VILLAGES = ['M', 'T'];
 /** Time with UH is planned once a session; a bunk may get it up to this many times when its periods cannot be filled otherwise. */
 export const UH_MAX_PER_SESSION = 3;
+/** Tusc away on a trip for at least this many periods of a week has no triathlon training that week (the three-day bike trip). */
+export const TRI_AWAY_PERIODS = 8;
 /** A bunk away on trips for at least this many periods of a week is not expected to get its weekly Music. */
 export const AWAY_PERIODS_NO_MUSIC = 12;
 /** Extra periods a later week is assumed to have when sharing out the rare areas, so they are not all used up early. */
@@ -204,9 +206,11 @@ export const APP_MAX_MS = 20000;
 export const APP_BACK_UP_AFTER = 2;
 /**
  * A run never hands back a week that is not good unless it has been going this long in all: then a week that cannot be made
- * good (a roster that does not fit, a week filled in by hand in a way no schedule can meet) still comes back. Cancel stops it sooner.
+ * good (a roster that does not fit, a week filled in by hand in a way no schedule can meet) still comes back. Stop ends it sooner.
  */
-export const APP_TOTAL_MAX_MS = 600000;
+export const APP_TOTAL_MAX_MS = 300000;
+/** The most attempts at one week that run at the same time, each on its own processor core. */
+export const APP_MAX_WORKERS = 6;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
 export const SYNC_MAX_MS = 10000;
 

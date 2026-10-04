@@ -370,7 +370,7 @@ export default function App() {
             title={schedule.bunks.length === 0 ? 'Add bunks on the Build tab first.' : undefined}
           >
             {run !== null && <span className="spinner" aria-hidden="true" />}
-            {run !== null ? 'Generating...' : `Auto generate ${weekLabel(current)}`}
+            {run !== null ? 'Generating...' : 'Auto generate'}
           </button>
           {run && <AutoGenerateProgress progress={run} onStop={() => runRef.current?.stop()} />}
           {auto && <AutoGenerateStatus weekNumbers={auto.weeks.map((w) => w + 1)} seed={auto.seed} onUndo={undoAutoGenerate} />}

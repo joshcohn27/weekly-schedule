@@ -339,7 +339,10 @@ describe('building around what is already there', () => {
     const locked = before.map((r) => r.map((l) => l !== ''));
     const trial: WeeksState = { ...weeks, weeks: [weeks.weeks[0], out.schedule, null, null] };
     expect(validateWeek(trial, 2, 4, { locked })).toEqual([]);
-    expect(blocksOf(row(out.schedule, 'O1')).filter((k) => k.area === 'Music')).toHaveLength(1); // the Music put in by hand is the week's one
+    // the Music put in by hand is the week's own; one more may fill a period, never two
+    const music = blocksOf(row(out.schedule, 'O1')).filter((k) => k.area === 'Music').length;
+    expect(music).toBeGreaterThanOrEqual(1);
+    expect(music).toBeLessThanOrEqual(2);
   }, 120_000);
 
   it('does not crash when a filled-in cell makes a planned block impossible', () => {

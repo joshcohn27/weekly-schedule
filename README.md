@@ -82,7 +82,7 @@ replaces whatever was in the cells it fills, without asking.
 
 ## Auto generate
 
-The **Auto generate Week N** button in the week bar builds the periods for one week, or for the whole session, from
+The **Auto generate** button in the week bar builds the periods for one week, or for the whole session, from
 the bunks on the Build tab. It is disabled until the selected week has bunks.
 
 **Put the trips in first.** Auto generate never adds the Tusc bike trips or a Tiyul. Enter those by hand (the bulk

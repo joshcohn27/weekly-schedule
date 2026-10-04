@@ -331,6 +331,7 @@ class FillSearch {
     let athWeek = 0;
     let acWeek = 0;
     let music = 0;
+    let musicAll = 0; // with the ones that were filled in by hand
     const fillers = this.fillers.map(() => 0);
     const fillersOwn = this.fillers.map(() => 0);
     const today: string[] = [];
@@ -383,6 +384,7 @@ class FillSearch {
           uh++;
           if (!locked[s]) uhOwn++;
         } else if (area === 'Music') {
+          musicAll++;
           if (!locked[s]) music++;
         } else if (area === 'Athletics') {
           ath++;
@@ -395,7 +397,7 @@ class FillSearch {
     }
     // a village that gives up some of its Music for A&C does not get the Music back as a filler
     const musicMax = MUSIC_LIGHT_VILLAGES.includes(c.roster.village[b]) ? (this.musicPlanned[b] ? 1 : 0) : WEEK_BLOCK_MAX.Music;
-    cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']) + Math.max(0, music - musicMax));
+    cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']) + Math.min(music, Math.max(0, musicAll - musicMax)));
     // Mohawk and Tusc have few periods left over, and those should not all go to Athletics and Time with UH
     if (this.flexible[b] && ac === 0 && (athWeek > 0 || uh > 0)) cost += WEIGHTS.noAcWeek;
     // no bunk goes without A&C: one that has had none yet gets it before any leftover period goes to Athletics or Time with UH

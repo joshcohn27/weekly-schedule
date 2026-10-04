@@ -15,6 +15,7 @@ import {
   RARE_OCS_MAX_SHORT_BUNKS,
   RARE_SHORT_MAJOR_AT,
   SHABBAT_ROTATION,
+  TRI_AWAY_PERIODS,
   TRIP_LABELS,
   WATERFRONT_PER_WEEK,
   type SessionWeeks,
@@ -69,7 +70,6 @@ export function weekQuality(input: QualityInput): WeekQuality {
   const { weeks, weekIndex, sessionWeeks, roster, hist, grid } = input;
   const n = roster.n;
   const lastOfSession = weekIndex >= sessionWeeks;
-  const lastWeek4 = sessionWeeks === 4 && weekIndex === 4;
   const stretch = input.stretch ?? 0;
 
   const hard = validateGrid({ weeks, weekIndex, sessionWeeks, roster, hist, grid, locked: input.locked }).map((v) => v.message);
@@ -92,7 +92,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
     const f = first(v);
     if (v === 'T') {
       // triathlon: one double and two singles; skipped in the last week of a 4-week session, and never mentioned then
-      if (!lastWeek4) {
+      if (grid[f].filter((l) => TRIP_LABELS.includes(l)).length < TRI_AWAY_PERIODS) {
         const sessions = blocks[f].filter((k) => k.label === 'Tusc Triathlon Training').length;
         if (sessions < LEAGUE_MIN_PER_WEEK) major.push(`Village ${v} is short on triathlon training this week.`);
       }

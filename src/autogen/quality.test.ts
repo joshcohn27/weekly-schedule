@@ -109,11 +109,13 @@ describe('weekQuality', () => {
     expect(judge(2, only(['Athletics'])).major).not.toContain('M1 has had no A&C.'); // there are weeks left to give it
   });
 
-  it('never counts or mentions the triathlon in the last week of a 4-week session', () => {
+  it('never counts or mentions the triathlon in a week Tusc is away on the long bike trip', () => {
     const say = (q: WeekQuality) => [...q.hard, ...q.major, ...q.minor].filter((m) => /triathlon/i.test(m));
-    expect(say(judge(4))).toEqual([]);
+    const bikeTrip = (g: string[][]) => roster.byVillage.T.forEach((b) => g[b].fill('Bike Trip', 0, 12)); // Sunday to Tuesday
+    expect(say(judge(4, bikeTrip))).toEqual([]);
+    // it goes by the trip on the schedule, not by which week it is: in camp, Tusc trains
+    expect(say(judge(4))).toEqual(['Village T is short on triathlon training this week.']);
     expect(say(judge(3))).toEqual(['Village T is short on triathlon training this week.']);
-    // a 3-week session has no skipped triathlon week
     expect(say(judge(3, () => {}, { sessionWeeks: 3 }))).toEqual(['Village T is short on triathlon training this week.']);
   });
 

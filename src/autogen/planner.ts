@@ -16,11 +16,11 @@ import {
   POOL_TARGET_OTHER,
   SESSION_TARGETS,
   SHABBAT_ROTATION,
-  TIYUL_WEEKS,
+  TRI_AWAY_PERIODS,
   TRIP_LABELS,
   WATERFRONT_PER_WEEK,
 } from './config';
-import { blocksOf, isBuiltWeek, villageWeeksWithLabel } from './history';
+import { blocksOf, isBuiltWeek } from './history';
 import { ropeGroups } from './groups';
 import { weightedSample } from './rng';
 import type { Ctx } from './state';
@@ -79,21 +79,16 @@ const counted = (c: Ctx, inWeek: Counts[], b: number, area: string): number =>
   (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0) + (inWeek[b][area] ?? 0);
 
 /**
- * Periods a bunk's trips take in a week. Trips are entered by hand: when the week has any, they are counted as they stand.
- * A week with none entered yet gets the usual guess (Tusc's bike trips, and a Tiyul some time in the weeks on its calendar).
+ * Periods a bunk's trips take in a week: the ones that are on the schedule, and nothing else. Trips are entered by hand, and
+ * a week with none entered is planned as a week with none. (It used to be planned as if the usual trips would turn up, which
+ * left a village with nothing to do in a week it turned out to spend in camp.)
  */
 function tripCells(c: Ctx, b: number, week: number): number {
-  const v = c.roster.village[b];
   const schedule = c.weeks.weeks[week - 1];
-  const isTrip = (l: string): boolean => TRIP_LABELS.includes(l);
-  if (schedule && schedule.bunks.some((x) => x.slots.some(isTrip))) {
-    return schedule.bunks.find((x) => x.name.trim() === c.roster.names[b])?.slots.filter(isTrip).length ?? 0;
-  }
-  if (v === 'T') return c.sessionWeeks === 4 && week === 4 ? 12 : week === 2 ? 2 : 0;
-  const list = TIYUL_WEEKS[c.sessionWeeks][v];
-  if (!list || !list.includes(week) || (villageWeeksWithLabel(c.weeks, week, 'Tiyul')[v] ?? 0) > 0) return 0;
-  return (v === 'S' || v === 'M' ? 4 : 2) / list.length;
+  return schedule?.bunks.find((x) => x.name.trim() === c.roster.names[b])?.slots.filter((l) => TRIP_LABELS.includes(l)).length ?? 0;
 }
+/** Tusc trains for the triathlon every week it is in camp: four periods, or none in a week it is away on the long bike trip. */
+const triathlonPeriods = (c: Ctx, b: number, week: number): number => (tripCells(c, b, week) >= TRI_AWAY_PERIODS ? 0 : LEAGUE_PER_WEEK + 1);
 
 /**
  * Roughly how many single periods a bunk has to spare in a given week once the fixed calendar, trips,
@@ -110,7 +105,7 @@ export function expectedSpare(c: Ctx, b: number, week: number): number {
     let free = 0;
     for (let s = 0; s < 24; s++) if (c.grid[b][s] === '' && !(last && s >= 20)) free++;
     const row = blocksOf(c.grid[b]);
-    const leagueWant = v === 'T' ? (last ? 0 : LEAGUE_PER_WEEK + 1) : LEAGUE_PER_WEEK * (v === 'M' ? 2 : 1);
+    const leagueWant = v === 'T' ? triathlonPeriods(c, b, week) : LEAGUE_PER_WEEK * (v === 'M' ? 2 : 1);
     const leagueHave = row.filter((k) => k.area === 'League').reduce((sum, k) => sum + k.len, 0);
     const wfHave = row.filter((k) => k.area === 'Waterfront').length;
     free -= Math.max(0, leagueWant - leagueHave);
@@ -121,7 +116,7 @@ export function expectedSpare(c: Ctx, b: number, week: number): number {
   if (last) free -= 4 + 6; // Friday, Thursday and Monday hobbies
   else free -= 4 + (week > 1 ? 0.4 : 0); // hobbies, the optional Sunday one at 20 percent
   if (week === 1) free -= 1; // Sunday swim test, or Mohawk's Athletics
-  if (v === 'T') free -= last ? 0 : LEAGUE_PER_WEEK + 1; // triathlon: one double and two singles
+  if (v === 'T') free -= triathlonPeriods(c, b, week); // triathlon: one double and two singles
   else free -= v === 'M' ? LEAGUE_PER_WEEK * 2 : LEAGUE_PER_WEEK;
   free -= last ? WATERFRONT_PER_WEEK : WATERFRONT_PER_WEEK * 2; // the short last week has room for about one Waterfront each
   if ((SHABBAT_ROTATION[c.sessionWeeks][week] ?? []).includes(v)) free -= 3;
@@ -343,7 +338,7 @@ function trimToRoom(c: Ctx, plan: Plan, mins: Plan): void {
     const v = c.roster.village[b];
     let free = 0;
     for (let s = 0; s < 24; s++) if (c.grid[b][s] === '' && !(c.lastWeek && s >= 20)) free++;
-    const league = v === 'T' ? (c.lastWeek ? 0 : LEAGUE_PER_WEEK + 1) : LEAGUE_PER_WEEK * (v === 'M' ? 2 : 1);
+    const league = v === 'T' ? triathlonPeriods(c, b, c.weekIndex) : LEAGUE_PER_WEEK * (v === 'M' ? 2 : 1);
     const room = free - league - wf;
     const planned = (): number => plan.Pool[b] + 2 * plan.Ropes[b] + plan.Music[b] + TOKEN_AREAS.reduce((sum, a) => sum + (a === 'Music' ? 0 : plan[a][b]), 0);
     for (const area of trimOrder()) {

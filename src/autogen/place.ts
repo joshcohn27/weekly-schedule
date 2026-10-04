@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { AGE_ALLOWED, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_PATTERNS, LEAGUE_MIN_PER_WEEK, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
+import { AGE_ALLOWED, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_PATTERNS, LEAGUE_MIN_PER_WEEK, TRI_AWAY_PERIODS, TRIP_LABELS, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
 import { ropeGroups } from './groups';
 import { blocksOf, halfSlots, slotAt } from './history';
 import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
@@ -78,6 +78,9 @@ function reservedCells(c: Ctx, plan: Plan, b: number): number {
   return n;
 }
 
+/** Is the village away on a long trip this week (Tusc's three-day bike trip)? Then it has no triathlon training. */
+const awayOnTrip = (c: Ctx, v: string): boolean => c.grid[idx(c, v)[0]].filter((l) => TRIP_LABELS.includes(l)).length >= TRI_AWAY_PERIODS;
+
 /** League or triathlon periods a village still has to place this week. */
 function pendingLeagueBlocks(c: Ctx, v: string): number {
   if (v === 'T') return 0; // Tusc's triathlon is placed later and has its own room check
@@ -85,7 +88,7 @@ function pendingLeagueBlocks(c: Ctx, v: string): number {
   return Math.max(0, LEAGUE_PER_WEEK - have);
 }
 const leagueCells = (c: Ctx, v: string): number =>
-  v === 'T' ? (c.lastWeek ? 0 : LEAGUE_PER_WEEK + 1) : pendingLeagueBlocks(c, v) * (v === 'M' ? 2 : 1);
+  v === 'T' ? (awayOnTrip(c, v) ? 0 : LEAGUE_PER_WEEK + 1) : pendingLeagueBlocks(c, v) * (v === 'M' ? 2 : 1);
 
 /** On how many different days could the village still place a league block if these slots were taken? */
 function leagueDaysLeft(c: Ctx, v: string, taken: readonly number[]): number {
@@ -248,8 +251,8 @@ export function placeLeague(c: Ctx): void {
 
 export function placeTri(c: Ctx): void {
   const v = 'T';
-  // The last week has only Wednesday left for Tusc, and Pool, Music and Waterfront need it more, so no training then.
-  if (!c.roster.byVillage[v] || c.lastWeek) return;
+  // In the week of the three-day bike trip Tusc has a day or so left, and Pool, Music and Waterfront need it more: no training then.
+  if (!c.roster.byVillage[v] || awayOnTrip(c, v)) return;
   const members = idx(c, v);
   const label = 'Tusc Triathlon Training';
   let allowed = c.days;

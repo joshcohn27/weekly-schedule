@@ -2,7 +2,7 @@ import { emptySchedule, newBunk } from '../sample';
 import type { Bunk, Schedule } from '../types';
 import { APP_BACK_UP_AFTER, APP_MAX_MS, APP_TOTAL_MAX_MS, type SessionWeeks } from './config';
 import { isFilledWeek } from './history';
-import { generateWeekAsync, isBad, type AutoGenResult } from './index';
+import { generateWeekAsync, isBad, type AutoGenOptions, type AutoGenResult } from './index';
 import { compareQuality } from './quality';
 import { applySettings, type Settings } from './settings';
 
@@ -31,6 +31,8 @@ export interface RunOptions {
   onProgress?: (step: number, tries: number) => void;
   /** Called as soon as a week is kept, so it can be shown while the later ones are still being worked on. */
   onWeek?: (step: number, schedule: Schedule) => void;
+  /** How one week is generated. Left out, it is generated here; the page passes one that tries several seeds at once. */
+  generate?: (options: AutoGenOptions) => Promise<AutoGenResult | null>;
   /** Longest one try at one week may take, and longest the whole run may take before it settles for its best. */
   maxMsPerTry?: number;
   maxTotalMs?: number;
@@ -75,7 +77,7 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
     opts.onProgress?.(n, fails[n]);
     // starting fresh: the weeks that are not part of this run are hidden from the generator
     const visible = opts.useOtherWeeks ? working : working.map((w, i) => (generated.has(i) ? w : null));
-    const result = await generateWeekAsync({
+    const result = await (opts.generate ?? generateWeekAsync)({
       weeks: { current: index, weeks: visible },
       weekIndex: index + 1,
       mode,

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { FIXED_RULES } from './SettingsView';
 
 interface Props {
@@ -10,6 +10,13 @@ interface Props {
  * It describes what the page does; the numbers themselves are on the Settings tab.
  */
 export default function HelpPanel({ onClose }: Props) {
+  // open at the top: the panel is long, and it must not start scrolled down to its Close button
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!panel.current) return;
+    panel.current.scrollTop = 0;
+    panel.current.focus({ preventScroll: true });
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -20,7 +27,10 @@ export default function HelpPanel({ onClose }: Props) {
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal help" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div className="modal help" role="dialog" aria-modal="true" aria-labelledby="help-title" tabIndex={-1} ref={panel}>
+        <button type="button" className="close-top" onClick={onClose}>
+          Close
+        </button>
         <h2 id="help-title">How to use this page</h2>
         <p>
           This page holds the weekly period schedule: every bunk, four periods a day, Sunday to Friday, for up to four weeks. You can fill
@@ -137,7 +147,7 @@ export default function HelpPanel({ onClose }: Props) {
         </ul>
 
         <div className="modal-buttons">
-          <button type="button" className="primary" autoFocus onClick={onClose}>
+          <button type="button" className="primary" onClick={onClose}>
             Close
           </button>
         </div>
