@@ -79,6 +79,20 @@ export const AGE_PREFERRED = 0.5;
 export const AGE_ALLOWED = 1;
 /** S with M at the pool must be the same age. */
 export const POOL_AGE_MAX = 0.5;
+/** Who may share a period, as set on the Settings tab. The pool never looks at this: its rules are fixed. */
+export interface Sharing {
+  /** Inside a village: only the bunk next in the list, or any bunk of the village. */
+  within: 'next' | 'village';
+  /** May the paired villages mix (O with C, S with M)? */
+  across: boolean;
+  /** How close in grade two bunks must be: the same grade, within one grade, or it does not matter. */
+  grades: 'same' | 'one' | 'any';
+  /** Pairs set by hand on the grid, "O1|O2" (names in order): true for may, false for may not. They win over the three above. */
+  pairs: Record<string, boolean>;
+}
+/** The sharing in force. settings.ts overwrites it in place; this is the default. */
+export const SHARING: Sharing = { within: 'next', across: true, grades: 'one', pairs: {} };
+
 /** Areas where an O bunk may share with a C bunk, or an S bunk with an M bunk. Pool is S with M only. */
 export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Israel Education', 'Pool'];
 /** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Time with UH takes two bunks of one village. Ropes is one group of 2 (3 as a trio). */

@@ -147,13 +147,20 @@ the rarer areas that come with the app. Up to six can be added, each with a Remo
 that comes with the app, set both of its numbers to 0. Every period an added area takes is one fewer Athletics or
 A&C; every area taken away is that many more.
 
+**Who may share a period.** Three basic choices: inside a village, only the bunk next in the list or any bunk of the
+village; whether the paired villages (O with C, S with M) may mix; and how close in grade two bunks must be (the same
+grade, within one, or any). Behind **Advanced: customize sharing** is a grid with a box for every pair of bunks. It
+starts as what the three choices give. A box you tick or untick is outlined and wins over the choices for that pair,
+including in a group of three at A&C. The grid goes by bunk name. None of this touches the pool, whose rules are
+fixed, or Athletics, which takes any bunks; Tusc bunks share with each other unless a box says otherwise.
+
 **The page checks the arithmetic as you type.** Above the table it says either that the settings add up, or what is
 wrong and what to try: "A schedule is not possible with these settings ... Try giving each bunk about 2 more visits
 a session". It counts periods; it does not build a schedule. "Not possible" means the periods cannot fit.
 "Unlikely to work" means they fit on paper but settings that tight did not generate when tried; those two limits are
 measured, and are marked as such in `src/autogen/feasibility.ts`.
 
-Settings are saved with the schedule in the browser and written to a **Settings** tab in the Excel file, so a file
+Settings are saved with the schedule in the browser and written to **Settings** and **Sharing** tabs in the Excel file, so a file
 carries its own rules; uploading a file that has that tab replaces the settings here. **Reset to the default
 settings** puts everything back. The rules listed under "Always kept" on that tab are not settings.
 

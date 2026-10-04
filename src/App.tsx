@@ -414,6 +414,7 @@ export default function App() {
             onReset={() => setSettings(null)}
             disabled={run !== null}
             problems={checkSettings(settings, weeksState.weeks)}
+            bunks={schedule.bunks}
           />
         )}
         {view === 'tracking' && <TrackingView bunks={schedule.bunks} weekLabel={weekLabel(current)} schedules={allSchedules} />}

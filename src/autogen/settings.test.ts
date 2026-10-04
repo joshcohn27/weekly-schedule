@@ -3,17 +3,20 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import SettingsView, { FIXED_RULES } from '../components/SettingsView';
+import SharingSettings from '../components/SharingSettings';
 import { buildAllWeeksWorkbook, buildWeekWorkbook, parseSettingsSheet, parseUploadedWorkbook } from '../excel';
 import { ACTIVITIES, AREAS, OPTION_GROUPS, areaOf } from '../config';
 import { sampleSchedule } from '../sample';
 import { computeTracking } from '../tracking';
 import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
-import { DANCE_TARGETS, DAY_CAP, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP } from './config';
+import { DANCE_TARGETS, DAY_CAP, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, type Sharing } from './config';
 import { checkSettings } from './feasibility';
 import { generateRun } from './session';
-import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, isDefaultSettings, normalizeSettings, removeArea, settingAreas, whyNotAdd, type Settings } from './settings';
+import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, type Settings } from './settings';
 import { TOKEN_AREAS } from './planner';
+import { buildRoster, isSameAgeGroup, pairKey, shareLevel, sharingLevel } from './roster';
+import { slotGroupProblems } from './share';
 import { sessionBlocks, weekWithTrips } from './testUtil';
 import { validateWeek } from './validate';
 
@@ -90,7 +93,7 @@ describe('settings', () => {
     changed.areas.Dance.villages = { O: 2, C: 2, S: 2, M: 2, T: 2 };
     for (const wb of [buildWeekWorkbook(sampleSchedule(), 2, changed), buildAllWeeksWorkbook([sampleSchedule(), null], changed)]) {
       const reread = XLSX.read(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), { type: 'array' });
-      expect(reread.SheetNames[reread.SheetNames.length - 1]).toBe('Settings');
+      expect(reread.SheetNames.slice(-2)).toEqual(['Settings', 'Sharing']);
       expect(parseSettingsSheet(reread)).toEqual(changed);
       expect(parseUploadedWorkbook(reread)).toHaveLength(1);
     }
@@ -262,6 +265,125 @@ describe('adding and removing program areas', () => {
     expect(Math.max(...counts)).toBeLessThanOrEqual(2);
     expect(counts.filter((n) => n === 2).length).toBeGreaterThanOrEqual(18); // a Mohawk or Tusc bunk may end one short
     expect(Math.min(...counts)).toBeGreaterThanOrEqual(1);
+    for (let w = 1; w <= 4; w++) expect(validateWeek(weeks, w, 4)).toEqual([]);
+  }, 900_000);
+});
+
+describe('who may share a period', () => {
+  const roster = buildRoster(sampleSchedule().bunks);
+  const at = (name: string): number => roster.names.indexOf(name);
+  const level = (x: string, y: string, sharing: Sharing, area = 'Music'): number => sharingLevel(roster, at(x), at(y), area, sharing);
+  const base = defaultSharing();
+
+  it('starts as the rules the generator has always had', () => {
+    expect(base).toEqual({ within: 'next', across: true, grades: 'one', pairs: {} });
+    expect(level('O1', 'O2', base)).toBeGreaterThan(0); // next to each other
+    expect(level('O1', 'O3', base)).toBe(0); // not next to each other
+    expect(level('O1', 'C1', base)).toBeGreaterThan(0); // the paired villages, the same grade
+    expect(level('O1', 'S1', base)).toBe(0);
+    expect(level('T1', 'T4', base)).toBe(2); // Tusc always shares with Tusc
+  });
+
+  it('follows the three basic choices', () => {
+    expect(level('O1', 'O3', { ...base, within: 'village' })).toBeGreaterThan(0); // 4th with 5th, one grade apart
+    expect(level('O1', 'O5', { ...base, within: 'village' })).toBe(0); // 4th with 6th is two apart
+    expect(level('O1', 'O5', { ...base, within: 'village', grades: 'any' })).toBeGreaterThan(0);
+    expect(level('O1', 'O3', { ...base, within: 'village', grades: 'same' })).toBe(0);
+    expect(level('O1', 'O2', { ...base, grades: 'same' })).toBeGreaterThan(0); // 4th with 4th/5th counts as the same
+    expect(level('O1', 'C1', { ...base, across: false })).toBe(0);
+  });
+
+  it('lets a pair set on the grid win over the basic choices, either way', () => {
+    expect(level('O1', 'O4', { ...base, pairs: { 'O1|O4': true } })).toBeGreaterThan(0);
+    expect(level('O1', 'S1', { ...base, pairs: { 'O1|S1': true } })).toBeGreaterThan(0);
+    expect(level('O1', 'O2', { ...base, pairs: { 'O1|O2': false } })).toBe(0);
+    expect(level('T1', 'T2', { ...base, pairs: { 'T1|T2': false } })).toBe(0);
+    expect(pairKey('O2', 'O1')).toBe('O1|O2');
+  });
+
+  it('keeps a pair that was set apart by hand out of a group of three at A&C too', () => {
+    const trio = [at('O1'), at('O2'), at('C1')]; // all about the same age: allowed as three by default
+    expect(isSameAgeGroup(roster, trio)).toBe(true);
+    applySettings(withPair(defaultSettings(), 'O1', 'O2', false, true));
+    expect(isSameAgeGroup(roster, trio)).toBe(false);
+    expect(slotGroupProblems(roster, 'A&C', trio, () => 1).length).toBeGreaterThan(0);
+    applySettings();
+    expect(isSameAgeGroup(roster, trio)).toBe(true);
+  });
+
+  it('never changes the pool', () => {
+    const wide: Sharing = { within: 'village', across: false, grades: 'any', pairs: { 'O1|O2': false, 'O1|O4': true, 'S1|M3': true } };
+    applySettings(withSharing(defaultSettings(), wide));
+    expect(shareLevel(roster, at('O1'), at('O2'), 'Music')).toBe(0); // the settings are in force for Music
+    expect(shareLevel(roster, at('O1'), at('O4'), 'Music')).toBeGreaterThan(0);
+    expect(shareLevel(roster, at('O1'), at('O2'), 'Pool')).toBeGreaterThan(0); // and not for the pool
+    expect(shareLevel(roster, at('O1'), at('O4'), 'Pool')).toBe(0);
+    expect(shareLevel(roster, at('S1'), at('M1'), 'Pool')).toBeGreaterThan(0); // S with M at the same age, as always
+    expect(shareLevel(roster, at('S1'), at('M3'), 'Pool')).toBe(0);
+    applySettings();
+    expect(shareLevel(roster, at('O1'), at('O2'), 'Music')).toBeGreaterThan(0);
+  });
+
+  it('keeps only what differs from the default, and a grid change only while it differs from the basic choices', () => {
+    expect(withSharing(defaultSettings(), base).sharing).toBeUndefined();
+    expect(isDefaultSettings(withSharing(defaultSettings(), base))).toBe(true);
+    const off = withPair(defaultSettings(), 'O2', 'O1', false, true);
+    expect(off.sharing?.pairs).toEqual({ 'O1|O2': false });
+    expect(isDefaultSettings(off)).toBe(false);
+    expect(withPair(off, 'O1', 'O2', true, true).sharing).toBeUndefined(); // back to what the basic choices give
+    // adding a program area keeps the sharing
+    expect(addArea(off, 'Archery').sharing?.pairs).toEqual({ 'O1|O2': false });
+    expect(normalizeSharing({ within: 'everyone', across: 'no', grades: 3, pairs: { 'O1|O1': true, O1: true, ' O2 | O1 ': false } })).toEqual({ ...base, pairs: { 'O1|O2': false } });
+    expect(normalizeSharing(null)).toBeNull();
+  });
+
+  it('goes into the Excel file on its own tab and comes back', () => {
+    const s = withSharing(addArea(defaultSettings(), 'Archery'), { within: 'village', across: false, grades: 'any', pairs: { 'O1|O4': true, 'S1|S2': false } });
+    const wb = XLSX.read(XLSX.write(buildWeekWorkbook(sampleSchedule(), 1, s), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
+    expect(parseSettingsSheet(wb)).toEqual(s);
+    const plain = XLSX.read(XLSX.write(buildWeekWorkbook(sampleSchedule(), 1), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
+    expect(parseSettingsSheet(plain)).toEqual(defaultSettings());
+  });
+
+  it('shows the three choices, and behind Advanced a box for every pair with the changed ones marked', () => {
+    const bunks = sampleSchedule().bunks;
+    const s = withPair(defaultSettings(), 'O1', 'O4', true, false);
+    const closed = renderToStaticMarkup(createElement(SettingsView, { settings: s, villages: ['O'], onChange: noop, onReset: noop, bunks }));
+    for (const label of ['Sharing inside a village', 'Sharing across villages', 'Sharing grades']) expect(closed).toContain(`aria-label="${label}"`);
+    expect(closed).toContain('Advanced: customize sharing');
+    expect(closed).toContain('1 pair changed by hand.');
+    expect(closed).not.toContain('sharing-grid');
+    const open = renderToStaticMarkup(createElement(SharingSettings, { settings: s, bunks, onChange: noop, open: true }));
+    expect((open.match(/type="checkbox"/g) ?? []).length).toBe((22 * 21) / 2);
+    expect((open.match(/class="changed"/g) ?? []).length).toBe(1);
+    expect(open).toMatch(/<input[^>]*aria-label="O1 with O4"[^>]*checked|<input[^>]*checked[^>]*aria-label="O1 with O4"/);
+    expect(open).not.toMatch(/<input[^>]*aria-label="O1 with O3"[^>]*checked|<input[^>]*checked[^>]*aria-label="O1 with O3"/);
+  });
+
+  it('generates a session that keeps a pair apart when the grid says so, and still passes every rule', async () => {
+    const settings = withPair(defaultSettings(), 'O1', 'O2', false, true);
+    const run = await generateRun({
+      weeks: [1, 2, 3, 4].map((w) => weekWithTrips(sampleSchedule(), w)),
+      steps: [0, 1, 2, 3].map((index) => ({ index, mode: 'fill-empty' as const })),
+      roster: sampleSchedule().bunks,
+      sessionWeeks: 4,
+      keepTrips: true,
+      useOtherWeeks: true,
+      seed: 41,
+      settings,
+    });
+    expect(run?.good).toBe(true);
+    const together: string[] = [];
+    (run?.weeks ?? []).forEach((w, i) => {
+      const s = w as Schedule;
+      const o1 = s.bunks.find((b) => b.name === 'O1')!.slots;
+      const o2 = s.bunks.find((b) => b.name === 'O2')!.slots;
+      o1.forEach((label, slot) => {
+        if (label === o2[slot] && ['A&C', 'Music', 'Teva', 'Dance', 'Israel'].includes(label)) together.push(`week ${i + 1} slot ${slot} ${label}`);
+      });
+    });
+    expect(together).toEqual([]);
+    const weeks: WeeksState = { current: 0, weeks: run?.weeks ?? [] };
     for (let w = 1; w <= 4; w++) expect(validateWeek(weeks, w, 4)).toEqual([]);
   }, 900_000);
 });

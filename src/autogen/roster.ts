@@ -1,6 +1,6 @@
 import { villageOf } from '../autofill';
 import type { Bunk } from '../types';
-import { AGE_ALLOWED, AGE_PREFERRED, CROSS_VILLAGE_AREAS, DEFAULT_CAMPERS, POOL_AGE_MAX, UH_EARLY_MARGIN } from './config';
+import { AGE_ALLOWED, AGE_PREFERRED, CROSS_VILLAGE_AREAS, DEFAULT_CAMPERS, POOL_AGE_MAX, SHARING, UH_EARLY_MARGIN, type Sharing } from './config';
 
 export interface Roster {
   n: number;
@@ -67,20 +67,36 @@ const crossVillages = (va: string, vb: string): boolean =>
  * Anything else never shares.
  */
 export function shareLevel(r: Roster, a: number, b: number, area: string): 0 | 1 | 2 {
+  return sharingLevel(r, a, b, area, area === 'Pool' ? POOL_SHARING : SHARING);
+}
+
+/** The pool's own rules, which no setting changes: the next bunk in the list, within a grade, and S with M at the same age. */
+const POOL_SHARING: Sharing = { within: 'next', across: true, grades: 'one', pairs: {} };
+
+/** The key a pair of bunks is kept under on the sharing grid: their names in order. */
+export const pairKey = (x: string, y: string): string => (x < y ? `${x}|${y}` : `${y}|${x}`);
+
+/** shareLevel under the given sharing settings (the Settings tab shows what a change would do before it is in force). */
+export function sharingLevel(r: Roster, a: number, b: number, area: string, sharing: Sharing): 0 | 1 | 2 {
   if (a === b) return 0;
   const va = r.village[a];
   const vb = r.village[b];
   const diff = Math.abs(r.age[a] - r.age[b]);
+  const level = diff <= AGE_PREFERRED ? 2 : 1;
+  // a pair set by hand on the grid wins over everything else
+  const byHand = sharing.pairs[pairKey(r.names[a], r.names[b])];
+  if (byHand !== undefined) return byHand ? level : 0;
+  const atPool = area === 'Pool';
+  const apart = atPool && va !== vb ? POOL_AGE_MAX : sharing.grades === 'same' ? AGE_PREFERRED : sharing.grades === 'one' ? AGE_ALLOWED : Infinity;
   if (va === vb) {
     if (va === 'T') return 2;
-    if (Math.abs(r.pos[a] - r.pos[b]) !== 1 || diff > AGE_ALLOWED) return 0;
-    return diff <= AGE_PREFERRED ? 2 : 1;
+    if ((sharing.within === 'next' && Math.abs(r.pos[a] - r.pos[b]) !== 1) || diff > apart) return 0;
+    return level;
   }
-  if (!crossVillages(va, vb) || !CROSS_VILLAGE_AREAS.includes(area)) return 0;
-  const atPool = area === 'Pool';
+  if (!sharing.across || !crossVillages(va, vb) || !CROSS_VILLAGE_AREAS.includes(area)) return 0;
   if (atPool && !(va === 'S' || va === 'M')) return 0;
-  if (diff > (atPool ? POOL_AGE_MAX : AGE_ALLOWED)) return 0;
-  return diff <= AGE_PREFERRED ? 2 : 1;
+  if (diff > apart) return 0;
+  return level;
 }
 
 /** Three bunks of one village in a row in the list, each within a grade of the next. The only group of three that is ever allowed (Ropes and Athletics). */
@@ -108,6 +124,8 @@ export function isSameAgeGroup(r: Roster, group: readonly number[]): boolean {
       const vb = r.village[group[j]];
       if (va !== vb && !crossVillages(va, vb)) return false;
       if (Math.abs(r.age[group[i]] - r.age[group[j]]) > AGE_PREFERRED) return false;
+      // two bunks kept apart by hand on the sharing grid are not together in a group of three either
+      if (SHARING.pairs[pairKey(r.names[group[i]], r.names[group[j]])] === false) return false;
     }
   }
   return true;

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { defaultSettings, normalizeSettings, settingAreas, type Settings } from './autogen/settings';
+import { defaultSettings, normalizeSettings, settingAreas, sharingOf, type Settings } from './autogen/settings';
 import { DAYS, PERIODS_PER_DAY, SLOT_COUNT } from './config';
 import { SPECIALIST_HEADER, specialistRows, specialistSchedules, specialistSheetName } from './specialist';
 import { normalize } from './storage';
@@ -105,15 +105,47 @@ export function parseSettingsSheet(wb: XLSX.WorkBook): Settings | null {
     }
     areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}) };
   }
-  return normalizeSettings({ areas });
+  return normalizeSettings({ areas, sharing: parseSharingSheet(wb) });
 }
 
-/** One week's workbook: its own tab (re-imported on upload), a read-only Tracking tab, and the Settings tab. */
+const SHARING_SHEET = 'Sharing';
+const WITHIN_TEXT: Record<string, string> = { next: 'only the bunk next to it in the list', village: 'any bunk of the village' };
+const GRADES_TEXT: Record<string, string> = { same: 'the same grade', one: 'within one grade', any: 'any grades' };
+const keyOf = (texts: Record<string, string>, value: unknown): string | undefined => Object.keys(texts).find((k) => texts[k] === value || k === value);
+
+/** The Sharing tab: the three basic choices, then every pair that was changed by hand on the grid. */
+function buildSharingSheet(settings: Settings): XLSX.WorkSheet {
+  const s = sharingOf(settings);
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['Who may share a period', ''],
+    ['Inside a village', WITHIN_TEXT[s.within]],
+    ['Paired villages (O with C, S with M)', s.across ? 'may mix' : 'never mix'],
+    ['Grades', GRADES_TEXT[s.grades]],
+    [],
+    ['Bunk', 'Bunk', 'Changed by hand to'],
+    ...Object.entries(s.pairs).map(([key, may]) => [...key.split('|'), may ? 'may share' : 'may not share']),
+  ]);
+  sheet['!cols'] = [{ wch: 36 }, { wch: 36 }, { wch: 20 }];
+  return sheet;
+}
+
+function parseSharingSheet(wb: XLSX.WorkBook): unknown {
+  const sheet = wb.Sheets[SHARING_SHEET];
+  if (!sheet) return undefined;
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  const pairs: Record<string, boolean> = {};
+  const start = rows.findIndex((r) => r[0] === 'Bunk' && r[1] === 'Bunk');
+  if (start >= 0) for (const r of rows.slice(start + 1)) if (r[0] && r[1]) pairs[`${String(r[0]).trim()}|${String(r[1]).trim()}`] = r[2] === 'may share';
+  return { within: keyOf(WITHIN_TEXT, rows[1]?.[1]), across: rows[2]?.[1] !== 'never mix', grades: keyOf(GRADES_TEXT, rows[3]?.[1]), pairs };
+}
+
+/** One week's workbook: its own tab (re-imported on upload), a read-only Tracking tab, and the Settings and Sharing tabs. */
 export function buildWeekWorkbook(schedule: Schedule, weekNumber: number, settings: Settings = defaultSettings()): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildWeekSheet(schedule), weekSheetName(weekNumber));
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeTracking(schedule.bunks)), 'Tracking');
   XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildSharingSheet(settings), SHARING_SHEET);
   return wb;
 }
 
@@ -130,6 +162,7 @@ export function buildAllWeeksWorkbook(weeks: (Schedule | null)[], settings: Sett
 
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeSessionTracking(loadedWeeks)), 'Whole Session Tracking');
   XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildSharingSheet(settings), SHARING_SHEET);
   return wb;
 }
 

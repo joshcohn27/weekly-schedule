@@ -1,4 +1,6 @@
 import type { SettingsProblem } from '../autogen/feasibility';
+import type { Bunk } from '../types';
+import SharingSettings from './SharingSettings';
 import { useState } from 'react';
 import { NEW_AREA, addArea, isDefaultSettings, removeArea, settingAreas, whyNotAdd, type AreaSettings, type Settings } from '../autogen/settings';
 
@@ -12,6 +14,8 @@ interface Props {
   disabled?: boolean;
   /** What the arithmetic check found wrong with these settings, if anything. */
   problems?: SettingsProblem[];
+  /** The bunks of the week on screen, for the sharing grid. */
+  bunks?: Bunk[];
 }
 
 const NAME: Record<string, string> = { 'Israel Education': 'Israel' };
@@ -31,7 +35,7 @@ export const FIXED_RULES = [
  * The Settings tab: how often each program area happens and how many bunks it takes. Auto generate uses these numbers,
  * and they are saved with the schedule.
  */
-export default function SettingsView({ settings, villages, onChange, onReset, disabled, problems = [] }: Props) {
+export default function SettingsView({ settings, villages, onChange, onReset, disabled, problems = [], bunks = [] }: Props) {
   const set = (area: string, patch: Partial<AreaSettings>) => onChange({ ...settings, areas: { ...settings.areas, [area]: { ...settings.areas[area], ...patch } } });
   // the program area being added: its name and its numbers are chosen before it goes in
   const [name, setName] = useState('');
@@ -189,6 +193,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
         periods these areas do not use become Athletics, A&C or Time with UH, so raising a number means less of those, and lowering one
         means more.
       </p>
+      <SharingSettings settings={settings} bunks={bunks} onChange={onChange} disabled={disabled} />
       <p>
         <button type="button" onClick={onReset} disabled={disabled || isDefaultSettings(settings)}>
           Reset to the default settings

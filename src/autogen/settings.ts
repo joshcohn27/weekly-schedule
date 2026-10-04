@@ -1,5 +1,6 @@
 import { isBuiltInName, setCustomAreas } from '../config';
-import { DANCE_TARGETS, DAY_CAP, RARE_AREAS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP } from './config';
+import { DANCE_TARGETS, DAY_CAP, RARE_AREAS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SHARING, SLOT_CAP, type Sharing } from './config';
+import { pairKey } from './roster';
 import { BUILT_IN_TOKEN_AREAS, TOKEN_AREAS, TOKEN_LABEL } from './planner';
 import { resetSharedAreas } from './share';
 import { resetAreaBits } from './state';
@@ -22,6 +23,31 @@ export interface Settings {
   areas: Record<string, AreaSettings>;
   /** Program areas that were added (archery, martial arts, ...), in the order they were added. Each has its entry in `areas`. */
   custom?: string[];
+  /** Who may share a period, when it is not the default. */
+  sharing?: Sharing;
+}
+
+/** The sharing the app starts with, read once before anything changes it. */
+const STARTING_SHARING: Sharing = JSON.parse(JSON.stringify(SHARING)) as Sharing;
+export const defaultSharing = (): Sharing => JSON.parse(JSON.stringify(STARTING_SHARING)) as Sharing;
+/** The sharing these settings use: their own, or the default. */
+export const sharingOf = (s: Settings): Sharing => s.sharing ?? defaultSharing();
+
+/** Accepts whatever was saved or uploaded and returns valid sharing. Null when it comes out as the default. */
+export function normalizeSharing(raw: unknown): Sharing | null {
+  const out = defaultSharing();
+  const g = raw as Partial<Sharing> | null;
+  if (!g || typeof g !== 'object') return null;
+  if (g.within === 'next' || g.within === 'village') out.within = g.within;
+  if (typeof g.across === 'boolean') out.across = g.across;
+  if (g.grades === 'same' || g.grades === 'one' || g.grades === 'any') out.grades = g.grades;
+  if (g.pairs && typeof g.pairs === 'object') {
+    for (const [key, may] of Object.entries(g.pairs)) {
+      const [x, y] = key.split('|').map((n) => n.trim());
+      if (x && y && x !== y && typeof may === 'boolean') out.pairs[pairKey(x, y)] = may;
+    }
+  }
+  return JSON.stringify(out) === JSON.stringify(STARTING_SHARING) ? null : out;
 }
 
 /** The program areas that come with the app and have settings, in the order they are shown. */
@@ -50,12 +76,12 @@ export function whyNotAdd(s: Settings, name: string): string | null {
 export function addArea(s: Settings, name: string, area: AreaSettings = NEW_AREA): Settings {
   if (whyNotAdd(s, name)) return s;
   const clean = cleanAreaName(name);
-  return normalizeSettings({ areas: { ...s.areas, [clean]: area }, custom: [...(s.custom ?? []), clean] });
+  return normalizeSettings({ ...s, areas: { ...s.areas, [clean]: area }, custom: [...(s.custom ?? []), clean] });
 }
 export function removeArea(s: Settings, name: string): Settings {
   const areas = { ...s.areas };
   delete areas[name];
-  return normalizeSettings({ areas, custom: (s.custom ?? []).filter((c) => c !== name) });
+  return normalizeSettings({ ...s, areas, custom: (s.custom ?? []).filter((c) => c !== name) });
 }
 /** The village key in DANCE_TARGETS that stands for a village not listed there. */
 const OTHER = '*';
@@ -102,6 +128,8 @@ export function normalizeSettings(raw: unknown): Settings {
     out.areas[clean] = { min, max: Math.max(min, whole(g.max, 0, 12, min)), atOnce: whole(g.atOnce, 1, 2, NEW_AREA.atOnce), villagePerDay: whole(g.villagePerDay, 1, 6, NEW_AREA.villagePerDay) };
     out.custom = [...(out.custom ?? []), clean];
   }
+  const sharing = normalizeSharing((raw as { sharing?: unknown }).sharing);
+  if (sharing) out.sharing = sharing;
   for (const area of SETTING_AREAS) {
     const g = given[area];
     if (!g || typeof g !== 'object') continue;
@@ -120,6 +148,25 @@ export function normalizeSettings(raw: unknown): Settings {
     }
   }
   return out;
+}
+
+/** These settings with the sharing changed. Sharing that comes out as the default is not kept. */
+export function withSharing(s: Settings, sharing: Sharing): Settings {
+  const { sharing: _old, ...rest } = s;
+  const next = normalizeSharing(sharing);
+  return next ? { ...rest, sharing: next } : rest;
+}
+
+/**
+ * These settings with one pair on the grid switched: `may` is what the pair should be from now on, and `basic` is what the
+ * three basic choices alone give it. A pair that matches the basic choices is not kept as a change.
+ */
+export function withPair(s: Settings, x: string, y: string, may: boolean, basic: boolean): Settings {
+  const sharing = sharingOf(s);
+  const pairs = { ...sharing.pairs };
+  if (may === basic) delete pairs[pairKey(x, y)];
+  else pairs[pairKey(x, y)] = may;
+  return withSharing(s, { ...sharing, pairs });
 }
 
 /** The rarer areas that come with the app, and the added areas that are in force right now. */
@@ -171,6 +218,11 @@ export function applySettings(settings?: Settings | null): void {
   }
   replace(SESSION_FILLER_MAX, filler);
   replace(SESSION_HARD_MAX, hardMax);
+  const sharing = sharingOf(s);
+  SHARING.within = sharing.within;
+  SHARING.across = sharing.across;
+  SHARING.grades = sharing.grades;
+  SHARING.pairs = { ...sharing.pairs };
 }
 
 /** Are these the default settings? */
