@@ -148,8 +148,11 @@ export function weekQuality(input: QualityInput): WeekQuality {
       minor.push(`${who}.`);
     }
   }
-  if (smallOcs.size > RARE_OCS_MAX_SHORT_BUNKS) major.push(`${smallOcs.size} bunks in O, C and S are short on a rare area.`);
-  for (const [b, by] of perBunk) if (flexible(b) && by > RARE_MT_MAX_SHORT_PER_BUNK) major.push(`${roster.names[b]} is short on several rare areas.`);
+  // Before the last week a block that was put off is only a delay: a later week can still make it up. The limits bite at the end.
+  if (lastOfSession) {
+    if (smallOcs.size > RARE_OCS_MAX_SHORT_BUNKS) major.push(`${smallOcs.size} bunks in O, C and S are short on a rare area.`);
+    for (const [b, by] of perBunk) if (flexible(b) && by > RARE_MT_MAX_SHORT_PER_BUNK) major.push(`${roster.names[b]} is short on several rare areas.`);
+  }
 
   // Athletics and A&C: not too far apart
   for (let b = 0; b < n; b++) {

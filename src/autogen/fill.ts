@@ -300,7 +300,7 @@ class FillSearch {
     cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']));
     cost += HARD * Math.max(0, this.base[b].uh + uh - UH_MAX_PER_SESSION);
     const gap = this.base[b].ac + ac - (this.base[b].ath + ath);
-    cost += WEIGHTS.gapOver * Math.max(0, Math.abs(gap) - this.allowedGap[b]) + (gap < 0 ? WEIGHTS.athleticsAhead : 0);
+    cost += WEIGHTS.gapOver * Math.max(0, Math.abs(gap) - this.allowedGap[b]) + WEIGHTS.gapWide * Math.max(0, Math.abs(gap) - 1) + (gap < 0 ? WEIGHTS.athleticsAhead : 0);
     return cost;
   }
 

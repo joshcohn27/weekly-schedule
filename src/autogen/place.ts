@@ -8,6 +8,7 @@ import { shareLevel } from './roster';
 import {
   ALL_SLOTS,
   areaOnDay,
+  buildDayMasks,
   daySlots,
   fillable,
   isFree,
@@ -255,6 +256,8 @@ function placeMostConstrainedFirst<T>(
   couldNot: (unit: number[]) => string,
   /** A rare area that does not fit is carried over; anything else that does not fit makes the week not good enough. */
   carryArea?: string,
+  /** A last try for a unit with nowhere to go. Returns true when it found a place itself. */
+  rescue?: (unit: number[]) => boolean,
 ): void {
   const remaining = [...units];
   while (remaining.length > 0) {
@@ -272,6 +275,7 @@ function placeMostConstrainedFirst<T>(
     }
     const unit = remaining.splice(pick, 1)[0];
     if (pickOptions.length === 0) {
+      if (rescue?.(unit)) continue;
       c.unmet += unit.length;
       if (carryArea) for (const b of unit) c.carried.push({ bunk: b, area: carryArea });
       else c.missing.push(couldNot(unit));
@@ -490,7 +494,35 @@ function placePoolUnits(c: Ctx, units: number[][], extra: boolean): void {
     },
     (unit) => `${extra ? 'A second Pool' : 'Pool'} for ${names(unit)} could not be placed this week.`,
     extra ? 'Pool' : undefined, // a second swim that does not fit is simply not given
+    extra ? undefined : (unit) => swimInsteadOfLeague(c, unit),
   );
+}
+
+/**
+ * A pool group with no free period left: move one of its village's league periods somewhere else and swim in the period that
+ * frees. Only for groups of one village whose league is a single period (not Mohawk's doubles, not Tusc's triathlon).
+ */
+function swimInsteadOfLeague(c: Ctx, unit: number[]): boolean {
+  const v = c.roster.village[unit[0]];
+  if (v === 'M' || v === 'T' || unit.some((b) => c.roster.village[b] !== v)) return false;
+  const members = idx(c, v);
+  const label = leagueLabelFor(v, c.sessionWeeks);
+  for (const s of shuffle(c.rng, ALL_SLOTS)) {
+    const day = Math.floor(s / 4);
+    if (!fillable(c, s) || poolLoad(c, s).count > 0 || unit.some((b) => areaOnDay(c, b, day, 'Pool'))) continue;
+    if (!members.every((b) => c.grid[b][s] === label && !c.locked[b][s])) continue;
+    for (const t of shuffle(c.rng, ALL_SLOTS)) {
+      const other = Math.floor(t / 4);
+      if (t === s || !fillable(c, t) || !villageFree(c, v, [t])) continue;
+      if (other !== day && villageAreaOnDay(c, v, other, 'League')) continue;
+      for (const b of members) c.grid[b][s] = '';
+      for (const b of members) c.dayMask[b] = buildDayMasks([c.grid[b]])[0];
+      putVillage(c, v, [t], label);
+      for (const b of unit) put(c, b, [s], 'Pool');
+      return true;
+    }
+  }
+  return false;
 }
 
 export function placePool(c: Ctx, plan: Plan): void {

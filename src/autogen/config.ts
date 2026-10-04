@@ -137,8 +137,8 @@ export const FLEXIBLE_LATER_WEEK_SHARE = 1;
 export const LATER_WEEKS_NEGLIGIBLE = 0.25;
 /** Used for pool caps when a bunk has no camper count. */
 export const DEFAULT_CAMPERS = 12;
-/** Most randomized attempts per generate; the lowest-scoring valid one wins. */
-export const ATTEMPTS = 40;
+/** Randomized attempts per round. A round shares one calendar draw (which half-days are hobbies), so a short round moves on quickly from a draw that does not work. */
+export const ATTEMPTS = 8;
 /** DEFAULT: stop early once this many attempts came out with no rule breaks, to keep generating fast. */
 export const ENOUGH_VALID_ATTEMPTS = 1;
 
@@ -199,4 +199,6 @@ export const WEIGHTS = {
   gapOver: 300,
   /** Athletics ahead of A&C (when they differ, A&C should be the higher one). */
   athleticsAhead: 2,
+  /** Each block Athletics and A&C are more than one apart, even where that is still allowed: closer is better. */
+  gapWide: 25,
 };
