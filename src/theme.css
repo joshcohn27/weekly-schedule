@@ -256,6 +256,41 @@ footer {
   padding-top: 8px;
   border-top: 1px solid var(--line);
 }
+/* the panel shown while Auto generate works in the background */
+.autogen-progress {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.autogen-progress progress {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: 14px;
+  margin: 6px 0;
+}
+.autogen-progress ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 6px;
+  padding: 0;
+}
+.autogen-progress li[data-state='done'] {
+  color: var(--forest);
+  font-weight: bold;
+}
+.autogen-progress li[data-state='waiting'] {
+  color: #8a948a;
+}
+/* a week that is being generated can be looked at, not changed */
+fieldset.readonly {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
 .spinner {
   display: inline-block;
   width: 11px;

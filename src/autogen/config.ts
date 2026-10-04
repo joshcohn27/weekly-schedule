@@ -174,10 +174,16 @@ export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
 /** Attempts (counted over the whole search) made before three consecutive bunks of one village may share Ropes. */
 export const TRIO_AFTER = 64;
 /**
- * In the app a week is retried until it is good, but not for ever: after this long the best week found is used, so a week
- * that cannot be made good (because of what the earlier weeks already hold) still comes back. Cancel stops it sooner.
+ * In the app a week that does not come out good is thrown away and generated again. One try at a week lasts this long at
+ * most; after APP_BACK_UP_AFTER failed tries the week before it is redone as well.
  */
-export const APP_MAX_MS = 45000;
+export const APP_MAX_MS = 20000;
+export const APP_BACK_UP_AFTER = 2;
+/**
+ * A run never hands back a week that is not good unless it has been going this long in all: then a week that cannot be made
+ * good (a roster that does not fit, a week filled in by hand in a way no schedule can meet) still comes back. Cancel stops it sooner.
+ */
+export const APP_TOTAL_MAX_MS = 600000;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
 export const SYNC_MAX_MS = 10000;
 

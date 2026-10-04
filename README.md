@@ -101,17 +101,25 @@ Waterfront within one block between villages).
 
 Day details (RH & LOD, birthdays, EVP, notes) are never touched.
 
-**While it runs** the button shows a spinner and which week it is on, and a **Cancel** button appears. Cancelling
-changes nothing. A week usually takes a second or two; a tight one can take longer, because the generator keeps trying
-until the week breaks no rule and is not short on anything that matters. After 45 seconds it stops and uses the best
-week it found. It never shows warnings. If you want to see
-what it settled for, the browser console has a line per week.
+**While it runs** it works in the background, so the page stays usable: switch tabs and weeks, look at Tracking,
+download. A panel under the week bar shows a progress bar (weeks done out of the total), where each week stands (done,
+working, waiting), the time so far and a **Stop** button. Each week is put on the page as soon as it is done, so you
+can look at weeks 1 and 2 while 3 and 4 are still being worked on. The weeks in the run can be looked at but not
+changed until it is over.
+
+**It only hands over a week that works.** A week usually takes a few seconds. When a week does not come out right (a
+rule broken, or something that matters missing) it is thrown away and generated again, without a word; the panel just
+says "try 2". If it fails twice in a whole-session run, the week before it is redone as well, because what an earlier
+week used up is the usual reason. Only after ten minutes in all does it settle for the best it found, which is what
+happens with a roster that cannot fit. It never shows warnings; the browser console has the details.
+
+**Stop** keeps the weeks that are already done and leaves the rest as they were.
 
 **Regenerate as often as you like.** Every run uses a fresh random seed (shown next to the status line), so pressing
 the button again gives a different schedule.
 
-**Undo** puts back every week the run touched. It is kept in memory only, and goes away when you edit a cell or upload
-a file.
+**Undo** puts back every week the run made, and leaves alone anything you changed in other weeks meanwhile. It is kept
+in memory only, and goes away when you edit a cell or upload a file.
 
 ### The rules it keeps
 
@@ -206,7 +214,8 @@ as `npx vitest run --pool=forks`.
     src/excel.ts           build workbooks, download, and read uploads
     src/storage.ts         load, save and repair the saved weeks (localStorage)
     src/sample.ts          default roster, blank schedule, helpers
-    src/autogen/           Auto generate: calendar, quota planner, placement, the fill search, and the rule checker
+    src/autogen/           Auto generate: calendar, quota planner, placement, the fill search, and the rule checker;
+                           session.ts redoes a week until it is good, background.ts and worker.ts run it off the page
     src/components/        BuildGrid, ActivityPicker (the dropdown), ScheduleView, TrackingView, DayDetails
     src/theme.css          all styling, in one file
 
