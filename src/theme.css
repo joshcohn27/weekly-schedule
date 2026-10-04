@@ -249,6 +249,22 @@ footer {
   padding-top: 8px;
   border-top: 1px solid var(--line);
 }
+.spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .muted {
   color: #6b7a6b;
   font-size: 12px;
