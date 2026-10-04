@@ -127,6 +127,25 @@ td.filled.picked {
   box-shadow: inset 0 0 0 3px var(--forest);
 }
 /* the Settings tab */
+.settings-ok {
+  color: var(--forest);
+  font-weight: bold;
+}
+.settings-problems {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.settings-problems li {
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  border-left: 5px solid #c62828;
+  background: #fdecea;
+}
+.settings-problems li[data-level='unlikely'] {
+  border-left-color: #e0a800;
+  background: #fff8e1;
+}
 table.settings input[type='number'] {
   width: 52px;
 }

@@ -11,6 +11,7 @@ import { bunkIdsForLabel, slotsForLabel, villageOf } from './autofill';
 import { BUILT_WEEK_MAX_EMPTY } from './autogen/config';
 import { isBuiltWeek } from './autogen/history';
 import { startRun } from './autogen/background';
+import { checkSettings } from './autogen/feasibility';
 import { applySettings, isDefaultSettings, normalizeSettings, type Settings } from './autogen/settings';
 import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
 import { WEEK_COUNT } from './config';
@@ -412,6 +413,7 @@ export default function App() {
             onChange={setSettings}
             onReset={() => setSettings(null)}
             disabled={run !== null}
+            problems={checkSettings(settings, weeksState.weeks)}
           />
         )}
         {view === 'tracking' && <TrackingView bunks={schedule.bunks} weekLabel={weekLabel(current)} schedules={allSchedules} />}

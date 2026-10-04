@@ -1,3 +1,4 @@
+import type { SettingsProblem } from '../autogen/feasibility';
 import { SETTING_AREAS, isDefaultSettings, type AreaSettings, type Settings } from '../autogen/settings';
 
 interface Props {
@@ -8,6 +9,8 @@ interface Props {
   onReset: () => void;
   /** While a run is going the settings it started with are in use, so they cannot be changed. */
   disabled?: boolean;
+  /** What the arithmetic check found wrong with these settings, if anything. */
+  problems?: SettingsProblem[];
 }
 
 const NAME: Record<string, string> = { 'Israel Education': 'Israel' };
@@ -27,7 +30,7 @@ export const FIXED_RULES = [
  * The Settings tab: how often each program area happens and how many bunks it takes. Auto generate uses these numbers,
  * and they are saved with the schedule.
  */
-export default function SettingsView({ settings, villages, onChange, onReset, disabled }: Props) {
+export default function SettingsView({ settings, villages, onChange, onReset, disabled, problems = [] }: Props) {
   const set = (area: string, patch: Partial<AreaSettings>) => onChange({ areas: { ...settings.areas, [area]: { ...settings.areas[area], ...patch } } });
   const number = (area: string, label: string, value: number, least: number, most: number, change: (n: number) => void) => (
     <input
@@ -51,6 +54,17 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
         How often each program area happens and how many bunks it takes. Auto generate uses these numbers. They are saved with this
         schedule and go into the Excel file, so a schedule you send to someone carries its own rules.
       </p>
+      {problems.length === 0 ? (
+        <p className="settings-ok">These settings add up: the periods fit.</p>
+      ) : (
+        <ul className="settings-problems" role="alert">
+          {problems.map((p) => (
+            <li key={p.text} data-level={p.level}>
+              <strong>{p.level === 'no' ? 'Not possible.' : 'Unlikely to work.'}</strong> {p.text} <em>{p.fix}</em>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="scroll">
         <table border={1} className="settings">
           <thead>

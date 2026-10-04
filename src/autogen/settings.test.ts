@@ -8,6 +8,7 @@ import { sampleSchedule } from '../sample';
 import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
 import { DANCE_TARGETS, DAY_CAP, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP } from './config';
+import { checkSettings } from './feasibility';
 import { generateRun } from './session';
 import { SETTING_AREAS, applySettings, defaultSettings, isDefaultSettings, normalizeSettings, type Settings } from './settings';
 import { sessionBlocks, weekWithTrips } from './testUtil';
@@ -102,6 +103,59 @@ describe('settings', () => {
     for (const rule of FIXED_RULES) expect(html).toContain(rule.replace(/&/g, '&amp;'));
     const changed = renderToStaticMarkup(createElement(SettingsView, { settings: withArea('Yoga', { min: 1, max: 1 }), villages: ['O'], onChange: noop, onReset: noop }));
     expect(changed).not.toMatch(/<button[^>]*disabled[^>]*>Reset to the default settings/);
+  });
+});
+
+describe('the arithmetic check on the settings', () => {
+  const weeks = [sampleSchedule(), null, null, null];
+
+  it('finds nothing wrong with the defaults, and has nothing to say before there are bunks', () => {
+    expect(checkSettings(defaultSettings(), weeks)).toEqual([]);
+    expect(checkSettings(withArea('Yoga', { min: 9, max: 9 }), [null, null])).toEqual([]);
+  });
+
+  it('flags settings that leave too many periods for Athletics and A&C, and says how many visits to add', () => {
+    // Yoga cut to 1 and no third Ceramics: the configuration that did not generate in ten minutes when it was tried
+    const s = withArea('Yoga', { min: 1, max: 1 });
+    s.areas.Ceramics.max = 2;
+    const [problem, ...rest] = checkSettings(s, weeks);
+    expect(rest).toEqual([]);
+    expect(problem.level).toBe('unlikely');
+    expect(problem.text).toMatch(/^A schedule is unlikely with these settings: each village O bunk would have about 14 periods/);
+    expect(problem.fix).toMatch(/^Try giving each bunk about 2 more visits a session: raise .*Ceramics, Yoga/);
+    // with almost nothing scheduled the periods cannot be filled at all
+    const bare = defaultSettings();
+    for (const area of Object.keys(bare.areas)) Object.assign(bare.areas[area], { min: 0, max: 0, villages: bare.areas[area].villages ? {} : undefined });
+    const none = checkSettings(bare, weeks).find((p) => p.text.startsWith('A schedule is not possible'));
+    expect(none?.level).toBe('no');
+  });
+
+  it('flags an area that is asked for more visits than it has places', () => {
+    // one bunk at a time, 22 bunks three times: 66 of the session's 74 periods, which did not generate when it was tried
+    const tight = checkSettings(withArea('Yoga', { min: 3, max: 3 }), weeks);
+    expect(tight.map((p) => p.level)).toEqual(['unlikely']);
+    expect(tight[0].text).toContain('Yoga is set to 66 visits in the session out of 74 places');
+    expect(tight[0].fix).toBe('Try at most 2 per bunk, or 2 bunks at once.');
+    const over = checkSettings(withArea('Yoga', { min: 4, max: 4 }), weeks);
+    expect(over.some((p) => p.level === 'no' && p.text.includes('there are only 74 places'))).toBe(true);
+    // two at a time has the room
+    expect(checkSettings(withArea('Yoga', { min: 3, max: 3, atOnce: 2, villagePerDay: 2 }), weeks)).toEqual([]);
+  });
+
+  it('flags a village that cannot send enough bunks in a day', () => {
+    const s = withArea('Teva', { min: 5, max: 5, villagePerDay: 1 });
+    const found = checkSettings(s, weeks).filter((p) => p.text.startsWith('Village O needs 25 Teva visits'));
+    expect(found).toHaveLength(1);
+    expect(found[0].fix).toBe('Try 2 bunks of one village in a day for Teva, or fewer visits.');
+  });
+
+  it('shows on the page what is wrong and what to try', () => {
+    const s = withArea('Yoga', { min: 3, max: 3 });
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: s, villages: ['O'], onChange: noop, onReset: noop, problems: checkSettings(s, weeks) }));
+    expect(html).toContain('Unlikely to work.');
+    expect(html).toContain('Try at most 2 per bunk, or 2 bunks at once.');
+    const fine = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop, problems: [] }));
+    expect(fine).toContain('These settings add up');
   });
 });
 

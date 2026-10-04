@@ -140,6 +140,12 @@ those, and lowering one means more. Lowering is the risky direction: Athletics a
 bunks of a village a day each, on alternating days), and with too little else to do no schedule exists. With Yoga
 cut to 1 and no third Ceramics, for example, a run tried for its full ten minutes and did not find a good session.
 
+**The page checks the arithmetic as you type.** Above the table it says either that the settings add up, or what is
+wrong and what to try: "A schedule is not possible with these settings ... Try giving each bunk about 2 more visits
+a session". It counts periods; it does not build a schedule. "Not possible" means the periods cannot fit.
+"Unlikely to work" means they fit on paper but settings that tight did not generate when tried; those two limits are
+measured, and are marked as such in `src/autogen/feasibility.ts`.
+
 Settings are saved with the schedule in the browser and written to a **Settings** tab in the Excel file, so a file
 carries its own rules; uploading a file that has that tab replaces the settings here. **Reset to the default
 settings** puts everything back. The rules listed under "Always kept" on that tab are not settings.
