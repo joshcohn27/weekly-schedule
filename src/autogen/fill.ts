@@ -152,7 +152,7 @@ class FillSearch {
     for (const v of c.roster.villages) this.badCap[v] = Array.from({ length: 6 }, () => Array<boolean>(SHARED.length).fill(false));
     this.badRow = Array<boolean>(c.roster.n).fill(false);
     this.restUntil = c.grid.map(() => Array<number>(SLOTS).fill(0));
-    const slack = c.weekIndex >= c.sessionWeeks ? 0 : GAP_SLACK_BEFORE_LAST_WEEK; // a gap can still be levelled out in a later week
+    const slack = c.weekIndex >= c.sessionWeeks - 1 ? 0 : GAP_SLACK_BEFORE_LAST_WEEK; // early on a gap can still be levelled out; the last week is too short to rely on
     this.allowedGap = c.roster.village.map((v) => (FLEXIBLE_VILLAGES.includes(v) ? GAP_MAX_MT : GAP_MAX_OCS) + slack);
     const other = (b: number, area: string): number => (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0);
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));

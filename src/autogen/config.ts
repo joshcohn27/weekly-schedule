@@ -59,7 +59,7 @@ export const AGE_ALLOWED = 1;
 export const POOL_AGE_MAX = 0.5;
 /** Areas where an O bunk may share with a C bunk, or an S bunk with an M bunk. Pool is S with M only. */
 export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Pool'];
-/** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Ropes is one group of 2 (3 as a trio). */
+/** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Time with UH takes two bunks of one village. Ropes is one group of 2 (3 as a trio). */
 export const SLOT_CAP: Record<string, number> = {
   Athletics: 3,
   'A&C': 3,
@@ -70,7 +70,7 @@ export const SLOT_CAP: Record<string, number> = {
   Ceramics: 1,
   Judaics: 1,
   'Israel Education': 1,
-  'TW UH': 1,
+  'TW UH': 2,
   Ropes: 2,
 };
 /** H15: most bunks of one village at this area in one day. */
@@ -84,7 +84,7 @@ export const DAY_CAP: Record<string, number> = {
   Ceramics: 1,
   Judaics: 1,
   'Israel Education': 1,
-  'TW UH': 1,
+  'TW UH': 2,
 };
 /** H15: most blocks of this area one bunk may have in a week. */
 export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 2, 'A&C': 2 };

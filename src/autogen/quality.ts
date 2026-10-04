@@ -158,7 +158,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
   for (let b = 0; b < n; b++) {
     const gap = Math.abs(total(b, 'A&C') - total(b, 'Athletics'));
     const allowed = flexible(b) ? GAP_MAX_MT : GAP_MAX_OCS;
-    if (gap > allowed + (lastOfSession ? 0 : GAP_SLACK_BEFORE_LAST_WEEK)) major.push(`${roster.names[b]} has Athletics and A&C ${gap} apart.`);
+    if (gap > allowed + (weekIndex >= sessionWeeks - 1 ? 0 : GAP_SLACK_BEFORE_LAST_WEEK)) major.push(`${roster.names[b]} has Athletics and A&C ${gap} apart.`);
     else if (gap === allowed) minor.push(`${roster.names[b]} has Athletics and A&C ${gap} apart.`);
   }
 

@@ -48,6 +48,7 @@ export const isFixedMohawkAthletics = (weekIndex: number, village: string, slot:
  *  - No more than SLOT_CAP bunks (Ropes: two, or three as a trio).
  *  - Athletics: two or three bunks, any bunks. The same ordinal is preferred there, never required.
  *  - A&C: two bunks that may share, or three bunks of the same age; always on the same ordinal.
+ *  - Time with UH: two bunks of one village.
  *  - Ropes: two bunks that may share, or as a last resort three in a row in one village.
  *  - Everything else: two bunks only when shareLevel says they may, on the same ordinal.
  */
@@ -80,6 +81,10 @@ export function slotGroupProblems(
 
   if (area === 'Athletics') {
     sameVisit = []; // any two or three bunks may be at Athletics together, on any visit
+  } else if (area === 'TW UH') {
+    // two bunks of one village may have Time with UH together, on any visit
+    if (r.village[group[0]] !== r.village[group[1]]) bad('only bunks of one village have Time with UH together');
+    sameVisit = [];
   } else if (group.length === 2) {
     if (matched.length === 0) bad('they are not allowed to be together');
   } else if (area === 'Ropes') {
@@ -109,6 +114,7 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
   if (cap === undefined) return 0;
   if (group.length > (area === 'Ropes' ? 3 : cap)) return 1;
   if (area === 'Athletics') return 0;
+  if (area === 'TW UH') return r.village[group[0]] === r.village[group[1]] ? 0 : 1;
   const differ = (a: number, b: number): number => {
     const oa = ordinal(a);
     const ob = ordinal(b);
