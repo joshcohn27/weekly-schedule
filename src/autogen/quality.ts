@@ -50,6 +50,8 @@ export interface QualityInput {
   missing?: string[];
   /** Rare-area blocks planned but not placed this week (they carry over unless this is the last week). */
   carried?: { bunk: number; area: string }[];
+  /** How much looser the limits are (a week built around periods filled in by hand). Default 0. */
+  stretch?: number;
   /** Bunks whose Music could not fit under their village's day cap this week. */
   musicExcused?: number[];
 }
@@ -67,6 +69,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
   const n = roster.n;
   const lastOfSession = weekIndex >= sessionWeeks;
   const lastWeek4 = sessionWeeks === 4 && weekIndex === 4;
+  const stretch = input.stretch ?? 0;
 
   const hard = validateGrid({ weeks, weekIndex, sessionWeeks, roster, hist, grid, locked: input.locked }).map((v) => v.message);
   const major: string[] = [...(input.missing ?? [])];
@@ -141,7 +144,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
   for (const s of short) {
     const who = `${roster.names[s.bunk]} is short ${s.by} on ${label(s.area)}`;
     perBunk.set(s.bunk, (perBunk.get(s.bunk) ?? 0) + s.by);
-    if (s.by >= RARE_SHORT_MAJOR_AT) major.push(`${who}.`);
+    if (s.by >= RARE_SHORT_MAJOR_AT + stretch) major.push(`${who}.`);
     else if (flexible(s.bunk)) minor.push(`${who}.`);
     else {
       smallOcs.add(s.bunk);
@@ -150,14 +153,14 @@ export function weekQuality(input: QualityInput): WeekQuality {
   }
   // Before the last week a block that was put off is only a delay: a later week can still make it up. The limits bite at the end.
   if (lastOfSession) {
-    if (smallOcs.size > RARE_OCS_MAX_SHORT_BUNKS) major.push(`${smallOcs.size} bunks in O, C and S are short on a rare area.`);
-    for (const [b, by] of perBunk) if (flexible(b) && by > RARE_MT_MAX_SHORT_PER_BUNK) major.push(`${roster.names[b]} is short on several rare areas.`);
+    if (smallOcs.size > RARE_OCS_MAX_SHORT_BUNKS + stretch) major.push(`${smallOcs.size} bunks in O, C and S are short on a rare area.`);
+    for (const [b, by] of perBunk) if (flexible(b) && by > RARE_MT_MAX_SHORT_PER_BUNK + stretch) major.push(`${roster.names[b]} is short on several rare areas.`);
   }
 
   // Athletics and A&C: not too far apart
   for (let b = 0; b < n; b++) {
     const gap = Math.abs(total(b, 'A&C') - total(b, 'Athletics'));
-    const allowed = flexible(b) ? GAP_MAX_MT : GAP_MAX_OCS;
+    const allowed = (flexible(b) ? GAP_MAX_MT : GAP_MAX_OCS) + stretch;
     if (gap > allowed + (weekIndex >= sessionWeeks - 1 ? 0 : GAP_SLACK_BEFORE_LAST_WEEK)) major.push(`${roster.names[b]} has Athletics and A&C ${gap} apart.`);
     else if (gap === allowed) minor.push(`${roster.names[b]} has Athletics and A&C ${gap} apart.`);
   }

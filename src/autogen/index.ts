@@ -1,6 +1,6 @@
 import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, planCalendar } from './calendar';
-import { ATTEMPTS, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, type SessionWeeks } from './config';
+import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, isFilledWeek, type BunkHistory } from './history';
 import { placeExtraPool, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
@@ -101,6 +101,7 @@ class WeekSearch {
   private readonly locked: boolean[][];
   private readonly lastWeek: boolean;
   private readonly maxMs: number;
+  private readonly stretch: number;
 
   constructor(private readonly opts: AutoGenOptions, defaultMaxMs: number) {
     this.maxMs = opts.maxMs ?? defaultMaxMs;
@@ -114,6 +115,8 @@ class WeekSearch {
     const keep = (l: string): boolean => opts.keepTrips !== false && TRIP_LABELS.includes(l);
     this.start = bunks.map((b) => (opts.mode === 'replace-all' ? b.slots.map((l) => (keep(l) ? l : '')) : [...b.slots]));
     this.locked = this.start.map((row) => row.map((label) => label !== ''));
+    // trips are expected to be there; anything else that was filled in by hand may put a target out of reach
+    this.stretch = this.start.some((row) => row.some((label) => label !== '' && !TRIP_LABELS.includes(label))) ? BUILD_AROUND_STRETCH : 0;
     this.lastWeek = this.sessionWeeks === 4 && opts.weekIndex === 4;
     if (!this.source) this.done = true;
   }
@@ -127,7 +130,7 @@ class WeekSearch {
   }
 
   private runRound(round: number): Found {
-    const { opts, roster, hist, start, locked, lastWeek, sessionWeeks } = this;
+    const { opts, roster, hist, start, locked, lastWeek, sessionWeeks, stretch } = this;
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
       { weekIndex: opts.weekIndex, sessionWeeks, lastWeek },
@@ -153,6 +156,7 @@ class WeekSearch {
         missing: [],
         carried: [],
         excused: [],
+        stretch,
         relax: { trio: round * ATTEMPTS + attempt >= TRIO_AFTER },
         dayMask: buildDayMasks(start),
         days: [0, 1, 2, 3, 4, 5].filter((d) => !(lastWeek && d === 5)),
@@ -180,6 +184,7 @@ class WeekSearch {
         missing: c.missing,
         carried: c.carried,
         musicExcused: c.excused,
+        stretch,
       });
       // rule breaks first, then anything not acceptable, then the small stuff, then the soft preferences
       const score = quality.hard.length * 1e6 + quality.major.length * 1e4 + quality.minor.length * 50 + softScore(c);

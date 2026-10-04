@@ -11,7 +11,7 @@ const roster = buildRoster(sampleSchedule().bunks);
 const at = (name: string): number => roster.names.indexOf(name);
 
 /** Judge a grid that starts blank for every bunk. Only the messages a test asks about matter. */
-function judge(weekIndex: number, edit: (grid: string[][]) => void = () => {}, extra: { carried?: { bunk: number; area: string }[]; sessionWeeks?: 3 | 4 } = {}): WeekQuality {
+function judge(weekIndex: number, edit: (grid: string[][]) => void = () => {}, extra: { carried?: { bunk: number; area: string }[]; sessionWeeks?: 3 | 4; stretch?: number } = {}): WeekQuality {
   const sessionWeeks = extra.sessionWeeks ?? 4;
   const grid = roster.names.map(() => Array<string>(24).fill(''));
   edit(grid);
@@ -25,6 +25,7 @@ function judge(weekIndex: number, edit: (grid: string[][]) => void = () => {}, e
     hist: buildHistory(weeks, weekIndex, roster.names),
     grid,
     carried: extra.carried,
+    stretch: extra.stretch,
   });
 }
 
@@ -71,6 +72,9 @@ describe('weekQuality', () => {
     expect(gapMessage(m2, 'minor', 'M1')).toBe(true);
     expect(gapMessage(m2, 'major', 'M1')).toBe(false);
     expect(gapMessage(judge(4, put('M1', ['Athletics', 'Athletics', 'Athletics'])), 'major', 'M1')).toBe(true);
+    // a week built around periods filled in by hand may go one further
+    expect(gapMessage(judge(4, put('O1', ['Athletics', 'Athletics']), { stretch: 1 }), 'major', 'O1')).toBe(false);
+    expect(gapMessage(judge(4, put('O1', ['Athletics', 'Athletics', 'Athletics']), { stretch: 1 }), 'major', 'O1')).toBe(true);
     // the same limits apply in every week (GAP_SLACK_BEFORE_LAST_WEEK is 0)
     expect(gapMessage(judge(1, put('O1', ['Athletics'])), 'major', 'O1')).toBe(false);
     expect(gapMessage(judge(1, put('O1', ['Athletics', 'Athletics'])), 'major', 'O1')).toBe(true);

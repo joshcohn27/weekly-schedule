@@ -49,6 +49,8 @@ export interface Ctx {
   carried: { bunk: number; area: string }[];
   /** Bunks whose weekly Music could not fit under their village's day cap. They are not held against the week. */
   excused: number[];
+  /** How much looser the limits are for this week: 0, or BUILD_AROUND_STRETCH when it is built around periods filled in by hand. */
+  stretch: number;
   /** Which last-resort groupings this attempt may use. */
   relax: Relax;
   /** Program areas each bunk already has on each day (bit flags), kept in step with the grid by put(). */

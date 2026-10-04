@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { AGE_ALLOWED, EXTRA_POOL_ABOVE, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
+import { AGE_ALLOWED, EXTRA_POOL_ABOVE, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
 import { ropeGroups } from './groups';
 import { blocksOf, halfSlots, slotAt } from './history';
 import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
@@ -108,6 +108,21 @@ export function placeWaterfront(c: Ctx, plan: Plan): void {
     want[v] = WATERFRONT_PER_WEEK + Math.max(0, WATERFRONT_PER_WEEK * (c.weekIndex - 1) - earlier);
   }
 
+  // Waterfront likes one half-day off a week. When the villages would use every half-day there is, the village that is
+  // furthest ahead takes one block fewer (never its last), so over the session the short week rotates.
+  if (WATERFRONT_HALF_DAY_OFF) {
+    let halfDays = 0;
+    for (const day of c.days) for (const half of [0, 1]) if (villages.some((v) => villageFree(c, v, halfSlots(day, half)))) halfDays++;
+    const asked = (): number => villages.reduce((sum, v) => sum + Math.max(0, want[v] - thisWeek[v]), 0);
+    while (asked() > halfDays - 1) {
+      const able = villages.filter((v) => want[v] - thisWeek[v] > 0 && want[v] > 1);
+      if (able.length === 0) break;
+      const most = Math.max(...able.map((v) => total[v] + want[v] - thisWeek[v]));
+      const pick = shuffle(c.rng, able.filter((v) => total[v] + want[v] - thisWeek[v] === most))[0];
+      want[pick]--;
+    }
+  }
+
   /** Could this village take Waterfront on this half-day right now, and still have room for its league periods? */
   const usable = (v: string, day: number, half: number): boolean => {
     const slots = halfSlots(day, half);
@@ -172,7 +187,7 @@ export function placeWaterfront(c: Ctx, plan: Plan): void {
     total[v]++;
   }
   for (const v of villages) {
-    if (thisWeek[v] < WATERFRONT_PER_WEEK) warn(c, `Village ${v} got ${thisWeek[v]} of ${WATERFRONT_PER_WEEK} Waterfront periods this week (there was not enough room).`);
+    if (thisWeek[v] < Math.min(want[v], WATERFRONT_PER_WEEK)) warn(c, `Village ${v} got ${thisWeek[v]} of ${WATERFRONT_PER_WEEK} Waterfront periods this week (there was not enough room).`);
   }
 }
 

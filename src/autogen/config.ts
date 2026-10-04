@@ -172,6 +172,17 @@ export const FILL_REST_STEPS = 8;
 /** Chance the fill search takes its best move even when it does not help, to get out of a dead end. */
 export const FILL_NOISE = 0.25;
 
+/**
+ * Building around periods someone filled in by hand (other than trips) can make a target unreachable, so each limit
+ * on shortfalls and on the Athletics and A&C gap is this much looser for such a week.
+ */
+export const BUILD_AROUND_STRETCH = 1;
+/**
+ * Waterfront likes one half-day a week with no village there. When true, one village (the one furthest ahead) gets one block
+ * fewer. It is off: the two periods it frees for a whole village can only become Athletics or A&C, and that made weeks fail.
+ */
+export const WATERFRONT_HALF_DAY_OFF = false;
+
 export const HOBBY_WED_PM_PROBABILITY = 0.65; // otherwise Tuesday AM
 export const HOBBY_SUNDAY_PROBABILITY = 0.2;
 
