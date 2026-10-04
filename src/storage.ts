@@ -14,7 +14,7 @@ export function normalize(raw: unknown): Schedule | null {
 
   const bunks: Bunk[] = obj.bunks.map((b: any) => {
     const slots = Array.isArray(b?.slots) ? b.slots : [];
-    return {
+    const bunk: Bunk = {
       id: str(b?.id) || uid(),
       name: str(b?.name),
       grades: str(b?.grades),
@@ -22,6 +22,9 @@ export function normalize(raw: unknown): Schedule | null {
       // Any non-empty text is accepted: activities can be picked from the list or written in freehand.
       slots: Array.from({ length: SLOT_COUNT }, (_, i) => str(slots[i])),
     };
+    // the yellow marks left by the Clear tool, for periods that are still empty
+    const cleared = (Array.isArray(b?.cleared) ? b.cleared : []).filter((s: unknown) => Number.isInteger(s) && bunk.slots[s as number] === '');
+    return cleared.length ? { ...bunk, cleared } : bunk;
   });
 
   const rawDays = Array.isArray(obj.days) ? obj.days : [];

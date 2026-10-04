@@ -38,6 +38,14 @@ The build output is the `dist/` folder from `npm run build`.
   Write-ins are not counted in Tracking.
 - **Set a whole period at once** (above the grid): pick a day, a period (1-4, Morning, or Afternoon), a village or
   all bunks, and an activity. Use this for events, which are deliberately not autofilled.
+- **Clear** (the row under it): choose *what* (everything, or one program area), *for whom* (all bunks, a village, or
+  one bunk), *which day* (or the whole week) and *which periods* (all day, morning, afternoon, or one period). For
+  example: Waterfront for all bunks on Tuesday; everything for O3 on Thursday; everything for S village on Monday
+  morning; Athletics for all bunks for the whole week. It tells you how many periods it will empty and asks first.
+  The emptied periods are left blank and shown in **yellow** on the Build and Schedule tabs until something is put
+  there again, by hand or with Auto generate set to build around what is there. **Remove the yellow marks** takes the
+  color off and leaves the periods empty. The marks are saved in the browser with the week; they are not written to
+  the Excel file.
 
 ### Autofill when you pick an activity in one bunk's cell
 
@@ -187,6 +195,7 @@ as `npx vitest run --pool=forks`.
     src/merge.ts           auto-merge: turns the grid into merged blocks
     src/tracking.ts        counts program areas per bunk (one week, or the whole session)
     src/autofill.ts        village lookup, double-period and whole-village rules, bulk-fill period choices
+    src/clear.ts           the Clear tool: which periods a request empties, and the yellow marks
     src/activitySearch.ts  dropdown filtering and name snapping
     src/slotUsage.ts       the "who else has it this period" notes
     src/excel.ts           build workbooks, download, and read uploads

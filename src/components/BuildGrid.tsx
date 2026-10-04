@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { PERIOD_CHOICES, periodsForChoice, villageOf } from '../autofill';
+import { clearChoices, isCleared, type ClearRequest, type ClearWho } from '../clear';
 import { DAYS, PERIODS_PER_DAY } from '../config';
 import { slotUsage } from '../slotUsage';
 import type { Bunk } from '../types';
@@ -33,10 +34,13 @@ interface Props {
   onRemove: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
   onFillSlots: (slots: number[], label: string, village: string | null) => void;
+  /** Empty what the request covers; `description` says it in words for the confirm. */
+  onClear?: (req: ClearRequest, description: string) => void;
+  onRemoveMarks?: () => void;
   usePreviousWeek?: { label: string; disabled: boolean; onClick: () => void };
 }
 
-export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, onFillSlots, usePreviousWeek }: Props) {
+export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, onFillSlots, onClear, onRemoveMarks, usePreviousWeek }: Props) {
   const periods = Array.from({ length: PERIODS_PER_DAY }, (_, i) => i);
   const [fillDay, setFillDay] = useState(0);
   const [fillPeriodChoice, setFillPeriodChoice] = useState('0');
@@ -47,6 +51,27 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
   const bunksRef = useRef(bunks);
   bunksRef.current = bunks;
   const usage = useCallback((slot: number, bunkId: string) => slotUsage(bunksRef.current, slot, bunkId), []);
+
+  const [clearArea, setClearArea] = useState('');
+  const [clearWho, setClearWho] = useState('');
+  const [clearDay, setClearDay] = useState('0');
+  const [clearPeriodChoice, setClearPeriodChoice] = useState('ALL');
+  const anyCleared = bunks.some((b) => b.cleared?.some((s) => b.slots[s] === ''));
+  const runClear = () => {
+    const who: ClearWho = clearWho.startsWith('v:') ? { kind: 'village', village: clearWho.slice(2) } : clearWho.startsWith('b:') ? { kind: 'bunk', id: clearWho.slice(2) } : { kind: 'all' };
+    const whoText = who.kind === 'village' ? `${who.village} village` : who.kind === 'bunk' ? bunks.find((b) => b.id === who.id)?.name || 'that bunk' : 'all bunks';
+    const allDay = clearPeriodChoice === 'ALL';
+    const when = `${clearDay === 'week' ? 'the whole week' : DAYS[Number(clearDay)]}${allDay ? '' : `, ${PERIOD_CHOICES.find((c) => c.value === clearPeriodChoice)?.label.toLowerCase()}`}`;
+    onClear?.(
+      {
+        who,
+        area: clearArea || null,
+        day: clearDay === 'week' ? null : Number(clearDay),
+        periods: allDay ? periods : periodsForChoice(clearPeriodChoice),
+      },
+      `${clearArea || 'everything'} for ${whoText} on ${when}`,
+    );
+  };
 
   return (
     <section>
@@ -91,6 +116,60 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
           Set for {fillVillage ? `${fillVillage} village` : 'all bunks'}
         </button>
       </p>
+      <p>
+        Clear{' '}
+        <select aria-label="Clear what" value={clearArea} onChange={(e) => setClearArea(e.target.value)}>
+          <option value="">everything</option>
+          {clearChoices(bunks).map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>{' '}
+        for{' '}
+        <select aria-label="Clear for" value={clearWho} onChange={(e) => setClearWho(e.target.value)}>
+          <option value="">all bunks</option>
+          {villages.map((v) => (
+            <option key={v} value={`v:${v}`}>
+              {v} village
+            </option>
+          ))}
+          {bunks.map((b) => (
+            <option key={b.id} value={`b:${b.id}`}>
+              {b.name || 'Bunk'}
+            </option>
+          ))}
+        </select>{' '}
+        on{' '}
+        <select aria-label="Clear day" value={clearDay} onChange={(e) => setClearDay(e.target.value)}>
+          {DAYS.map((d, i) => (
+            <option key={d} value={i}>
+              {d}
+            </option>
+          ))}
+          <option value="week">the whole week</option>
+        </select>{' '}
+        <select aria-label="Clear periods" value={clearPeriodChoice} onChange={(e) => setClearPeriodChoice(e.target.value)}>
+          <option value="ALL">All day</option>
+          {PERIOD_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>{' '}
+        <button type="button" onClick={runClear}>
+          Clear
+        </button>
+        {anyCleared && (
+          <>
+            {' '}
+            <button type="button" onClick={onRemoveMarks}>
+              Remove the yellow marks
+            </button>
+          </>
+        )}
+      </p>
+      <p className="hint">Cleared periods are left empty and shown in yellow until you fill them again (by hand, or with Auto generate and "build around").</p>
       <div className="scroll">
         <table border={1}>
           <thead>
@@ -125,7 +204,7 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
                   periods.map((p) => {
                     const slot = di * PERIODS_PER_DAY + p;
                     return (
-                      <td key={slot}>
+                      <td key={slot} className={isCleared(b, slot) ? 'cleared' : undefined}>
                         <SlotSelect
                           bunkId={b.id}
                           slot={slot}

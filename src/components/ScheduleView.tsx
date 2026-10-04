@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { isCleared } from '../clear';
 import { DAYS, PERIODS_PER_DAY } from '../config';
 import { highlightFor, isHighlighted, sameHighlight, type Highlight } from '../highlight';
 import { blocksByRow, computeBlocks } from '../merge';
@@ -56,7 +57,7 @@ export default function ScheduleView({ bunks, days }: Props) {
                 <td>{b.grades}</td>
                 <td>{b.count}</td>
                 {rows[r].map((blk) => {
-                  if (!blk.label) return <td key={blk.col} rowSpan={blk.rowSpan} colSpan={blk.colSpan} />;
+                  if (!blk.label) return <td key={blk.col} rowSpan={blk.rowSpan} colSpan={blk.colSpan} className={isCleared(b, blk.col) ? 'cleared' : undefined} />;
                   const names = bunks.slice(r, r + blk.rowSpan).map((x) => x.name);
                   const lit = isHighlighted(highlight, blk.label, names);
                   const isPicked = picked?.row === r && picked.col === blk.col;

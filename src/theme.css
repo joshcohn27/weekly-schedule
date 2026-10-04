@@ -126,6 +126,13 @@ td.filled.picked {
   background: #8fd18a;
   box-shadow: inset 0 0 0 3px var(--forest);
 }
+/* a period emptied with the Clear tool, until something is put there again */
+td.cleared {
+  background: #ffe95c;
+}
+td.cleared input.activity-input {
+  background-color: #fff6b0;
+}
 .hint {
   color: #6b7a6b;
   font-size: 13px;

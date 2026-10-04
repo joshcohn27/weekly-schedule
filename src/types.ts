@@ -5,6 +5,8 @@ export interface Bunk {
   count: string;
   /** 24 slots: 6 days x 4 periods. Each is an activity label or '' for empty. */
   slots: string[];
+  /** Slots emptied with the Clear tool that are still empty. They show in yellow until something is put there again. */
+  cleared?: number[];
 }
 
 export interface DayInfo {

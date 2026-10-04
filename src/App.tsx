@@ -9,6 +9,7 @@ import { bunkIdsForLabel, slotsForLabel, villageOf } from './autofill';
 import { APP_MAX_MS, BUILT_WEEK_MAX_EMPTY } from './autogen/config';
 import { isBuiltWeek } from './autogen/history';
 import { generateWeekAsync } from './autogen';
+import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
 import { WEEK_COUNT } from './config';
 import { downloadAllWeeks, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
@@ -26,6 +27,8 @@ const TABS: { id: View; label: string }[] = [
 
 const weekLabel = (index: number): string => `Week ${index + 1}`;
 const isEmpty = (s: Schedule | null): boolean => !s || s.bunks.length === 0;
+/** A period that has been filled again loses its yellow "cleared" mark. */
+const withoutFilledMarks = (s: Schedule): Schedule => ({ ...s, bunks: s.bunks.map(pruneCleared) });
 
 export default function App() {
   const [weeksState, setWeeksState] = useState<WeeksState>(() => loadWeeks() ?? defaultWeeksState());
@@ -49,7 +52,7 @@ export default function App() {
     setAuto(null); // a manual edit ends the chance to undo the last Auto generate
     setWeeksState((ws) => ({
       ...ws,
-      weeks: ws.weeks.map((w, i) => (i === ws.current ? fn(w ?? emptySchedule()) : w)),
+      weeks: ws.weeks.map((w, i) => (i === ws.current ? withoutFilledMarks(fn(w ?? emptySchedule())) : w)),
     }));
   }, []);
 
@@ -96,6 +99,25 @@ export default function App() {
     },
     [updateCurrentSchedule],
   );
+
+  // The Clear tool: empty a program area, a bunk, a village or everyone for a day (or the week), and leave the
+  // emptied periods marked in yellow so it is plain what still has to be filled.
+  const clearPeriods = useCallback(
+    (req: ClearRequest, description: string) => {
+      const n = countToClear(schedule.bunks, req);
+      if (n === 0) {
+        window.alert(`Nothing to clear: ${description} has nothing there.`);
+        return;
+      }
+      if (!window.confirm(`Clear ${description}? ${n} period${n === 1 ? '' : 's'} will be left empty and marked in yellow.`)) return;
+      updateCurrentSchedule((s) => ({ ...s, bunks: applyClear(s.bunks, req) }));
+    },
+    [schedule.bunks, updateCurrentSchedule],
+  );
+
+  const removeMarks = useCallback(() => {
+    updateCurrentSchedule((s) => ({ ...s, bunks: dropMarks(s.bunks) }));
+  }, [updateCurrentSchedule]);
 
   const setBunkField = useCallback(
     (id: string, field: 'name' | 'grades' | 'count', value: string) => {
@@ -209,7 +231,7 @@ export default function App() {
           minor: result.quality.minor.length,
           warnings: result.warnings,
         });
-        working[index] = result.schedule;
+        working[index] = withoutFilledMarks(result.schedule);
       }
       setAuto({ weeks: plan.weeks.map((w) => w.index), seed, before });
       setWeeksState((ws) => ({ ...ws, weeks: working }));
@@ -343,6 +365,8 @@ export default function App() {
               onRemove={removeBunk}
               onMove={moveBunk}
               onFillSlots={fillSlots}
+              onClear={clearPeriods}
+              onRemoveMarks={removeMarks}
               usePreviousWeek={
                 current > 0
                   ? {

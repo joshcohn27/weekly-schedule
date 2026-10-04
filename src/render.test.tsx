@@ -31,10 +31,33 @@ describe('rendering', () => {
     // +1 for the bulk-fill toolbar's own activity input
     expect((html.match(/class="activity-input"/g) ?? []).length).toBe(bunks.length * 24 + 1);
     expect((html.match(/role="combobox"/g) ?? []).length).toBe(bunks.length * 24 + 1);
-    // day/period/village pickers in the toolbar are still plain selects
-    expect((html.match(/<select/g) ?? []).length).toBe(3);
+    // day/period/village pickers in the fill toolbar are still plain selects, and so are the Clear tool's four
+    expect((html.match(/<select/g) ?? []).length).toBe(3 + 4);
     // the option list only exists while a cell is open
     expect(html).not.toContain('combo-panel');
+  });
+
+  it('build view has the Clear tool: what, for whom, which day and which periods', () => {
+    const html = renderToStaticMarkup(
+      <BuildGrid bunks={bunks} onCell={noop} onBunk={noop} onAdd={noop} onRemove={noop} onMove={noop} onFillSlots={noop} onClear={noop} onRemoveMarks={noop} />,
+    );
+    for (const label of ['Clear what', 'Clear for', 'Clear day', 'Clear periods']) expect(html).toContain(`aria-label="${label}"`);
+    for (const option of ['everything', 'Waterfront', 'O village', 'the whole week', 'All day', 'Morning (periods 1-2)']) expect(html).toContain(`>${option}</option>`);
+    expect(html).toContain('>O1</option>'); // a single bunk can be picked
+    expect(html).not.toContain('Remove the yellow marks'); // nothing is marked yet
+    expect(html).not.toContain('class="cleared"');
+  });
+
+  it('shows a cleared period in yellow on the Build and Schedule tabs until it is filled again', () => {
+    const marked = [{ ...newBunk('O1'), cleared: [2, 5] }];
+    marked[0].slots[5] = 'Pool'; // filled again: no longer shown as cleared
+    const build = renderToStaticMarkup(
+      <BuildGrid bunks={marked} onCell={noop} onBunk={noop} onAdd={noop} onRemove={noop} onMove={noop} onFillSlots={noop} onClear={noop} onRemoveMarks={noop} />,
+    );
+    expect((build.match(/class="cleared"/g) ?? []).length).toBe(1);
+    expect(build).toContain('Remove the yellow marks');
+    const view = renderToStaticMarkup(<ScheduleView bunks={marked} days={days} />);
+    expect((view.match(/class="cleared"/g) ?? []).length).toBe(1);
   });
 
   it('tracking view renders', () => {
