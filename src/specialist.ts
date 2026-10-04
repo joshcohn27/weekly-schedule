@@ -108,14 +108,59 @@ export function visitText(block: SpecialistBlock): string {
 export const campersText = (block: SpecialistBlock): number | '' =>
   block.bunks.every((b) => b.campers !== null) ? block.bunks.reduce((sum, b) => sum + (b.campers as number), 0) : '';
 
-export const SPECIALIST_HEADER = ['Week', 'Day', 'Period', 'Activity', 'Bunks', 'Visit', 'Campers'];
+/** One block as it is written in a grid cell: who comes, and under it which visit it is and how many campers. */
+export interface SpecialistCell {
+  /** "O1, O2" or "O village", with the activity in front when it is not simply the area's name ("Low Ropes: C1, C2"). */
+  who: string;
+  /** "2nd visit, 22 campers", or "O1 3rd, O2 2nd, 22 campers" when the bunks are on different visits. */
+  detail: string;
+}
 
-/** The rows of one specialist's sheet, under SPECIALIST_HEADER. */
-export function specialistRows(s: SpecialistSchedule, weeks: (Schedule | null)[]): (string | number)[][] {
-  return s.blocks.map((b) => {
+/** One week of one specialist's schedule as a grid: cells[period][day] holds the blocks in that period, usually one or none. */
+export interface SpecialistWeek {
+  week: number;
+  cells: SpecialistCell[][][];
+}
+
+/**
+ * A specialist's schedule laid out like the main schedule: a grid for each week that has anything, days across and periods
+ * down. A double period is written in both of its periods.
+ */
+export function specialistWeeks(s: SpecialistSchedule, weeks: (Schedule | null)[]): SpecialistWeek[] {
+  const out: SpecialistWeek[] = [];
+  for (const b of s.blocks) {
+    let grid = out.find((g) => g.week === b.week);
+    if (!grid) {
+      grid = { week: b.week, cells: Array.from({ length: PERIODS_PER_DAY }, () => DAYS.map(() => [] as SpecialistCell[])) };
+      out.push(grid);
+    }
     const roster = (weeks[b.week - 1]?.bunks ?? []).map((x) => x.name.trim());
-    return [`Week ${b.week}`, DAYS[b.day], periodText(b), b.label, bunksText(b, roster), visitText(b), campersText(b)];
-  });
+    const same = b.bunks.every((x) => x.visit === b.bunks[0].visit);
+    const campers = campersText(b);
+    const cell: SpecialistCell = {
+      who: `${b.label === s.area ? '' : `${b.label}: `}${bunksText(b, roster)}`,
+      detail: `${visitText(b)}${same ? ' visit' : ''}${campers === '' ? '' : `, ${campers} campers`}`,
+    };
+    for (let p = b.period; p < b.period + b.length; p++) grid.cells[p][b.day].push(cell);
+  }
+  return out;
+}
+
+/** A grid cell as one line of text, for a spreadsheet: "O1, O2 (2nd visit, 22 campers)", blocks separated by "; ". */
+export const cellText = (cell: SpecialistCell[]): string => cell.map((c) => `${c.who} (${c.detail})`).join('; ');
+
+/**
+ * The rows of one specialist's sheet: for each week its name, a row of days, and a row for each period.
+ * A blank row separates the weeks.
+ */
+export function specialistRows(s: SpecialistSchedule, weeks: (Schedule | null)[]): string[][] {
+  const rows: string[][] = [];
+  for (const grid of specialistWeeks(s, weeks)) {
+    if (rows.length > 0) rows.push([]);
+    rows.push([`Week ${grid.week}`], ['', ...DAYS]);
+    grid.cells.forEach((row, p) => rows.push([`Period ${p + 1}`, ...row.map(cellText)]));
+  }
+  return rows;
 }
 
 /** A sheet name Excel accepts: no \ / ? * [ ] :, at most 31 characters. */

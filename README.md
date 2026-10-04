@@ -73,10 +73,12 @@ replaces whatever was in the cells it fills, without asking.
 - **Upload** reads every tab named `Week 1` ... `Week 4` (one week or several) and loads each into its matching week
   after a confirm that lists what will be overwritten. Tracking tabs are ignored. Weeks numbered above 4 are skipped.
 - **Specialist schedules** saves a separate workbook with one tab per program area (Waterfront, Pool, Ropes,
-  Athletics, A&C, Music and so on; not hobbies or trips). Each tab lists that area's blocks in order for every loaded
-  week: Week, Day, Period, Activity, Bunks, Visit and Campers. Visit is which time it is for the bunk in that area,
-  counted from the start of the session ("2nd", or "O1 3rd, O2 2nd" when they differ). A whole village is written as
-  "O village". It is for printing and handing out; uploading it does nothing.
+  Athletics, A&C, Music and so on; not hobbies or trips). Each tab has a grid for every loaded week, days across and
+  periods down, like the main schedule. A box reads "O1, O2 (2nd visit, 22 campers)": who comes, which time it is for
+  them in that area counted from the start of the session, and how many campers. Bunks on different visits are
+  written "O1 3rd, O2 2nd", a whole village "O village", and a double period shows in both of its periods. It is for
+  printing and handing out; uploading it does nothing. The **Specialists** tab shows the same grids on screen, one
+  program area at a time, with Print.
 - You can edit the file in Excel or Sheets and upload it again. Keep the tab names and the header rows. Numbers typed
   into Grades or Count are fine.
 

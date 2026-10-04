@@ -7,6 +7,7 @@ import HelpPanel from './components/HelpPanel';
 // import DayDetails from './components/DayDetails';
 import ScheduleView from './components/ScheduleView';
 import SettingsView from './components/SettingsView';
+import SpecialistView from './components/SpecialistView';
 import TrackingView from './components/TrackingView';
 import { bunkIdsForLabel, slotsForLabel, villageOf } from './autofill';
 import { BUILT_WEEK_MAX_EMPTY } from './autogen/config';
@@ -22,12 +23,13 @@ import { defaultWeeksState, loadWeeks, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
 // import type { DayInfo } from './types';
 
-type View = 'build' | 'schedule' | 'tracking' | 'settings';
+type View = 'build' | 'schedule' | 'tracking' | 'specialists' | 'settings';
 
 const TABS: { id: View; label: string }[] = [
   { id: 'build', label: 'Build' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'tracking', label: 'Tracking' },
+  { id: 'specialists', label: 'Specialists' },
   { id: 'settings', label: 'Settings' },
 ];
 
@@ -414,6 +416,7 @@ export default function App() {
           </fieldset>
         )}
         {view === 'schedule' && <ScheduleView bunks={schedule.bunks} days={schedule.days} />}
+        {view === 'specialists' && <SpecialistView weeks={weeksState.weeks} onDownload={() => downloadSpecialists(weeksState.weeks)} />}
         {view === 'settings' && (
           <SettingsView
             settings={settings}

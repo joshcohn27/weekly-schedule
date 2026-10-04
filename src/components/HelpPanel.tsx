@@ -51,6 +51,10 @@ export default function HelpPanel({ onClose }: Props) {
             is the place to check that things are fair.
           </li>
           <li>
+            <strong>Specialists</strong> shows the schedule from one program area's side. Pick the area, and each week is a grid, days
+            across and periods down, saying which bunks come, which visit it is for them and how many campers. Print it for the specialist.
+          </li>
+          <li>
             <strong>Settings</strong> holds the numbers the schedule is built with.
           </li>
         </ul>
@@ -133,8 +137,8 @@ export default function HelpPanel({ onClose }: Props) {
             <strong> Upload</strong> loads such a file, on this computer or another.
           </li>
           <li>
-            <strong>Specialist schedules</strong> saves a separate Excel file with one tab for each program area: when each bunk comes, how
-            many campers, and which visit it is for them. Print a tab and hand it to the specialist.
+            <strong>Specialist schedules</strong> saves a separate Excel file with one tab for each program area, laid out the same way as
+            the Specialists tab: a grid for each week.
           </li>
           <li>The Schedule tab has a Print button.</li>
         </ul>
