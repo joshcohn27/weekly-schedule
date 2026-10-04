@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { DAYS, PERIODS_PER_DAY, SLOT_COUNT } from './config';
+import { SPECIALIST_HEADER, specialistRows, specialistSchedules, specialistSheetName } from './specialist';
 import { normalize } from './storage';
 import { computeSessionTracking, computeTracking, type TrackingResult } from './tracking';
 import type { DayInfo, Schedule } from './types';
@@ -95,6 +96,25 @@ export function buildAllWeeksWorkbook(weeks: (Schedule | null)[]): XLSX.WorkBook
 
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeSessionTracking(loadedWeeks)), 'Whole Session Tracking');
   return wb;
+}
+
+/**
+ * The session from each specialist's side: one tab per program area, listing every block in order with the bunks that
+ * come, which visit it is for them, and how many campers. Read-only: an upload ignores these tabs.
+ */
+export function buildSpecialistWorkbook(weeks: (Schedule | null)[]): XLSX.WorkBook {
+  const wb = XLSX.utils.book_new();
+  for (const s of specialistSchedules(weeks)) {
+    const sheet = XLSX.utils.aoa_to_sheet([SPECIALIST_HEADER, ...specialistRows(s, weeks)]);
+    sheet['!cols'] = [{ wch: 8 }, { wch: 11 }, { wch: 12 }, { wch: 22 }, { wch: 30 }, { wch: 24 }, { wch: 9 }];
+    XLSX.utils.book_append_sheet(wb, sheet, specialistSheetName(s.area));
+  }
+  if (wb.SheetNames.length === 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Nothing is scheduled yet.']]), 'Specialists');
+  return wb;
+}
+
+export function downloadSpecialists(weeks: (Schedule | null)[]): void {
+  XLSX.writeFile(buildSpecialistWorkbook(weeks), 'specialist-schedules.xlsx');
 }
 
 export function downloadWeek(schedule: Schedule, weekNumber: number): void {

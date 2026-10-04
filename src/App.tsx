@@ -12,7 +12,7 @@ import { isBuiltWeek } from './autogen/history';
 import { startRun } from './autogen/background';
 import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
 import { WEEK_COUNT } from './config';
-import { downloadAllWeeks, downloadWeek, readUploadedFile } from './excel';
+import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
 import { defaultWeeksState, loadWeeks, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
@@ -322,6 +322,9 @@ export default function App() {
           </button>{' '}
           <button type="button" onClick={handleDownloadAll}>
             Download all weeks (.xlsx)
+          </button>{' '}
+          <button type="button" onClick={() => downloadSpecialists(weeksState.weeks)} title="One tab per program area: when each bunk comes, and which visit it is for them.">
+            Specialist schedules (.xlsx)
           </button>{' '}
           <button type="button" onClick={handleUploadClick} disabled={run !== null}>
             Upload
