@@ -181,7 +181,7 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
       <tr>
         <th scope="row">Trips</th>
         <td colSpan={4} className="fixed">
-          A Tiyul or a bike trip is entered by hand on the Build tab, and the schedule is built around it.
+          Tiyuls and bike trips are on the session calendar below. Auto generate puts them on the schedule and builds around them; one you enter by hand on the Build tab stays where you put it.
         </td>
       </tr>
       {SHARED.map(({ key, name, area, atOnce }) => (

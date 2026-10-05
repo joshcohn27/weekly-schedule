@@ -4,7 +4,9 @@ import type { Bunk } from '../types';
 import SharingSettings from './SharingSettings';
 import { useState } from 'react';
 import { coreOf, withCore, NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
+import CalendarSettings from './CalendarSettings';
 import CoreRows, { LastWeekSwitch } from './CoreSettings';
+import type { SessionTemplate } from '../autogen/sessionCalendar';
 import Info, { HINT } from './Info';
 
 interface Props {
@@ -19,6 +21,8 @@ interface Props {
   problems?: SettingsProblem[];
   /** The bunks of the week on screen, for the sharing grid. */
   bunks?: Bunk[];
+  /** The session calendar: shown when the session is known. */
+  calendar?: { template: SessionTemplate; onApply: () => void };
 }
 
 const NAME: Record<string, string> = { 'Israel Education': 'Israel' };
@@ -40,7 +44,7 @@ export const FIXED_RULES = [
  * The Settings tab: how often each program area happens and how many bunks it takes. Auto generate uses these numbers,
  * and they are saved with the schedule.
  */
-export default function SettingsView({ settings, villages, onChange, onReset, disabled, problems = [], bunks = [] }: Props) {
+export default function SettingsView({ settings, villages, onChange, onReset, disabled, problems = [], bunks = [], calendar }: Props) {
   const set = (area: string, patch: Partial<AreaSettings>) => onChange({ ...settings, areas: { ...settings.areas, [area]: { ...settings.areas[area], ...patch } } });
   // the program area being added: its name and its numbers are chosen before it goes in
   const [name, setName] = useState('');
@@ -243,6 +247,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
           Reset to the default settings
         </button>
       </p>
+      {calendar && <CalendarSettings settings={settings} template={calendar.template} villages={villages} onChange={onChange} onApply={calendar.onApply} disabled={disabled} />}
       {/* Hidden for now: the list of rules that are always kept is not shown on this page.
       <h3>Always kept</h3>
       <ul>

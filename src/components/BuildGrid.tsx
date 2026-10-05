@@ -38,9 +38,11 @@ interface Props {
   onClear?: (req: ClearRequest, description: string) => void;
   onRemoveMarks?: () => void;
   usePreviousWeek?: { label: string; disabled: boolean; onClick: () => void };
+  /** The six day headings, with their dates when the session has them. */
+  dayLabels?: readonly string[];
 }
 
-export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, onFillSlots, onClear, onRemoveMarks, usePreviousWeek }: Props) {
+export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMove, onFillSlots, onClear, onRemoveMarks, usePreviousWeek, dayLabels = DAYS }: Props) {
   const periods = Array.from({ length: PERIODS_PER_DAY }, (_, i) => i);
   const [fillDay, setFillDay] = useState(0);
   const [fillPeriodChoice, setFillPeriodChoice] = useState('0');
@@ -177,9 +179,9 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
               <th rowSpan={2}>Bunk</th>
               <th rowSpan={2}>Grades</th>
               <th rowSpan={2}>#</th>
-              {DAYS.map((d) => (
+              {DAYS.map((d, i) => (
                 <th key={d} colSpan={PERIODS_PER_DAY}>
-                  {d}
+                  {dayLabels[i]}
                 </th>
               ))}
               <th rowSpan={2}>Move / remove</th>

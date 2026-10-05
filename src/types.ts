@@ -32,6 +32,8 @@ export interface WeeksState {
   current: number;
   /** The numbers Auto generate works with, when they are not the defaults. */
   settings?: Settings;
+  /** Which session this is: 'session1' (4 weeks) or 'session2' (3 weeks, Color War). One saved before sessions were told apart has none and is Session 1. */
+  session?: 'session1' | 'session2';
 }
 
 /** A rectangle of the schedule grid that displays as one merged cell. */

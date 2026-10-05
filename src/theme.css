@@ -603,3 +603,14 @@ fieldset.readonly {
     overflow: visible;
   }
 }
+
+.sessionbar {
+  margin: 6px 0;
+}
+.sessionbar select {
+  font-weight: bold;
+}
+table.calendar-settings th,
+table.calendar-settings td {
+  padding: 2px 6px;
+}
