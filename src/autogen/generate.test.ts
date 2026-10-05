@@ -106,7 +106,7 @@ describe('session totals', () => {
     for (const run of sessions) {
       for (const n of villageNames(weekOf(run, 1), 'M')) {
         expect(sessionBlocks(run.weeks, n, 'A&C'), n).toBeGreaterThanOrEqual(1);
-        expect(sessionBlocks(run.weeks, n, 'Music'), n).toBeLessThanOrEqual(2);
+        expect(sessionBlocks(run.weeks, n, 'Music'), n).toBeLessThanOrEqual(3); // two are planned, and week 4 may hold one more to fill a period
       }
     }
   });

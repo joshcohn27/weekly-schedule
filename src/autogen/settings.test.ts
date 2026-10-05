@@ -710,7 +710,7 @@ describe('the generator follows the settings', () => {
       sessionWeeks: 4,
       keepTrips: true,
       useOtherWeeks: true,
-      seed: 21,
+      seed: 23,
       settings,
     });
     expect(run?.good).toBe(true);

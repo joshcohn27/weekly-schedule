@@ -17,6 +17,7 @@ import {
   SHABBAT_PREP_STAFF,
   SLOT_CAP,
   MIN_WEEK_CAPACITY,
+  AREA_WEEK_SHARE,
   TOP_UP_FAIR_SLACK,
   TOP_UP_MAX_LOAD,
   TOP_UP_SLACK,
@@ -33,7 +34,8 @@ import { SLOTS, dayOf } from './history';
 import { TOKEN_AREAS, TOKEN_LABEL, expectedSpare, inWeekCount, leftoverRoom, remainingWeeks, sessionTargetOf, type Plan } from './planner';
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
-import { groupBreaks, isFixedMohawkAthletics, sharedArea } from './share';
+import { isShortWeek, openPeriods } from './weekRoom';
+import { firstDay, groupBreaks, isFixedMohawkAthletics, sharedArea } from './share';
 import { ALL_SLOTS, buildDayMasks, fillable, isFree, type Ctx } from './state';
 
 // The areas that may fall a block short when a bunk has no room are RARE_AREAS. Music is only ever dropped as a last resort.
@@ -103,6 +105,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
     }
   }
 
+  trimToWeek(c, tok, free);
   topUp(c, tok, free, total);
   fitToVillageDays(c, tok, free);
 
@@ -114,6 +117,36 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
   // it this week and it is not held against the week.
   for (let b = 0; b < n; b++) if ((tok[b].Music ?? 0) > 0 && search.musicIsOptional && !c.grid[b].includes('Music')) c.excused.push(b);
   return clean;
+}
+
+/**
+ * What a week cannot hold is put off, however much a bunk still owes (the last week of a session the calendar has
+ * squeezed is asked for everything that is left). A bunk has an area on days that are not next to each other, so no more
+ * times than half its open days; and an area only has so many places in the week.
+ */
+function trimToWeek(c: Ctx, tok: Record<string, number>[], free: number[][]): void {
+  const areas = TOKEN_AREAS.filter((a) => a !== 'Music');
+  const putOff = (b: number, area: string): void => {
+    tok[b][area]--;
+    c.unmet++;
+    c.carried.push({ bunk: b, area });
+  };
+  for (let b = 0; b < c.roster.n; b++) {
+    const most = Math.ceil(new Set(free[b].map(dayOf)).size / 2);
+    for (const area of areas) while ((tok[b][area] ?? 0) > most) putOff(b, area);
+  }
+  const periods = ALL_SLOTS.filter((s) => fillable(c, s) && free.some((cells) => cells.includes(s))).length;
+  for (const area of areas) {
+    const places = Math.floor(Math.min(SLOT_CAP[area] ?? 1, 2) * periods * AREA_WEEK_SHARE);
+    let planned = tok.reduce((sum, t) => sum + (t[area] ?? 0), 0);
+    while (planned > places) {
+      // from the bunk that has the most of it this week
+      const most = Math.max(...tok.map((t) => t[area] ?? 0));
+      const from = shuffle(c.rng, tok.map((t, b) => ((t[area] ?? 0) === most ? b : -1)).filter((b) => b >= 0))[0];
+      putOff(from, area);
+      planned--;
+    }
+  }
 }
 
 /**
@@ -261,7 +294,8 @@ class FillSearch {
     this.fillerBase = c.grid.map((_, b) => this.fillers.map((a) => other(b, a)));
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));
     this.prep = ALL_SLOTS.map((s) => c.grid.some((row) => row[s] === 'Shabbat Prep'));
-    this.musicIsOptional = this.prep.some(Boolean);
+    // and in a week the calendar has cut short
+    this.musicIsOptional = this.prep.some(Boolean) || c.grid.some((row) => isShortWeek(openPeriods(row, c.lastWeek), c.lastWeek));
   }
 
   /** Put every bunk's planned blocks and leftover areas down roughly: the search does the rest. */
@@ -437,7 +471,7 @@ class FillSearch {
           }
         }
         // Athletics on the bunk's Athletics days and A&C on the others
-        if (FIXED_ATHLETICS_DAYS && !locked[s] && ((area === 'A&C' && athleticsToday) || (area === 'Athletics' && !athleticsToday && !(fixedAthletics && s === 3)))) cost += HARD;
+        if (FIXED_ATHLETICS_DAYS && !locked[s] && ((area === 'A&C' && athleticsToday) || (area === 'Athletics' && !athleticsToday && !(fixedAthletics && s === firstDay() * 4 + 3)))) cost += HARD;
         const filler = this.fillers.indexOf(area);
         if (filler >= 0) {
           fillers[filler]++;
@@ -451,7 +485,7 @@ class FillSearch {
           if (!locked[s]) music++;
         } else if (area === 'Athletics') {
           ath++;
-          if (!locked[s] && !(fixedAthletics && s === 3)) athWeek++;
+          if (!locked[s] && !(fixedAthletics && s === firstDay() * 4 + 3)) athWeek++;
         } else if (area === 'A&C') {
           ac++;
           if (!locked[s]) acWeek++;

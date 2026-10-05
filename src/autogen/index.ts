@@ -7,7 +7,7 @@ import { placeExtraPool, placeExtraVillageBlocks, placeLeague, placePool, placeR
 import { TOKEN_AREAS, TOKEN_LABEL, planWeek, sessionTargetOf } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
-import { MOHAWK_SWIM_NOTE } from './share';
+import { MOHAWK_SWIM_NOTE, firstDayOf, setFirstDay } from './share';
 import { buildRoster, type Roster } from './roster';
 import { softScore } from './score';
 import type { Ctx } from './state';
@@ -133,6 +133,7 @@ class WeekSearch {
   private runRound(round: number): Found {
     const { opts, roster, hist, start, locked, lastWeek, sessionWeeks, stretch } = this;
     setVisitWeek(opts.weekIndex >= sessionWeeks, sessionWeeks === 4 && opts.weekIndex === 4);
+    setFirstDay(opts.weekIndex === 1 ? firstDayOf(start) : 0);
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
       { weekIndex: opts.weekIndex, sessionWeeks, lastWeek, taken: (day, half) => start.some((row) => halfSlots(day, half).some((s) => row[s] !== '')) },
@@ -221,7 +222,7 @@ class WeekSearch {
     }
     // Mohawk's swim test is not in a period: it is during General Swim on the opening day. A note under that day says so.
     const noted = (notes: string): string => (notes.includes(MOHAWK_SWIM_NOTE) ? notes : [notes.trim(), MOHAWK_SWIM_NOTE].filter(Boolean).join('. '));
-    const days = opts.weekIndex === 1 && roster.byVillage.M ? source.days.map((d, i) => (i === 0 ? { ...d, notes: noted(d.notes) } : d)) : source.days;
+    const days = opts.weekIndex === 1 && roster.byVillage.M ? source.days.map((d, i) => (i === firstDayOf(this.start) ? { ...d, notes: noted(d.notes) } : d)) : source.days;
     return {
       schedule: { bunks: source.bunks.map((b, i) => ({ ...b, slots: chosen.grid[i] })), days },
       warnings: [...new Set([...chosen.warnings, ...chosen.quality.hard, ...sessionWarnings(roster, hist, chosen.grid, opts.weekIndex, sessionWeeks)])],

@@ -41,8 +41,20 @@ export interface SessionTemplate {
   id: 'session1' | 'session2';
   name: string;
   weeks: 3 | 4;
+  /** Opening day and the last day of the session, as yyyy-mm-dd. */
+  opens: string;
+  closes: string;
   events: CalendarEvent[];
 }
+
+/** The date of a day of a session: the Sunday of the week opening day falls in is day 0 of week 1. */
+export function dateOf(template: SessionTemplate, week: number, day: number): Date {
+  const [y, m, d] = template.opens.split('-').map(Number);
+  const opening = new Date(y, m - 1, d);
+  return new Date(y, m - 1, d - opening.getDay() + (week - 1) * 7 + day);
+}
+/** That date the way the camp writes it on a schedule: "6.27". */
+export const shortDate = (date: Date): string => `${date.getMonth() + 1}.${date.getDate()}`;
 
 /**
  * Session 1 as it was in 2026, four weeks. Left out on purpose: the things that only happened that year (the field trip,
@@ -53,7 +65,11 @@ export const SESSION_1: SessionTemplate = {
   id: 'session1',
   name: 'Session 1 (4 weeks)',
   weeks: 4,
+  // summer 2027: opening day is Sunday June 27 and has no periods; they start on Monday
+  opens: '2027-06-27',
+  closes: '2027-07-23',
   events: [
+    camp('Opening Day', 1, SUN, ALL_DAY),
     village('O', 'Tiyul', 2, TUE, PM),
     village('T', 'Bike Trip', 2, WED, PM), // the mini bike trip
     village('C', 'Tiyul', 2, THU, PM),
@@ -76,6 +92,9 @@ export const SESSION_2: SessionTemplate = {
   id: 'session2',
   name: 'Session 2 (3 weeks, with Color War)',
   weeks: 3,
+  // summer 2027: opening day is Monday July 26; periods start on Tuesday
+  opens: '2027-07-26',
+  closes: '2027-08-15',
   events: [
     camp('No Periods', 1, SUN, ALL_DAY),
     camp('Opening Day', 1, MON, ALL_DAY),

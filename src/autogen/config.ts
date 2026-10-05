@@ -343,7 +343,9 @@ export const setExtraBlockKeep = (n: number): void => {
  * visits it still owes from later weeks. An area is not topped up past this share of the bunk-periods it has in the week.
  */
 export let TOP_UP_SLACK = 2;
-export let TOP_UP_MAX_LOAD = 0.6;
+export let TOP_UP_MAX_LOAD = 0.5;
+/** No more than this share of an area's places in a week is planned: who may share and which days are open take the rest. */
+export const AREA_WEEK_SHARE = 0.7;
 /** And it takes them once it has this many more left over than this week's fair share of what the rest of the session will leave. */
 export let TOP_UP_FAIR_SLACK = 1;
 export function setTopUp(slack: number, load: number, fair = TOP_UP_FAIR_SLACK): void {

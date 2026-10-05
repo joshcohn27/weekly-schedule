@@ -44,22 +44,39 @@ export function sharedArea(label: string): string | null {
 /** The note that goes under the schedule on the opening day, so nobody misses that Mohawk's swim test is not in a period. */
 export const MOHAWK_SWIM_NOTE = 'Mohawk Swim test During General Swim';
 
+/** A day with nothing but these has no periods: the session has not started yet. */
+export const CLOSED_LABELS = ['Opening Day', 'No Periods'];
+/** The first day of a week on which anybody has a period: 0 for Sunday, unless the days before it are closed. */
+export function firstDayOf(grid: readonly (readonly string[])[]): number {
+  for (let day = 0; day < 6; day++) {
+    if (grid.length === 0 || grid.some((row) => [0, 1, 2, 3].some((p) => !CLOSED_LABELS.includes(row[day * 4 + p])))) return day;
+  }
+  return 0;
+}
+/** The first day with periods in the week in hand. The generator and the rule checker set it before they look at week 1. */
+let FIRST_DAY = 0;
+export const setFirstDay = (day: number): void => {
+  FIRST_DAY = day;
+};
+export const firstDay = (): number => FIRST_DAY;
+
 /**
- * Nobody goes to Waterfront before the swim test. In week 1 that means not on Sunday morning, and not before the bunk's own
- * Swim Test when it has one that week. Mohawk takes its test during General Swim, after period 4 on the first day, so it
- * has no Waterfront at all that day. Would Waterfront starting in this slot be too early?
+ * Nobody goes to Waterfront before the swim test. In week 1 that means not on the morning of the first day with periods,
+ * and not before the bunk's own Swim Test when it has one that week. Mohawk takes its test during General Swim, after
+ * period 4 on that first day, so it has no Waterfront at all that day. Would Waterfront starting in this slot be too early?
  */
 export function beforeSwimTest(weekIndex: number, row: readonly string[], slot: number, village = ''): boolean {
   if (weekIndex !== 1) return false;
-  if (slot < 2) return true; // Sunday morning
-  if (village === 'M') return slot < 4; // the whole first day
+  const first = FIRST_DAY * 4;
+  if (slot < first + 2) return true; // the first morning, and anything before it
+  if (village === 'M') return slot < first + 4; // the whole first day
   const test = row.indexOf('Swim Test');
   return test >= 0 && slot < test;
 }
 
-/** Mohawk's Sunday period 4 Athletics in week 1 is a fixed village-level calendar block, so it is outside the sharing rules. */
+/** Mohawk's period 4 Athletics on the first day of week 1 is a fixed village-level calendar block, so it is outside the sharing rules. */
 export const isFixedMohawkAthletics = (weekIndex: number, village: string, slot: number, label: string): boolean =>
-  weekIndex === 1 && slot === 3 && village === 'M' && label === 'Athletics';
+  weekIndex === 1 && slot === FIRST_DAY * 4 + 3 && village === 'M' && label === 'Athletics';
 
 /** The most campers at once in an area that goes by campers (Ropes, Yoga), or undefined for an area that goes by bunks. */
 export const camperLimit = (area: string): number | undefined => (area === 'Ropes' ? ROPES_MAX_CAMPERS : CAMPER_CAP[area]);

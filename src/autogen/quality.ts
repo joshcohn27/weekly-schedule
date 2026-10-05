@@ -18,13 +18,13 @@ import {
   SHABBAT_ROTATION,
   TRI_AWAY_PERIODS,
   TRIP_LABELS,
-  WATERFRONT_PER_WEEK,
   type SessionWeeks,
 } from './config';
 import { blocksOf, type BunkHistory } from './history';
 import { musicDue, sessionTargetOf } from './planner';
 import type { Roster } from './roster';
 import { validateGrid } from './validate';
+import { SQUEEZED_SHARE, isShortWeek, leagueWant, openPeriods, ordinarySessionOpen, waterfrontWant } from './weekRoom';
 
 /**
  * How good a generated week is.
@@ -81,9 +81,22 @@ export function weekQuality(input: QualityInput): WeekQuality {
   const count = (b: number, area: string): number => blocks[b].filter((k) => k.area === area).length;
   const total = (b: number, area: string): number => (hist[b].earlier[area] ?? 0) + (hist[b].later[area] ?? 0) + count(b, area);
   const first = (v: string): number => roster.byVillage[v][0];
+  const lastWeek = sessionWeeks === 4 && weekIndex === 4;
+  /** Periods a bunk has open this week once the calendar and the set blocks are out: a week cut short is asked for less. */
+  const open = (b: number): number => openPeriods(grid[b], lastWeek);
 
   // Music every week, for every bunk
-  const away = (b: number): boolean => grid[b].filter((l) => TRIP_LABELS.includes(l)).length >= AWAY_PERIODS_NO_MUSIC;
+  const away = (b: number): boolean => grid[b].filter((l) => TRIP_LABELS.includes(l)).length >= AWAY_PERIODS_NO_MUSIC || isShortWeek(open(b), lastWeek);
+  /** Has the calendar left this bunk a good deal less than an ordinary session? Then it gets what fits, and ending short is no fault of the week. */
+  const squeezed = (b: number): boolean => {
+    let sum = 0;
+    weeks.weeks.slice(0, sessionWeeks).forEach((w, i) => {
+      const last = sessionWeeks === 4 && i === 3;
+      const row = i === weekIndex - 1 ? grid[b] : w?.bunks.find((x) => x.name.trim() === roster.names[b])?.slots;
+      sum += row ? openPeriods(row, last) : last ? 10 : 20;
+    });
+    return sum <= ordinarySessionOpen(sessionWeeks) * SQUEEZED_SHARE;
+  };
   for (let b = 0; b < n; b++) {
     if (!musicDue(roster.village[b], roster.pos[b], weekIndex)) continue;
     if (count(b, 'Music') < MUSIC_PER_WEEK && !away(b) && !input.musicExcused?.includes(b)) major.push(`${roster.names[b]} has no Music this week.`);
@@ -95,33 +108,34 @@ export function weekQuality(input: QualityInput): WeekQuality {
       // triathlon: one double and two singles; skipped in the last week of a 4-week session, and never mentioned then
       if (grid[f].filter((l) => TRIP_LABELS.includes(l)).length < TRI_AWAY_PERIODS) {
         const sessions = blocks[f].filter((k) => k.label === 'Tusc Triathlon Training').length;
-        if (sessions < leagueMinFor(v)) major.push(`Village ${v} is short on triathlon training this week.`);
+        if (sessions < Math.min(leagueMinFor(v), leagueWant(v, open(f)))) major.push(`Village ${v} is short on triathlon training this week.`);
       }
-    } else if (count(f, 'League') < leagueMinFor(v)) {
+    } else if (count(f, 'League') < Math.min(leagueMinFor(v), leagueWant(v, open(f)))) {
       major.push(`Village ${v} is short on league this week.`);
     }
   }
 
-  // Waterfront: villages within one block of each other, and nobody left out in a normal week
+  // Waterfront: a village that should be there this week is. How even the villages come out over the session is never
+  // held against a week: the calendar gives them different amounts of room.
   const wf = roster.villages.map((v) => total(first(v), 'Waterfront'));
   const wfMax = Math.max(...wf);
   roster.villages.forEach((v, i) => {
-    if (wfMax - wf[i] > 1) major.push(`Village ${v} is short on Waterfront.`);
-    else if (!lastOfSession && count(first(v), 'Waterfront') === 0 && WATERFRONT_PER_WEEK > 0) major.push(`Village ${v} has no Waterfront this week.`);
+    if (!lastOfSession && count(first(v), 'Waterfront') === 0 && waterfrontWant(open(first(v))) > 0) major.push(`Village ${v} has no Waterfront this week.`);
+    else if (wfMax - wf[i] > 1) minor.push(`Village ${v} is behind on Waterfront.`);
   });
 
   for (let b = 0; b < n; b++) {
     // Pool: weekly minimum for some villages, a session total for the rest
     const t = POOL_TARGETS[roster.village[b]] ?? POOL_TARGET_OTHER;
     if ('perWeek' in t && t.perWeek !== undefined) {
-      if (count(b, 'Pool') < t.perWeek) major.push(`${roster.names[b]} has no Pool this week.`);
+      if (count(b, 'Pool') < t.perWeek && !isShortWeek(open(b), lastWeek)) major.push(`${roster.names[b]} has no Pool this week.`);
     } else if (lastOfSession) {
       const by = sessionTargetOf(roster.village[b], sessionWeeks, 'Pool') - total(b, 'Pool');
-      if (by > POOL_SHORT_OK + stretch) major.push(`${roster.names[b]} is short on Pool.`);
+      if (by > POOL_SHORT_OK + stretch && !squeezed(b)) major.push(`${roster.names[b]} is short on Pool.`);
       else if (by > 0) minor.push(`${roster.names[b]} is short ${by} on Pool.`);
     }
     // Ropes: two per session
-    if (lastOfSession && total(b, 'Ropes') < sessionTargetOf(roster.village[b], sessionWeeks, 'Ropes')) major.push(`${roster.names[b]} is short on Ropes.`);
+    if (lastOfSession && total(b, 'Ropes') < sessionTargetOf(roster.village[b], sessionWeeks, 'Ropes')) (squeezed(b) ? minor : major).push(`${roster.names[b]} is short on Ropes.`);
   }
 
   // Shabbat Prep: the Friday double is a rule (checked above); the earlier single periods must be there too
@@ -153,8 +167,8 @@ export function weekQuality(input: QualityInput): WeekQuality {
   for (const s of short) {
     const who = `${roster.names[s.bunk]} is short ${s.by} on ${label(s.area)}`;
     perBunk.set(s.bunk, (perBunk.get(s.bunk) ?? 0) + s.by);
-    if (s.by >= RARE_SHORT_MAJOR_AT + stretch) major.push(`${who}.`);
-    else if (flexible(s.bunk)) minor.push(`${who}.`);
+    if (s.by >= RARE_SHORT_MAJOR_AT + stretch && !squeezed(s.bunk)) major.push(`${who}.`);
+    else if (flexible(s.bunk) || squeezed(s.bunk)) minor.push(`${who}.`);
     else {
       smallOcs.add(s.bunk);
       minor.push(`${who}.`);
@@ -163,12 +177,12 @@ export function weekQuality(input: QualityInput): WeekQuality {
   // Before the last week a block that was put off is only a delay: a later week can still make it up. The limits bite at the end.
   if (lastOfSession) {
     if (smallOcs.size > RARE_OCS_MAX_SHORT_BUNKS + stretch) major.push(`${smallOcs.size} bunks in O, C and S are short on a rare area.`);
-    for (const [b, by] of perBunk) if (flexible(b) && by > RARE_MT_MAX_SHORT_PER_BUNK + stretch) major.push(`${roster.names[b]} is short on several rare areas.`);
+    for (const [b, by] of perBunk) if (flexible(b) && !squeezed(b) && by > RARE_MT_MAX_SHORT_PER_BUNK + stretch) major.push(`${roster.names[b]} is short on several rare areas.`);
   }
 
   // Athletics and A&C: not too far apart, and nobody ends a session without any A&C
   for (let b = 0; b < n; b++) {
-    if (lastOfSession && total(b, 'A&C') === 0 && total(b, 'Athletics') > 0) major.push(`${roster.names[b]} has had no A&C.`);
+    if (lastOfSession && total(b, 'A&C') === 0 && total(b, 'Athletics') > 0 && !squeezed(b)) major.push(`${roster.names[b]} has had no A&C.`);
     const gap = Math.abs(total(b, 'A&C') - total(b, 'Athletics'));
     const allowed = (flexible(b) ? GAP_MAX_MT : GAP_MAX_OCS) + stretch;
     if (gap > allowed + (weekIndex >= sessionWeeks - 1 ? 0 : GAP_SLACK_BEFORE_LAST_WEEK)) major.push(`${roster.names[b]} has Athletics and A&C ${gap} apart.`);

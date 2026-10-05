@@ -26,7 +26,8 @@ describe('the session calendar', () => {
 
   it('Session 1 is 2026: Visitor Day and Mass Program in week 3, village day and the bike trip in week 4', () => {
     const weeks = applyCalendar(blankWeeks(4), SESSION_1.events);
-    expect((weeks[0] as Schedule).bunks.every((b) => b.slots.every((l) => l === ''))).toBe(true); // nothing in week 1
+    // week 1: opening day is the Sunday and has no periods; nothing else
+    expect((weeks[0] as Schedule).bunks.every((b) => b.slots.every((l, s) => l === (s < 4 ? 'Opening Day' : '')))).toBe(true);
     expect(at(weeks, 2, 'O1', 2, 2)).toBe('Tiyul');
     expect(at(weeks, 2, 'C1', 4, 3)).toBe('Tiyul');
     expect(at(weeks, 2, 'T1', 3, 2)).toBe('Bike Trip'); // the mini bike trip
