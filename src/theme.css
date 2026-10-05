@@ -163,15 +163,41 @@ table.specialist .visit + .visit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 15px;
-  height: 15px;
-  border: 1px solid #4a6a8a;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  min-width: 0;
+  margin: 0 2px;
+  padding: 0;
+  border: 1.5px solid #2f5d8a;
   border-radius: 50%;
-  color: #4a6a8a;
+  color: #2f5d8a;
   background: #fff;
-  font: italic bold 11px/1 Georgia, serif;
+  font: bold 11px/1 system-ui, sans-serif;
+  text-transform: none;
   cursor: help;
   vertical-align: middle;
+  appearance: none;
+}
+.info:hover,
+.info:focus-visible {
+  color: #fff;
+  background: #2f5d8a;
+  outline: none;
+}
+/* what the i says: drawn over the page, so a scrolling table never cuts it off */
+.info-bubble {
+  position: fixed;
+  z-index: 3000;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: #fff;
+  background: #23301f;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  font: normal 13px/1.35 system-ui, sans-serif;
+  text-align: left;
+  pointer-events: none;
 }
 /* the Contact support link in the footer */
 footer a.support {

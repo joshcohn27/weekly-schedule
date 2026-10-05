@@ -221,7 +221,9 @@ How much:
   that, each bunk has its Athletics on every other day and its A&C on the days between; bunks next to each other in
   a village have the same days, so they can still share A&C.
 - **No Waterfront until the swim test is done.** In week 1 no village is at Waterfront on Sunday morning, or before
-  its own swim test.
+  its own swim test. Mohawk takes its test during General Swim, after period 4 on the first day, so it has no
+  Waterfront at all that day; Auto generate writes "Mohawk Swim test During General Swim" in that day's notes, which
+  show under the schedule. Apart from that note, day details are never touched.
 - At most 3 Athletics periods and 3 A&C periods per bunk per week, a second Music in a week only to fill a period, and
   no area twice in one day.
 - At most 2 bunks of one village at Athletics, A&C, Music, Teva, Dance, Israel or Time with UH in one day, and 1 at

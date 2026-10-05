@@ -179,6 +179,8 @@ describe('the fixed calendar', () => {
         expect(first, `${b.name} Sunday morning`).toBeGreaterThanOrEqual(2);
         const test = row(w, b.name).indexOf('Swim Test');
         if (test >= 0) expect(first, `${b.name} before its swim test`).toBeGreaterThan(test);
+        // Mohawk's test is during General Swim after period 4, so its first Waterfront is on the second day at the earliest
+        if (b.name.startsWith('M')) expect(first, `${b.name} on the first day`).toBeGreaterThanOrEqual(4);
       }
     }
   });
@@ -280,12 +282,22 @@ describe('what the generator writes', () => {
     for (const run of sessions) for (const w of run.weeks.weeks) for (const b of (w as Schedule).bunks) for (const l of b.slots) if (l) expect(KNOWN.has(l), l).toBe(true);
   });
 
-  it('leaves bunks and day details untouched', () => {
+  it('leaves bunks and day details untouched, apart from the note about Mohawk on the opening day', () => {
     const src = sampleSchedule();
     src.days[2] = { ...src.days[2], notes: 'keep me', birthdays: 'Sam' };
     const weeks: WeeksState = { current: 0, weeks: [src, null, null, null] };
     const out = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed: 3, maxRounds: 1 });
-    expect(out.schedule.days).toEqual(src.days);
+    expect(out.schedule.days.slice(1)).toEqual(src.days.slice(1));
+    expect(out.schedule.days[0]).toEqual({ ...src.days[0], notes: 'Mohawk Swim test During General Swim' });
+    // it is added to what is already written there, once, and only in week 1
+    const noted = sampleSchedule();
+    noted.days[0] = { ...noted.days[0], notes: 'Opening day' };
+    const again = generateWeek({ weeks: { current: 0, weeks: [noted, null, null, null] }, weekIndex: 1, mode: 'replace-all', seed: 3, maxRounds: 1 });
+    expect(again.schedule.days[0].notes).toBe('Opening day. Mohawk Swim test During General Swim');
+    const twice = generateWeek({ weeks: { current: 0, weeks: [again.schedule, null, null, null] }, weekIndex: 1, mode: 'replace-all', seed: 4, maxRounds: 1 });
+    expect(twice.schedule.days[0].notes).toBe('Opening day. Mohawk Swim test During General Swim');
+    const week2 = generateWeek({ weeks: { current: 1, weeks: [null, sampleSchedule(), null, null] }, weekIndex: 2, mode: 'replace-all', seed: 3, maxRounds: 1 });
+    expect(week2.schedule.days[0].notes).toBe('');
     expect(out.schedule.bunks.map((b) => [b.id, b.name, b.grades, b.count])).toEqual(src.bunks.map((b) => [b.id, b.name, b.grades, b.count]));
   });
 

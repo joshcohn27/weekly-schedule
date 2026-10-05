@@ -41,13 +41,18 @@ export function sharedArea(label: string): string | null {
   return out;
 }
 
+/** The note that goes under the schedule on the opening day, so nobody misses that Mohawk's swim test is not in a period. */
+export const MOHAWK_SWIM_NOTE = 'Mohawk Swim test During General Swim';
+
 /**
  * Nobody goes to Waterfront before the swim test. In week 1 that means not on Sunday morning, and not before the bunk's own
- * Swim Test when it has one that week. Would Waterfront starting in this slot be too early?
+ * Swim Test when it has one that week. Mohawk takes its test during General Swim, after period 4 on the first day, so it
+ * has no Waterfront at all that day. Would Waterfront starting in this slot be too early?
  */
-export function beforeSwimTest(weekIndex: number, row: readonly string[], slot: number): boolean {
+export function beforeSwimTest(weekIndex: number, row: readonly string[], slot: number, village = ''): boolean {
   if (weekIndex !== 1) return false;
   if (slot < 2) return true; // Sunday morning
+  if (village === 'M') return slot < 4; // the whole first day
   const test = row.indexOf('Swim Test');
   return test >= 0 && slot < test;
 }

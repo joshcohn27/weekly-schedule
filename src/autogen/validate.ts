@@ -125,7 +125,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     for (const k of blocks[b]) {
       if (k.label !== 'Waterfront' || lockedAny(b, k.start, k.len)) continue;
       if (k.len !== 2 || periodOf(k.start) % 2 !== 0) add('H4', `${roster.names[b]} has a misaligned Waterfront on ${where(k.start)}.`, b, k.start);
-      if (beforeSwimTest(weekIndex, grid[b], k.start)) add('H4', `${roster.names[b]} has Waterfront on ${where(k.start)}, before the swim test.`, b, k.start);
+      if (beforeSwimTest(weekIndex, grid[b], k.start, roster.village[b])) add('H4', `${roster.names[b]} has Waterfront on ${where(k.start)}, before the swim test.`, b, k.start);
     }
   }
   for (let day = 0; day < 6; day++) {

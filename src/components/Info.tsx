@@ -1,14 +1,56 @@
+import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+
 interface Props {
-  /** What the "i" says when it is pointed at, or reached with the keyboard. */
+  /** What the "i" says when it is pointed at, tapped, or reached with the keyboard. */
   text: string;
 }
 
-/** A small "i" in a circle beside something that is an estimate, or that needs a sentence of explanation. */
+const BUBBLE_WIDTH = 280;
+
+/**
+ * A small "i" in a circle beside something that is an estimate, or that needs a sentence of explanation. Pointing at it,
+ * tapping it or tabbing to it shows the sentence in a bubble. The bubble is drawn over the whole page (not inside the
+ * table), so a scrolling table never cuts it off.
+ */
 export default function Info({ text }: Props) {
+  const icon = useRef<HTMLButtonElement>(null);
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null);
+  const show = () => {
+    const r = icon.current?.getBoundingClientRect();
+    if (!r) return;
+    const left = Math.max(8, Math.min(window.innerWidth - BUBBLE_WIDTH - 8, r.left + r.width / 2 - BUBBLE_WIDTH / 2));
+    setAt({ left, top: r.bottom + 6 });
+  };
+  const hide = () => setAt(null);
+
   return (
-    <span className="info" role="img" aria-label={text} title={text} tabIndex={0}>
-      i
-    </span>
+    <>
+      <button
+        type="button"
+        ref={icon}
+        className="info"
+        aria-label={text}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+        onClick={(e) => {
+          e.preventDefault();
+          if (at) hide();
+          else show();
+        }}
+      >
+        i
+      </button>
+      {at &&
+        createPortal(
+          <div className="info-bubble" role="tooltip" style={{ left: at.left, top: at.top, width: BUBBLE_WIDTH }}>
+            {text}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 

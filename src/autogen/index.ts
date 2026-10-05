@@ -7,6 +7,7 @@ import { placeExtraPool, placeLeague, placePool, placeRopes, placeTri, placeWate
 import { TOKEN_AREAS, TOKEN_LABEL, planWeek, sessionTargetOf } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
+import { MOHAWK_SWIM_NOTE } from './share';
 import { buildRoster, type Roster } from './roster';
 import { softScore } from './score';
 import type { Ctx } from './state';
@@ -216,8 +217,11 @@ class WeekSearch {
         major: chosen.quality.major,
       });
     }
+    // Mohawk's swim test is not in a period: it is during General Swim on the opening day. A note under that day says so.
+    const noted = (notes: string): string => (notes.includes(MOHAWK_SWIM_NOTE) ? notes : [notes.trim(), MOHAWK_SWIM_NOTE].filter(Boolean).join('. '));
+    const days = opts.weekIndex === 1 && roster.byVillage.M ? source.days.map((d, i) => (i === 0 ? { ...d, notes: noted(d.notes) } : d)) : source.days;
     return {
-      schedule: { bunks: source.bunks.map((b, i) => ({ ...b, slots: chosen.grid[i] })), days: source.days },
+      schedule: { bunks: source.bunks.map((b, i) => ({ ...b, slots: chosen.grid[i] })), days },
       warnings: [...new Set([...chosen.warnings, ...chosen.quality.hard, ...sessionWarnings(roster, hist, chosen.grid, opts.weekIndex, sessionWeeks)])],
       seed: opts.seed,
       quality: chosen.quality,

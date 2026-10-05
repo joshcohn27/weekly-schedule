@@ -30,7 +30,7 @@ export const FIXED_RULES = [
   'No area is in period 4 and again in period 1 the next day.',
   'No bunk has the same kind of period two days in a row.',
   'No area twice in one day for a bunk.',
-  'No Waterfront until the swim test is done: in week 1, never on Sunday morning and never before the village has swum.',
+  'No Waterfront until the swim test is done: in week 1, never on Sunday morning and never before the village has swum. Mohawk swims its test during General Swim on the first day, so its Waterfront starts on the second.',
   'Athletics and A&C stay within two of each other for each bunk over the session.',
   'The pool: one group at a time, O and C never together, Tusc always together, and S with M only at the same age.',
 ];

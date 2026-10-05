@@ -77,6 +77,13 @@ describe('validateWeek', () => {
     const morning = sampleSchedule();
     put(morning, village(morning, 'M'), [S(0, 0), S(0, 1)], 'Waterfront');
     expect(early(state(morning))).toEqual(village(morning, 'M'));
+    // Mohawk swims its test during General Swim, after period 4: no Waterfront for it at all on the first day, and fine on the second
+    const mohawk = sampleSchedule();
+    put(mohawk, village(mohawk, 'M'), [S(0, 2), S(0, 3)], 'Waterfront');
+    expect(early(state(mohawk))).toEqual(village(mohawk, 'M'));
+    const monday = sampleSchedule();
+    put(monday, village(monday, 'M'), [S(1, 0), S(1, 1)], 'Waterfront');
+    expect(early(state(monday))).toEqual([]);
     // Sunday afternoon is fine once the village's own swim test is behind it, and not before
     const after = sampleSchedule();
     put(after, village(after, 'O'), [S(0, 1)], 'Swim Test');
