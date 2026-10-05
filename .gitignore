@@ -2,3 +2,6 @@ node_modules
 dist
 *.local
 report.txt
+report2.txt
+src/autogen/zz_probe.test.ts
+director_report.txt

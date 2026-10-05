@@ -1,5 +1,7 @@
 import * as XLSX from 'xlsx';
+import { coreOf, defaultCore, defaultSettings, normalizeSettings, settingAreas, sharingOf, visitsOf, type CoreSettings, type Settings } from './autogen/settings';
 import { DAYS, PERIODS_PER_DAY, SLOT_COUNT } from './config';
+import { specialistRows, specialistSchedules, specialistSheetName } from './specialist';
 import { normalize } from './storage';
 import { computeSessionTracking, computeTracking, type TrackingResult } from './tracking';
 import type { DayInfo, Schedule } from './types';
@@ -74,16 +76,146 @@ function trackingSheetFromResult(result: TrackingResult): XLSX.WorkSheet {
   return XLSX.utils.aoa_to_sheet(rows);
 }
 
-/** One week's workbook: its own tab (re-imported on upload) plus a read-only Tracking tab. */
-export function buildWeekWorkbook(schedule: Schedule, weekNumber: number): XLSX.WorkBook {
+const SETTINGS_SHEET = 'Settings';
+const SETTINGS_HEADER = ['Program area', 'Times per session: at least', 'At most', 'Bunks at once', 'Bunks of one village in a day', 'By village'];
+
+/** The Settings tab: one row per program area. "By village" reads "O 3, S 3, C 2" for an area that is set village by village. */
+function buildSettingsSheet(settings: Settings): XLSX.WorkSheet {
+  const rows = settingAreas(settings).map((area) => {
+    const a = settings.areas[area];
+    const byVillage = a.villages ? Object.entries(a.villages).map(([v, n]) => `${v} ${n}`).join(', ') : '';
+    return [area, a.min, a.max, a.atOnce, a.villagePerDay, byVillage];
+  });
+  const sheet = XLSX.utils.aoa_to_sheet([SETTINGS_HEADER, ...rows]);
+  sheet['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 9 }, { wch: 14 }, { wch: 28 }, { wch: 28 }];
+  return sheet;
+}
+
+/** Reads the Settings tab back. Null when the workbook has none; anything missing or odd in it falls back to the default. */
+export function parseSettingsSheet(wb: XLSX.WorkBook): Settings | null {
+  const sheet = wb.Sheets[SETTINGS_SHEET];
+  if (!sheet) return null;
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  const areas: Record<string, unknown> = {};
+  for (const row of rows.slice(1)) {
+    const villages: Record<string, number> = {};
+    for (const part of String(row[5] ?? '').split(',')) {
+      const match = part.trim().match(/^(\S+)\s+(\d+)$/);
+      if (match) villages[match[1]] = Number(match[2]);
+    }
+    areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}) };
+  }
+  return normalizeSettings({ areas, sharing: parseSharingSheet(wb), ...parseMainSheet(wb) });
+}
+
+const SHARING_SHEET = 'Sharing';
+const WITHIN_TEXT: Record<string, string> = { next: 'only the bunk next to it in the list', village: 'any bunk of the village' };
+const GRADES_TEXT: Record<string, string> = { same: 'the same grade', one: 'within one grade', any: 'any grades' };
+const keyOf = (texts: Record<string, string>, value: unknown): string | undefined => Object.keys(texts).find((k) => texts[k] === value || k === value);
+
+/** The Sharing tab: the three basic choices, then every pair that was changed by hand on the grid. */
+function buildSharingSheet(settings: Settings): XLSX.WorkSheet {
+  const s = sharingOf(settings);
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['Who may share a period', ''],
+    ['Inside a village', WITHIN_TEXT[s.within]],
+    ['Paired villages (O with C, S with M)', s.across ? 'may mix' : 'never mix'],
+    ['Grades', GRADES_TEXT[s.grades]],
+    [],
+    ['Bunk', 'Bunk', 'Changed by hand to'],
+    ...Object.entries(s.pairs).map(([key, may]) => [...key.split('|'), may ? 'may share' : 'may not share']),
+  ]);
+  sheet['!cols'] = [{ wch: 36 }, { wch: 36 }, { wch: 20 }];
+  return sheet;
+}
+
+function parseSharingSheet(wb: XLSX.WorkBook): unknown {
+  const sheet = wb.Sheets[SHARING_SHEET];
+  if (!sheet) return undefined;
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  const pairs: Record<string, boolean> = {};
+  const start = rows.findIndex((r) => r[0] === 'Bunk' && r[1] === 'Bunk');
+  if (start >= 0) for (const r of rows.slice(start + 1)) if (r[0] && r[1]) pairs[`${String(r[0]).trim()}|${String(r[1]).trim()}`] = r[2] === 'may share';
+  return { within: keyOf(WITHIN_TEXT, rows[1]?.[1]), across: rows[2]?.[1] !== 'never mix', grades: keyOf(GRADES_TEXT, rows[3]?.[1]), pairs };
+}
+
+const MAIN_SHEET = 'Main areas';
+const ANY_VISIT = 'Any visit number will do at';
+const LEAGUE_BY = 'League, villages with their own number of times a week';
+const LAST_WEEK = 'One visit apart in the last week';
+type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
+const SHARED_NAMES: [SharedKey, string][] = [
+  ['athletics', 'Athletics'],
+  ['ac', 'A&C'],
+  ['music', 'Music'],
+  ['uh', 'Time with UH'],
+];
+/** Every number on the Main areas tab: its label, and how to read it from and write it to the settings. */
+const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: CoreSettings, n: unknown) => void }[] = [
+  { label: 'Hobbies, half-days a week', get: (c) => c.hobbyHalfDays, set: (c, n) => (c.hobbyHalfDays = n as number) },
+  { label: 'Hobbies, percent of weeks with one more on Sunday morning', get: (c) => c.hobbySundayPercent, set: (c, n) => (c.hobbySundayPercent = n as number) },
+  { label: 'Shabbat Prep on Friday afternoon (1 yes, 0 no)', get: (c) => (c.shabbatPrep ? 1 : 0), set: (c, n) => (c.shabbatPrep = String(n) !== '0') },
+  { label: 'Shabbat Prep, one more period earlier in the week (1 yes, 0 no)', get: (c) => (c.shabbatPrepExtra ? 1 : 0), set: (c, n) => (c.shabbatPrepExtra = String(n) !== '0') },
+  { label: 'Ropes, times a session', get: (c) => c.ropesPerSession, set: (c, n) => (c.ropesPerSession = n as number) },
+  { label: 'Pool, times a week', get: (c) => c.poolPerWeek, set: (c, n) => (c.poolPerWeek = n as number) },
+  { label: 'Pool, lessons alone for an O or C bunk', get: (c) => c.poolLessons, set: (c, n) => (c.poolLessons = n as number) },
+  { label: 'Pool, most campers at once', get: (c) => c.poolMaxCampers, set: (c, n) => (c.poolMaxCampers = n as number) },
+  { label: 'Waterfront, times a week', get: (c) => c.waterfrontPerWeek, set: (c, n) => (c.waterfrontPerWeek = n as number) },
+  { label: 'League, times a week', get: (c) => c.leaguePerWeek, set: (c, n) => (c.leaguePerWeek = n as number) },
+  { label: 'Pool, at most a week', get: (c) => c.poolMaxPerWeek, set: (c, n) => (c.poolMaxPerWeek = n as number) },
+  { label: 'Music, times a week', get: (c) => c.musicPerWeek, set: (c, n) => (c.musicPerWeek = n as number) },
+  { label: 'Time with UH, at least a session', get: (c) => c.uhMin, set: (c, n) => (c.uhMin = n as number) },
+  { label: 'Time with UH, at most a session', get: (c) => c.uhMax, set: (c, n) => (c.uhMax = n as number) },
+  ...SHARED_NAMES.flatMap(([key, name]) => [
+    ...(key === 'uh' ? [] : [{ label: `${name}, at most a week`, get: (c: CoreSettings) => c[key].maxPerWeek, set: (c: CoreSettings, n: unknown) => (c[key].maxPerWeek = n as number) }]),
+    { label: `${name}, bunks at once`, get: (c: CoreSettings) => c[key].atOnce, set: (c: CoreSettings, n: unknown) => (c[key].atOnce = n as number) },
+    { label: `${name}, bunks of one village in a day`, get: (c: CoreSettings) => c[key].villagePerDay, set: (c: CoreSettings, n: unknown) => (c[key].villagePerDay = n as number) },
+  ]),
+];
+
+/** The Main areas tab: the numbers for Waterfront, league, the pool, Athletics, A&C, Music and Time with UH, and the visit rules. */
+function buildMainSheet(settings: Settings): XLSX.WorkSheet {
+  const core = coreOf(settings);
+  const visits = visitsOf(settings);
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['Setting', 'Value'],
+    ...MAIN_ROWS.map((r) => [r.label, r.get(core)]),
+    [LEAGUE_BY, Object.entries(core.leagueByVillage).map(([v, n]) => `${v} ${n}`).join(', ')],
+    [ANY_VISIT, visits.free.join(', ')],
+    [LAST_WEEK, visits.lastWeekSlack ? 'yes' : 'no'],
+  ]);
+  sheet['!cols'] = [{ wch: 62 }, { wch: 28 }];
+  return sheet;
+}
+
+function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown } {
+  const sheet = wb.Sheets[MAIN_SHEET];
+  if (!sheet) return {};
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  const value = new Map(rows.map((r) => [String(r[0] ?? ''), r[1]]));
+  const core = defaultCore();
+  for (const row of MAIN_ROWS) if (value.has(row.label)) row.set(core, value.get(row.label));
+  for (const part of String(value.get(LEAGUE_BY) ?? '').split(',')) {
+    const match = part.trim().match(/^(\S+)\s+(\d+)$/);
+    if (match) core.leagueByVillage[match[1]] = Number(match[2]);
+  }
+  const free = String(value.get(ANY_VISIT) ?? '').split(',').map((a) => a.trim()).filter(Boolean);
+  return { core, visits: value.has(ANY_VISIT) ? { free, lastWeekSlack: value.get(LAST_WEEK) === 'yes' } : undefined };
+}
+
+/** One week's workbook: its own tab (re-imported on upload), a read-only Tracking tab, and the Settings, Main areas and Sharing tabs. */
+export function buildWeekWorkbook(schedule: Schedule, weekNumber: number, settings: Settings = defaultSettings()): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildWeekSheet(schedule), weekSheetName(weekNumber));
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeTracking(schedule.bunks)), 'Tracking');
+  XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildMainSheet(settings), MAIN_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildSharingSheet(settings), SHARING_SHEET);
   return wb;
 }
 
-/** One workbook covering every loaded week, each on its own "Week N" tab, plus a session Tracking tab. */
-export function buildAllWeeksWorkbook(weeks: (Schedule | null)[]): XLSX.WorkBook {
+/** One workbook covering every loaded week, each on its own "Week N" tab, plus a session Tracking tab and the Settings tab. */
+export function buildAllWeeksWorkbook(weeks: (Schedule | null)[], settings: Settings = defaultSettings()): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   const loadedWeeks: Schedule[] = [];
 
@@ -94,15 +226,37 @@ export function buildAllWeeksWorkbook(weeks: (Schedule | null)[]): XLSX.WorkBook
   });
 
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeSessionTracking(loadedWeeks)), 'Whole Session Tracking');
+  XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildMainSheet(settings), MAIN_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildSharingSheet(settings), SHARING_SHEET);
   return wb;
 }
 
-export function downloadWeek(schedule: Schedule, weekNumber: number): void {
-  XLSX.writeFile(buildWeekWorkbook(schedule, weekNumber), `${weekSheetName(weekNumber)}.xlsx`);
+/**
+ * The session from each specialist's side: one tab per program area, with a grid for each week (days across, periods
+ * down) that says which bunks come, which visit it is for them, and how many campers. Read-only: an upload ignores these tabs.
+ */
+export function buildSpecialistWorkbook(weeks: (Schedule | null)[]): XLSX.WorkBook {
+  const wb = XLSX.utils.book_new();
+  for (const s of specialistSchedules(weeks)) {
+    const sheet = XLSX.utils.aoa_to_sheet(specialistRows(s, weeks));
+    sheet['!cols'] = [{ wch: 10 }, ...DAYS.map(() => ({ wch: 34 }))];
+    XLSX.utils.book_append_sheet(wb, sheet, specialistSheetName(s.area));
+  }
+  if (wb.SheetNames.length === 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Nothing is scheduled yet.']]), 'Specialists');
+  return wb;
 }
 
-export function downloadAllWeeks(weeks: (Schedule | null)[]): void {
-  XLSX.writeFile(buildAllWeeksWorkbook(weeks), 'all-weeks.xlsx');
+export function downloadSpecialists(weeks: (Schedule | null)[]): void {
+  XLSX.writeFile(buildSpecialistWorkbook(weeks), 'specialist-schedules.xlsx');
+}
+
+export function downloadWeek(schedule: Schedule, weekNumber: number, settings?: Settings): void {
+  XLSX.writeFile(buildWeekWorkbook(schedule, weekNumber, settings), `${weekSheetName(weekNumber)}.xlsx`);
+}
+
+export function downloadAllWeeks(weeks: (Schedule | null)[], settings?: Settings): void {
+  XLSX.writeFile(buildAllWeeksWorkbook(weeks, settings), 'all-weeks.xlsx');
 }
 
 export interface ParsedUpload {
@@ -127,8 +281,9 @@ export function parseUploadedWorkbook(wb: XLSX.WorkBook): ParsedUpload[] {
   return out.sort((a, b) => a.weekNumber - b.weekNumber);
 }
 
-export async function readUploadedFile(file: File): Promise<ParsedUpload[]> {
+/** The weeks in an uploaded file, and the settings it carries (null when it has no Settings tab). */
+export async function readUploadedFile(file: File): Promise<{ weeks: ParsedUpload[]; settings: Settings | null }> {
   const data = await file.arrayBuffer();
   const wb = XLSX.read(data, { type: 'array' });
-  return parseUploadedWorkbook(wb);
+  return { weeks: parseUploadedWorkbook(wb), settings: parseSettingsSheet(wb) };
 }

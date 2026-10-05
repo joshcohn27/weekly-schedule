@@ -1,3 +1,5 @@
+import type { Settings } from './autogen/settings';
+
 export interface Bunk {
   id: string;
   name: string;
@@ -5,6 +7,8 @@ export interface Bunk {
   count: string;
   /** 24 slots: 6 days x 4 periods. Each is an activity label or '' for empty. */
   slots: string[];
+  /** Slots emptied with the Clear tool that are still empty. They show in yellow until something is put there again. */
+  cleared?: number[];
 }
 
 export interface DayInfo {
@@ -26,6 +30,8 @@ export interface Schedule {
 export interface WeeksState {
   weeks: (Schedule | null)[];
   current: number;
+  /** The numbers Auto generate works with, when they are not the defaults. */
+  settings?: Settings;
 }
 
 /** A rectangle of the schedule grid that displays as one merged cell. */
