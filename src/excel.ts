@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { coreOf, defaultCore, defaultSettings, normalizeSettings, settingAreas, sharingOf, visitsOf, type CoreSettings, type Settings } from './autogen/settings';
+import { SETTINGS_VERSION, coreOf, defaultCore, defaultSettings, normalizeSettings, settingAreas, sharingOf, visitsOf, type CoreSettings, type Settings } from './autogen/settings';
 import { DAYS, PERIODS_PER_DAY, SLOT_COUNT } from './config';
 import { specialistRows, specialistSchedules, specialistSheetName } from './specialist';
 import { normalize } from './storage';
@@ -143,6 +143,7 @@ const MAIN_SHEET = 'Main areas';
 const ANY_VISIT = 'Any visit number will do at';
 const LEAGUE_BY = 'League, villages with their own number of times a week';
 const LAST_WEEK = 'One visit apart in the last week';
+const VERSION_ROW = 'Settings version';
 const SHABBAT_BY = 'Shabbat, the villages each week (blank for the usual turns)';
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
 const SHARED_NAMES: [SharedKey, string][] = [
@@ -157,6 +158,7 @@ const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: Cor
   { label: 'Shabbat Prep, single periods on top of the Friday afternoon double', get: (c) => c.shabbatPrepExtra, set: (c, n) => (c.shabbatPrepExtra = n as number) },
   { label: 'Ropes, times a session', get: (c) => c.ropesPerSession, set: (c, n) => (c.ropesPerSession = n as number) },
   { label: 'Ropes, most campers at once', get: (c) => c.ropesMaxCampers, set: (c, n) => (c.ropesMaxCampers = n as number) },
+  { label: 'Yoga, most campers at once', get: (c) => c.yogaMaxCampers, set: (c, n) => (c.yogaMaxCampers = n as number) },
   { label: 'Pool, times a week', get: (c) => c.poolPerWeek, set: (c, n) => (c.poolPerWeek = n as number) },
   { label: 'Pool, lessons alone for an O or C bunk', get: (c) => c.poolLessons, set: (c, n) => (c.poolLessons = n as number) },
   { label: 'Pool, most campers at once', get: (c) => c.poolMaxCampers, set: (c, n) => (c.poolMaxCampers = n as number) },
@@ -183,13 +185,14 @@ function buildMainSheet(settings: Settings): XLSX.WorkSheet {
     [LEAGUE_BY, Object.entries(core.leagueByVillage).map(([v, n]) => `${v} ${n}`).join(', ')],
     [ANY_VISIT, visits.free.join(', ')],
     [LAST_WEEK, visits.lastWeekSlack ? 'yes' : 'no'],
+    [VERSION_ROW, SETTINGS_VERSION],
     [SHABBAT_BY, core.shabbatWeeks ? core.shabbatWeeks.map((week, i) => `Week ${i + 1}: ${week.join(' ') || 'No Shabbat'}`).join('; ') : ''],
   ]);
   sheet['!cols'] = [{ wch: 62 }, { wch: 28 }];
   return sheet;
 }
 
-function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown } {
+function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown; v?: number } {
   const sheet = wb.Sheets[MAIN_SHEET];
   if (!sheet) return {};
   const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
@@ -209,7 +212,8 @@ function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown }
     }
   }
   const free = String(value.get(ANY_VISIT) ?? '').split(',').map((a) => a.trim()).filter(Boolean);
-  return { core, visits: value.has(ANY_VISIT) ? { free, lastWeekSlack: value.get(LAST_WEEK) === 'yes' } : undefined };
+  // a file from before the version row was written is an older one
+  return { core, visits: value.has(ANY_VISIT) ? { free, lastWeekSlack: value.get(LAST_WEEK) === 'yes' } : undefined, v: Number(value.get(VERSION_ROW) ?? 1) || 1 };
 }
 
 /** One week's workbook: its own tab (re-imported on upload), a read-only Tracking tab, and the Settings, Main areas and Sharing tabs. */

@@ -12,7 +12,7 @@ import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
 import { planCalendar } from './calendar';
 import { blocksOf } from './history';
-import { CALENDAR, hobbyMost, hobbyWeeks, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, SHABBAT_ROTATION, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
+import { CALENDAR, CAMPER_CAP, hobbyMost, hobbyWeeks, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, SHABBAT_ROTATION, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
 import { mulberry32 } from './rng';
 import { checkSettings } from './feasibility';
 import { generateRun } from './session';
@@ -69,6 +69,28 @@ describe('settings', () => {
     expect(SESSION_TARGETS.Yoga).toBe(2);
     expect(SESSION_FILLER_MAX).toEqual({ Yoga: 3, Ceramics: 3, Judaics: 3 });
     expect(DANCE_TARGETS.O).toBe(3);
+  });
+
+  it('brings settings saved before Judaics and Yoga took two bunks up to date, once', () => {
+    const one = { min: 2, max: 3, atOnce: 1, villagePerDay: 1 };
+    // saved by an older version: no version on it, and the old one bunk at a time
+    const old = normalizeSettings({ areas: { Judaics: one, Yoga: one, Ceramics: one, Teva: { min: 4 } } });
+    expect(old.areas.Judaics).toMatchObject({ atOnce: 2, villagePerDay: 2 });
+    expect(old.areas.Yoga).toMatchObject({ atOnce: 2, villagePerDay: 2 });
+    expect(old.areas.Ceramics).toMatchObject({ atOnce: 1, villagePerDay: 1 }); // Ceramics did not change
+    expect(old.areas.Teva.min).toBe(4);
+    // chosen since then: one at a time stays one at a time
+    const chosen = normalizeSettings({ ...old, areas: { ...old.areas, Yoga: one } });
+    expect(chosen.areas.Yoga).toMatchObject({ atOnce: 1, villagePerDay: 1 });
+    // and it comes back from a spreadsheet the same, with the Yoga camper number
+    const s = withCore(chosen, { ...coreOf(chosen), yogaMaxCampers: 26 });
+    const back = parseSettingsSheet(buildWeekWorkbook(sampleSchedule(), 1, s)) as Settings;
+    expect(back.areas.Yoga).toMatchObject({ atOnce: 1, villagePerDay: 1 });
+    expect(coreOf(back).yogaMaxCampers).toBe(26);
+    applySettings(back);
+    expect(CAMPER_CAP.Yoga).toBe(26);
+    applySettings();
+    expect(CAMPER_CAP.Yoga).toBe(22);
   });
 
   it('repairs whatever it is given: missing areas, text, numbers out of range, a maximum under the minimum', () => {
@@ -411,6 +433,7 @@ describe('the main areas and the visit numbers', () => {
       shabbatWeeks: null,
       ropesPerSession: 2,
       ropesMaxCampers: 30,
+      yogaMaxCampers: 22,
       poolPerWeek: 1,
       poolLessons: 2,
       poolMaxCampers: 80,

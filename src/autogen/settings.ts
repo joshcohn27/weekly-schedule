@@ -14,6 +14,7 @@ import {
   POOL_MAX_CAMPERS,
   POOL_TARGETS,
   ROPES_MAX_CAMPERS,
+  CAMPER_CAP,
   VISIT,
   WEEK_BLOCK_MAX,
   rememberDayCaps,
@@ -55,7 +56,15 @@ export interface Settings {
   core?: CoreSettings;
   /** Visit numbers, when they are not the default. */
   visits?: VisitSettings;
+  /** Which set of defaults these settings were saved under. Settings from before SETTINGS_VERSION are brought up to date when read. */
+  v?: number;
 }
+
+/**
+ * 2: Judaics and Yoga take two bunks at once (two of a village a day). Settings saved before that still hold the old one
+ * and one for them, so those two numbers are moved up when such settings are read.
+ */
+export const SETTINGS_VERSION = 2;
 
 /** An area that bunks may share: how many at once, how many of one village in a day, and (Athletics, A&C) how many times a bunk may have it in a week. */
 export interface SharedNumbers {
@@ -82,6 +91,8 @@ export interface CoreSettings {
   /** Ropes in a session (low ropes first, then high ropes), and the most campers at ropes at once. */
   ropesPerSession: number;
   ropesMaxCampers: number;
+  /** Yoga goes by campers: two bunks have it together only when they have no more campers between them than this. */
+  yogaMaxCampers: number;
   /** The pool: swims a week, how many of an O or C bunk's first swims are lessons alone, and the most campers in the water at once. */
   poolPerWeek: number;
   poolLessons: number;
@@ -113,6 +124,7 @@ const CORE_LIMITS = {
   shabbatPrepExtra: [0, SHABBAT_PREP_EXTRA_MAX],
   ropesPerSession: [0, 2],
   ropesMaxCampers: [5, 200],
+  yogaMaxCampers: [5, 200],
   poolPerWeek: [0, 1],
   poolLessons: [0, 4],
   poolMaxCampers: [10, 500],
@@ -157,6 +169,7 @@ function readCore(): CoreSettings {
     shabbatWeeks: null,
     ropesPerSession: SESSION_TARGETS.Ropes,
     ropesMaxCampers: ROPES_MAX_CAMPERS,
+    yogaMaxCampers: CAMPER_CAP.Yoga,
     poolPerWeek: POOL_TARGETS.O?.perWeek ?? 1,
     poolLessons: POOL_LESSONS,
     poolMaxCampers: POOL_MAX_CAMPERS,
@@ -314,6 +327,8 @@ export function removeArea(s: Settings, name: string): Settings {
   delete areas[name];
   return normalizeSettings({ ...s, areas, custom: (s.custom ?? []).filter((c) => c !== name) });
 }
+/** The areas that went from one bunk at a time to two (settings version 2). */
+const OPENED_UP = ['Judaics', 'Yoga'];
 /** The village key in DANCE_TARGETS that stands for a village not listed there. */
 const OTHER = '*';
 
@@ -332,7 +347,7 @@ function readConfig(): Settings {
       areas[area].villages = villages;
     }
   }
-  return { areas };
+  return { areas, v: SETTINGS_VERSION };
 }
 
 /** The settings the app starts with: a fresh copy each time, safe to change. */
@@ -348,6 +363,7 @@ export function normalizeSettings(raw: unknown): Settings {
   const out = defaultSettings();
   const given = (raw as { areas?: Record<string, Partial<AreaSettings>> } | null)?.areas;
   if (!given || typeof given !== 'object') return out;
+  const older = Number((raw as { v?: unknown }).v ?? 1) < SETTINGS_VERSION;
   // Added areas: the ones listed, or (a spreadsheet has no list) every area that does not come with the app.
   const listed = (raw as { custom?: unknown }).custom;
   const names = Array.isArray(listed) ? listed.map(String) : Object.keys(given).filter((k) => !SETTING_AREAS.includes(k));
@@ -373,6 +389,8 @@ export function normalizeSettings(raw: unknown): Settings {
     d.max = Math.max(d.min, whole(g.max, 0, 12, d.max));
     d.atOnce = whole(g.atOnce, 1, 2, d.atOnce);
     d.villagePerDay = whole(g.villagePerDay, 1, 6, d.villagePerDay);
+    // saved before two bunks could be at Judaics or Yoga together: the old one and one become the new two and two
+    if (older && OPENED_UP.includes(area) && d.atOnce === 1 && d.villagePerDay === 1) Object.assign(d, { atOnce: 2, villagePerDay: 2 });
     if (d.villages && g.villages && typeof g.villages === 'object') {
       const villages: Record<string, number> = {};
       for (const [letter, n] of Object.entries(g.villages)) {
@@ -460,6 +478,7 @@ export function applySettings(settings?: Settings | null): void {
   SESSION_TARGETS['TW UH'] = core.uhMin;
   SESSION_TARGETS.Ropes = core.ropesPerSession;
   setRopesMax(core.ropesMaxCampers);
+  CAMPER_CAP.Yoga = core.yogaMaxCampers;
   CALENDAR.hobbySessions = core.hobbySessions;
   CALENDAR.shabbatPrep = core.shabbatPrep;
   CALENDAR.shabbatPrepExtra = core.shabbatPrepExtra;
