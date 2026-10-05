@@ -27,7 +27,7 @@ The build output is the `dist/` folder from `npm run build`.
 
 **Contact support** at the foot of every page (and in the how-to, and beside any settings problem) opens an email to
 joshcohn27@gmail.com. The address is `SUPPORT_EMAIL` in `src/config.ts`. The version number shown beside it
-(1.2.2) is `APP_VERSION` in the same file: the first number is the app itself, the second goes up when a feature is
+(1.2.3 now) is `APP_VERSION` in the same file: the first number is the app itself, the second goes up when a feature is
 added (2 is Auto generate), and the third goes up for a fix.
 
 The how-to opens by itself the very first time the page is opened in a browser, and not again after that. The **?**

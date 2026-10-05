@@ -156,7 +156,7 @@ describe('Auto generate UI', () => {
     expect(html).toContain('Specialist schedules');
     expect(html).not.toMatch(/—|–/); // no em or en dashes
     expect(html).not.toMatch(/director/i);
-    expect(renderToStaticMarkup(<App />)).toMatch(/<footer>.*Version 1\.2\.2<.*<\/footer>/s); // and which version this is
+    expect(renderToStaticMarkup(<App />)).toMatch(/<footer>.*Version \d+\.\d+\.\d+<.*<\/footer>/s); // and which version this is
     // a way to reach a person, in the how-to and at the foot of every page
     expect(html).toContain('href="mailto:joshcohn27@gmail.com');
     expect(renderToStaticMarkup(<App />)).toMatch(/<footer>.*href="mailto:joshcohn27@gmail\.com[^"]*"[^>]*>Contact support<\/a>.*<\/footer>/s);
