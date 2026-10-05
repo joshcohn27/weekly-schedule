@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { AGE_ALLOWED, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_PATTERNS, LEAGUE_MIN_PER_WEEK, TRI_AWAY_PERIODS, TRIP_LABELS, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, LEAGUE_PER_WEEK, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
+import { AGE_ALLOWED, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_PATTERNS, leagueFor, leagueMinFor, triathlonPeriodsAWeek, TRI_AWAY_PERIODS, TRIP_LABELS, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
 import { ropeGroups } from './groups';
 import { blocksOf, halfSlots, slotAt } from './history';
 import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
@@ -86,10 +86,10 @@ const awayOnTrip = (c: Ctx, v: string): boolean => c.grid[idx(c, v)[0]].filter((
 function pendingLeagueBlocks(c: Ctx, v: string): number {
   if (v === 'T') return 0; // Tusc's triathlon is placed later and has its own room check
   const have = Math.max(...idx(c, v).map((b) => inWeekCount(c, b, 'League')));
-  return Math.max(0, LEAGUE_PER_WEEK - have);
+  return Math.max(0, leagueFor(v) - have);
 }
 const leagueCells = (c: Ctx, v: string): number =>
-  v === 'T' ? (awayOnTrip(c, v) ? 0 : LEAGUE_PER_WEEK + 1) : pendingLeagueBlocks(c, v) * (v === 'M' ? 2 : 1);
+  v === 'T' ? (awayOnTrip(c, v) ? 0 : triathlonPeriodsAWeek()) : pendingLeagueBlocks(c, v) * (v === 'M' ? 2 : 1);
 
 /** On how many different days could the village still place a league block if these slots were taken? */
 function leagueDaysLeft(c: Ctx, v: string, taken: readonly number[]): number {
@@ -227,7 +227,7 @@ export function placeLeague(c: Ctx): void {
     // League days are never next to each other. Aim for a set of three such days that are all still possible; a week with
     // no such set (the short last week, a week around a trip) gets as many as fit, which is at least LEAGUE_MIN_PER_WEEK.
     const pattern = shuffle(c.rng, LEAGUE_DAY_PATTERNS).find((days) => c.days.filter(playing).every((d) => days.includes(d)) && days.every((d) => c.days.includes(d) && open(d)));
-    for (let i = have; i < LEAGUE_PER_WEEK; i++) {
+    for (let i = have; i < leagueFor(v); i++) {
       let best: { slots: number[]; score: number } | null = null;
       for (const day of c.days) {
         if (playing(day) || villageOnNextDay(c, v, day, 'League') || (pattern && !pattern.includes(day))) continue;
@@ -238,9 +238,9 @@ export function placeLeague(c: Ctx): void {
         }
       }
       if (!best) {
-        if (i < LEAGUE_MIN_PER_WEEK) {
-          c.missing.push(`Village ${v} got ${i} of ${LEAGUE_PER_WEEK} league periods.`);
-          warn(c, `Village ${v} got ${i} of ${LEAGUE_PER_WEEK} league periods this week (there was not enough room).`);
+        if (i < leagueMinFor(v)) {
+          c.missing.push(`Village ${v} got ${i} of ${leagueFor(v)} league periods.`);
+          warn(c, `Village ${v} got ${i} of ${leagueFor(v)} league periods this week (there was not enough room).`);
         }
         break;
       }
@@ -271,7 +271,7 @@ export function placeTri(c: Ctx): void {
   // One double and two singles, on days that are not next to each other. Aim for a set of three such days; a week with
   // no such set gets as many sessions as fit.
   const pattern = shuffle(c.rng, LEAGUE_DAY_PATTERNS).find((days) => days.every((d) => allowed.includes(d) && !villageAreaOnDay(c, v, d, 'League') && singles(d).some(fits)));
-  const blocks: ('double' | 'single')[] = ['double', 'single', 'single'];
+  const blocks: ('double' | 'single')[] = Array.from({ length: leagueFor(v) }, (_, i) => (i === 0 ? 'double' : 'single'));
   let placed = 0;
   for (const kind of blocks) {
     let best: { slots: number[]; score: number } | null = null;
@@ -288,7 +288,7 @@ export function placeTri(c: Ctx): void {
     putVillage(c, v, best.slots, label);
     placed++;
   }
-  if (placed < LEAGUE_MIN_PER_WEEK) {
+  if (placed < leagueMinFor(v)) {
     c.missing.push('Tusc got fewer triathlon training periods than planned.');
     warn(c, `Tusc got fewer triathlon training periods than planned this week (there was not enough pool-free time).`);
   }

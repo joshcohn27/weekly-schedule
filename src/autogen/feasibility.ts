@@ -16,9 +16,6 @@ export interface SettingsProblem {
   fix: string;
 }
 
-/** Periods with activities: a normal week (two hobby half-days out of 24), and the last week of a 4-week session. */
-const NORMAL_WEEK = 20;
-const LAST_WEEK = 14;
 const DAYS_NORMAL = 6;
 const DAYS_LAST = 4;
 
@@ -42,7 +39,11 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
   if (roster.length === 0) return [];
   const out: SettingsProblem[] = [];
   const four = sessionWeeks === 4;
-  const periods = four ? NORMAL_WEEK * 3 + LAST_WEEK : NORMAL_WEEK * sessionWeeks;
+  // hobbies take two periods for each half-day; the last week of a 4-week session has its own Monday morning of them
+  const hobbies = coreOf(settings).hobbyHalfDays;
+  const normalWeek = 24 - 2 * hobbies;
+  const lastWeek = 16 - (hobbies > 0 ? 2 : 0);
+  const periods = four ? normalWeek * 3 + lastWeek : normalWeek * sessionWeeks;
   const days = four ? DAYS_NORMAL * 3 + DAYS_LAST : DAYS_NORMAL * sessionWeeks;
   const villages = [...new Set(roster.map((b) => villageOf(b.name)))].filter(Boolean);
   const membersOf = (v: string): number => roster.filter((b) => villageOf(b.name) === v).length;
@@ -103,11 +104,13 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
   for (const v of villages) {
     const n = membersOf(v);
     const normalWeeks = four ? 3 : sessionWeeks;
-    const leagueWeeks = normalWeeks * core.leaguePerWeek + (four ? Math.min(2, core.leaguePerWeek) : 0);
-    const league = v === 'T' ? normalWeeks * (core.leaguePerWeek + 1) : v === 'M' ? leagueWeeks * 2 : leagueWeeks;
+    const leagueTimes = core.leagueByVillage[v] ?? core.leaguePerWeek;
+    const leagueWeeks = normalWeeks * leagueTimes + (four ? Math.min(2, leagueTimes) : 0);
+    const league = v === 'T' ? normalWeeks * (leagueTimes > 0 ? leagueTimes + 1 : 0) : v === 'M' ? leagueWeeks * 2 : leagueWeeks;
     const waterfront = normalWeeks * core.waterfrontPerWeek * 2 + (four ? Math.min(1, core.waterfrontPerWeek) * 2 : 0);
     const music = core.musicPerWeek === 0 ? 0 : MUSIC_LIGHT_VILLAGES.includes(v) ? MUSIC_LIGHT_PER_SESSION : sessionWeeks;
-    const fixed = 3 /* Shabbat Prep */ + 1 /* the first Sunday */ + tripPeriods(v) + waterfront + league + sessionWeeks /* pool */ + music + 4 /* ropes */ + core.uhMin /* Time with UH */;
+    const prep = core.shabbatPrep ? 2 + (core.shabbatPrepExtra ? 1 : 0) : 0;
+    const fixed = prep /* Shabbat Prep */ + 1 /* the first Sunday */ + tripPeriods(v) + waterfront + league + sessionWeeks * core.poolPerWeek /* pool */ + music + 2 * core.ropesPerSession /* ropes */ + core.uhMin /* Time with UH */;
     const planned = areas.reduce((sum, a) => sum + timesFor(a, v), 0);
     const leftover = periods - fixed - planned - flexible;
     // Athletics and A&C: a village sends DAY_CAP bunks a day to each, and a bunk has each on every other day at most

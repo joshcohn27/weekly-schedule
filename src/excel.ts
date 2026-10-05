@@ -141,6 +141,7 @@ function parseSharingSheet(wb: XLSX.WorkBook): unknown {
 
 const MAIN_SHEET = 'Main areas';
 const ANY_VISIT = 'Any visit number will do at';
+const LEAGUE_BY = 'League, villages with their own number of times a week';
 const LAST_WEEK = 'One visit apart in the last week';
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
 const SHARED_NAMES: [SharedKey, string][] = [
@@ -151,6 +152,14 @@ const SHARED_NAMES: [SharedKey, string][] = [
 ];
 /** Every number on the Main areas tab: its label, and how to read it from and write it to the settings. */
 const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: CoreSettings, n: unknown) => void }[] = [
+  { label: 'Hobbies, half-days a week', get: (c) => c.hobbyHalfDays, set: (c, n) => (c.hobbyHalfDays = n as number) },
+  { label: 'Hobbies, percent of weeks with one more on Sunday morning', get: (c) => c.hobbySundayPercent, set: (c, n) => (c.hobbySundayPercent = n as number) },
+  { label: 'Shabbat Prep on Friday afternoon (1 yes, 0 no)', get: (c) => (c.shabbatPrep ? 1 : 0), set: (c, n) => (c.shabbatPrep = String(n) !== '0') },
+  { label: 'Shabbat Prep, one more period earlier in the week (1 yes, 0 no)', get: (c) => (c.shabbatPrepExtra ? 1 : 0), set: (c, n) => (c.shabbatPrepExtra = String(n) !== '0') },
+  { label: 'Ropes, times a session', get: (c) => c.ropesPerSession, set: (c, n) => (c.ropesPerSession = n as number) },
+  { label: 'Pool, times a week', get: (c) => c.poolPerWeek, set: (c, n) => (c.poolPerWeek = n as number) },
+  { label: 'Pool, lessons alone for an O or C bunk', get: (c) => c.poolLessons, set: (c, n) => (c.poolLessons = n as number) },
+  { label: 'Pool, most campers at once', get: (c) => c.poolMaxCampers, set: (c, n) => (c.poolMaxCampers = n as number) },
   { label: 'Waterfront, times a week', get: (c) => c.waterfrontPerWeek, set: (c, n) => (c.waterfrontPerWeek = n as number) },
   { label: 'League, times a week', get: (c) => c.leaguePerWeek, set: (c, n) => (c.leaguePerWeek = n as number) },
   { label: 'Pool, at most a week', get: (c) => c.poolMaxPerWeek, set: (c, n) => (c.poolMaxPerWeek = n as number) },
@@ -171,10 +180,11 @@ function buildMainSheet(settings: Settings): XLSX.WorkSheet {
   const sheet = XLSX.utils.aoa_to_sheet([
     ['Setting', 'Value'],
     ...MAIN_ROWS.map((r) => [r.label, r.get(core)]),
+    [LEAGUE_BY, Object.entries(core.leagueByVillage).map(([v, n]) => `${v} ${n}`).join(', ')],
     [ANY_VISIT, visits.free.join(', ')],
     [LAST_WEEK, visits.lastWeekSlack ? 'yes' : 'no'],
   ]);
-  sheet['!cols'] = [{ wch: 46 }, { wch: 28 }];
+  sheet['!cols'] = [{ wch: 62 }, { wch: 28 }];
   return sheet;
 }
 
@@ -185,6 +195,10 @@ function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown }
   const value = new Map(rows.map((r) => [String(r[0] ?? ''), r[1]]));
   const core = defaultCore();
   for (const row of MAIN_ROWS) if (value.has(row.label)) row.set(core, value.get(row.label));
+  for (const part of String(value.get(LEAGUE_BY) ?? '').split(',')) {
+    const match = part.trim().match(/^(\S+)\s+(\d+)$/);
+    if (match) core.leagueByVillage[match[1]] = Number(match[2]);
+  }
   const free = String(value.get(ANY_VISIT) ?? '').split(',').map((a) => a.trim()).filter(Boolean);
   return { core, visits: value.has(ANY_VISIT) ? { free, lastWeekSlack: value.get(LAST_WEEK) === 'yes' } : undefined };
 }

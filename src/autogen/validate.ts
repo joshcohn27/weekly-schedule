@@ -2,7 +2,9 @@ import { ACTIVITIES, areaOf } from '../config';
 import type { WeeksState } from '../types';
 import {
   DAY_CAP,
+  CALENDAR,
   POOL_LESSONS,
+  POOL_TARGETS,
   POOL_MAX_CAMPERS,
   POOL_MAX_PER_WEEK,
   SESSION_HARD_MAX,
@@ -213,7 +215,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     const has = members.some((b) => grid[b].includes('Shabbat Prep'));
     const coversFriday = (b: number): boolean =>
       (grid[b][slotAt(5, 2)] === 'Shabbat Prep' && grid[b][slotAt(5, 3)] === 'Shabbat Prep') || lockedAny(b, slotAt(5, 2), 2);
-    if (rotation.includes(v) && !members.every(coversFriday)) add('H8', `Village ${v} should have Shabbat Prep on Friday afternoon this week.`, members[0]);
+    if (CALENDAR.shabbatPrep && rotation.includes(v) && !members.every(coversFriday)) add('H8', `Village ${v} should have Shabbat Prep on Friday afternoon this week.`, members[0]);
     if (has && !rotation.includes(v)) add('H8', `Village ${v} has Shabbat Prep in a week that is not on its calendar.`, members[0]);
   }
 
@@ -273,7 +275,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
   for (let b = 0; b < n; b++) {
     if (roster.village[b] !== 'O' && roster.village[b] !== 'C') continue;
     const swims = blocks[b].filter((k) => k.label === 'Pool' || k.label === 'Swim Test');
-    if ((swims.length < 1 || swims.length > POOL_MAX_PER_WEEK) && !swims.some((k) => lockedAny(b, k.start, k.len)) && !(weekIsLocked(b))) {
+    if ((swims.length < (POOL_TARGETS[roster.village[b]]?.perWeek ?? 0) || swims.length > POOL_MAX_PER_WEEK) && !swims.some((k) => lockedAny(b, k.start, k.len)) && !(weekIsLocked(b))) {
       add('H16', `${roster.names[b]} swims ${swims.length} times this week, and it should be once or twice.`, b);
     }
   }
@@ -303,7 +305,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     for (let b = 0; b < n; b++) {
       const isT = roster.village[b] === 'T';
       const want = (day: number, half: number): string => {
-        if (day === 1 && half === 0) return 'AM Hobbies';
+        if (day === 1 && half === 0) return CALENDAR.hobbyHalfDays > 0 ? 'AM Hobbies' : '';
         if (day === 4 && half === 0) return 'Hobby Culmination';
         if (day === 4 && half === 1) return isT ? 'Banquet Prep' : 'Packing Time';
         return '';
@@ -322,11 +324,11 @@ export function validateGrid(input: ValidationInput): Violation[] {
         if (isHobby(l)) halves.add(`${dayOf(s)}${periodOf(s) < 2 ? 'A' : 'P'}`);
       });
     }
-    if (!halves.has('5A') && !locked(0, slotAt(5, 0))) add('H11', 'Friday morning hobbies are missing.', undefined, slotAt(5, 0));
+    if (CALENDAR.hobbyHalfDays >= 1 && !halves.has('5A') && !locked(0, slotAt(5, 0))) add('H11', 'Friday morning hobbies are missing.', undefined, slotAt(5, 0));
     const allowed = new Set(['5A', '3P', '2A', '0A']);
     for (const h of halves) if (!allowed.has(h)) add('H11', `Hobbies on an unexpected half-day (${h}).`, undefined, undefined);
     if (halves.has('3P') && halves.has('2A')) add('H11', 'Both Tuesday morning and Wednesday afternoon hobbies.', undefined, undefined);
-    if (!halves.has('3P') && !halves.has('2A') && !locked(0, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
+    if (CALENDAR.hobbyHalfDays >= 2 && !halves.has('3P') && !halves.has('2A') && !locked(0, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
   }
 
   // H17: nothing back to back. Athletics and A&C are single periods, and no area is in period 4 and again in period 1 the next day.

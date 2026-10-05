@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { SUPPORT_EMAIL, SUPPORT_LINK } from '../config';
 import { FIXED_RULES } from './SettingsView';
 
 interface Props {
@@ -110,8 +111,13 @@ export default function HelpPanel({ onClose }: Props) {
         <h3>Settings</h3>
         <ul>
           <li>
-            For each program area: how many times a bunk has it in a session (at least and at most), how many bunks at once, and how many
-            bunks of one village in a day.
+            Every program area is in one table: how often each bunk has it (a week or a session, at least and at most), how many bunks at
+            once, how many bunks of one village in a day, and whether bunks that share must be on the same visit number. Hobbies, Shabbat
+            Prep, ropes and the pool's lessons and camper limit are there too. League is set village by village.
+          </li>
+          <li>
+            A number "a week" is rough: it is the average over the session, and a short week gets fewer. A small <strong>i</strong> beside
+            a number says more when you point at it.
           </li>
           <li>
             <strong>Add a program area</strong> when someone is hired for it, such as archery or martial arts. It then shows up everywhere:
@@ -150,6 +156,9 @@ export default function HelpPanel({ onClose }: Props) {
           <li>A much bigger camp may not fit under the rules. The Settings tab will say so.</li>
         </ul>
 
+        <p>
+          Something not working, or a question this does not answer? <a href={SUPPORT_LINK}>Contact support</a> ({SUPPORT_EMAIL}).
+        </p>
         <div className="modal-buttons">
           <button type="button" className="primary" onClick={onClose}>
             Close

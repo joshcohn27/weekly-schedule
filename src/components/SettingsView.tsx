@@ -1,9 +1,11 @@
 import type { SettingsProblem } from '../autogen/feasibility';
+import { SUPPORT_LINK } from '../config';
 import type { Bunk } from '../types';
 import SharingSettings from './SharingSettings';
 import { useState } from 'react';
 import { NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
 import CoreRows, { LastWeekSwitch } from './CoreSettings';
+import Info, { HINT } from './Info';
 
 interface Props {
   settings: Settings;
@@ -30,7 +32,7 @@ export const FIXED_RULES = [
   'No area twice in one day for a bunk.',
   'No Waterfront until the swim test is done: in week 1, never on Sunday morning and never before the village has swum.',
   'Athletics and A&C stay within two of each other for each bunk over the session.',
-  'The pool: one group at a time, lessons alone for O and C, O and C never together, Tusc always together, at most 80 campers unless it is a whole village.',
+  'The pool: one group at a time, O and C never together, Tusc always together, and S with M only at the same age.',
 ];
 
 /**
@@ -86,14 +88,20 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
         schedule and go into the Excel file, so a schedule you send to someone carries its own rules.
       </p>
       {problems.length === 0 ? (
-        <p className="settings-ok">These settings add up: the periods fit.</p>
+        <p className="settings-ok">
+          These settings add up: the periods fit. <Info text={HINT.estimate} />
+        </p>
       ) : (
         <ul className="settings-problems" role="alert">
           {problems.map((p) => (
             <li key={p.text} data-level={p.level}>
-              <strong>{p.level === 'no' ? 'Not possible.' : 'Unlikely to work.'}</strong> {p.text} <em>{p.fix}</em>
+              <strong>{p.level === 'no' ? 'Not possible.' : 'Unlikely to work.'}</strong> {p.level === 'unlikely' && <Info text={HINT.estimate} />} {p.text}{' '}
+              <em>{p.fix}</em>
             </li>
           ))}
+          <li data-level="unlikely">
+            Stuck? <a href={SUPPORT_LINK}>Contact support</a>.
+          </li>
         </ul>
       )}
       <div className="scroll">
@@ -102,13 +110,19 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
             <tr>
               <th>Program area</th>
               <th>How often, for each bunk</th>
-              <th>Bunks at once</th>
-              <th>Bunks of one village in a day</th>
-              <th>Same visit number</th>
+              <th>
+                Bunks at once <Info text={HINT.atOnce} />
+              </th>
+              <th>
+                Bunks of one village in a day <Info text={HINT.perDay} />
+              </th>
+              <th>
+                Same visit number <Info text={HINT.sameVisit} />
+              </th>
             </tr>
           </thead>
           <tbody>
-            <CoreRows settings={settings} onChange={onChange} disabled={disabled} />
+            <CoreRows settings={settings} onChange={onChange} disabled={disabled} villages={villages} />
             {settingAreas(settings).map((area) => {
               const a = settings.areas[area];
               return (
@@ -131,12 +145,12 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                           {v} {number(area, `times for village ${v}`, a.villages?.[v] ?? a.min, 0, 12, (n) => set(area, { villages: { ...a.villages, [v]: n } }))}
                         </label>
                       ))}{' '}
-                      a session
+                      a session, exactly
                     </td>
                   ) : (
                     <td>
-                      {number(area, 'at least', a.min, 0, 12, (n) => set(area, { min: n, max: Math.max(n, a.max) }))} a session, at most{' '}
-                      {number(area, 'at most', a.max, 0, 12, (n) => set(area, { max: n, min: Math.min(n, a.min) }))}
+                      at least {number(area, 'at least', a.min, 0, 12, (n) => set(area, { min: n, max: Math.max(n, a.max) }))} a session, at most{' '}
+                      {number(area, 'at most', a.max, 0, 12, (n) => set(area, { max: n, min: Math.min(n, a.min) }))} <Info text={HINT.atMost} />
                     </td>
                   )}
                   <td>
@@ -174,7 +188,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                 />
               </th>
               <td>
-                {draftNumber('at least', draft.min, 0, 12, (n) => setDraft({ ...draft, min: n, max: Math.max(n, draft.max) }))} a session, at most{' '}
+                at least {draftNumber('at least', draft.min, 0, 12, (n) => setDraft({ ...draft, min: n, max: Math.max(n, draft.max) }))} a session, at most{' '}
                 {draftNumber('at most', draft.max, 0, 12, (n) => setDraft({ ...draft, max: n, min: Math.min(n, draft.min) }))}
               </td>
               <td>

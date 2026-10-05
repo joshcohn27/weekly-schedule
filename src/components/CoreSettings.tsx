@@ -8,12 +8,16 @@ import {
   type CoreSettings as Core,
   type Settings,
   type SharedNumbers,
+  leagueOf,
 } from '../autogen/settings';
+import Info, { HINT } from './Info';
 
 interface Props {
   settings: Settings;
   onChange: (next: Settings) => void;
   disabled?: boolean;
+  /** Village letters in the roster: league is set village by village. */
+  villages?: string[];
 }
 
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
@@ -29,7 +33,7 @@ const SHARED: { key: SharedKey; name: string; area: string; atOnce: number[] }[]
  * The rows of the settings table for Waterfront, league, the pool, Athletics, A&C, Music and Time with UH. They sit in
  * the same table as every other program area. Who swims together at the pool is not here: those rules are fixed.
  */
-export default function CoreRows({ settings, onChange, disabled }: Props) {
+export default function CoreRows({ settings, onChange, disabled, villages = [] }: Props) {
   const core = coreOf(settings);
   const set = (patch: Partial<Core>) => onChange(withCore(settings, { ...core, ...patch }));
   const setShared = (key: SharedKey, patch: Partial<SharedNumbers>) => set({ [key]: { ...core[key], ...patch } } as Partial<Core>);
@@ -51,44 +55,115 @@ export default function CoreRows({ settings, onChange, disabled }: Props) {
     if (key === 'music') {
       return (
         <>
-          {number('Music times a week', core.musicPerWeek, 0, 1, (n) => set({ musicPerWeek: n }))} a week, at most{' '}
-          {number('Music at most a week', core.music.maxPerWeek, 1, 2, (n) => setShared('music', { maxPerWeek: n }))}
+          at least {number('Music times a week', core.musicPerWeek, 0, 1, (n) => set({ musicPerWeek: n }))} a week <Info text={HINT.aWeek} />, at most{' '}
+          {number('Music at most a week', core.music.maxPerWeek, 1, 2, (n) => setShared('music', { maxPerWeek: n }))} <Info text={HINT.atMost} />
         </>
       );
     }
     if (key === 'uh') {
       return (
         <>
-          {number('Time with UH at least a session', core.uhMin, 0, 3, (n) => set({ uhMin: n, uhMax: Math.max(n, core.uhMax) }))} a session, at most{' '}
-          {number('Time with UH at most a session', core.uhMax, 0, 6, (n) => set({ uhMax: n, uhMin: Math.min(n, core.uhMin) }))}
+          at least {number('Time with UH at least a session', core.uhMin, 0, 3, (n) => set({ uhMin: n, uhMax: Math.max(n, core.uhMax) }))} a session, at most{' '}
+          {number('Time with UH at most a session', core.uhMax, 0, 6, (n) => set({ uhMax: n, uhMin: Math.min(n, core.uhMin) }))} <Info text={HINT.atMost} />
         </>
       );
     }
     const name = key === 'ac' ? 'A&C' : 'Athletics';
-    return <>at most {number(`${name} at most a week`, core[key].maxPerWeek, 0, 3, (n) => setShared(key, { maxPerWeek: n }))} a week</>;
+    return (
+      <>
+        at most {number(`${name} at most a week`, core[key].maxPerWeek, 0, 3, (n) => setShared(key, { maxPerWeek: n }))} a week <Info text={HINT.leftover} />
+      </>
+    );
   };
 
   return (
     <>
       <tr>
         <th scope="row">Waterfront</th>
-        <td>{number('Waterfront times a week', core.waterfrontPerWeek, 0, 3, (n) => set({ waterfrontPerWeek: n }))} a week</td>
+        <td>
+          about {number('Waterfront times a week', core.waterfrontPerWeek, 0, 3, (n) => set({ waterfrontPerWeek: n }))} a week <Info text={HINT.aWeek} />
+        </td>
         <td colSpan={3} className="fixed">
           A whole village, one village at a time
         </td>
       </tr>
       <tr>
         <th scope="row">League</th>
-        <td>{number('League times a week', core.leaguePerWeek, 0, 3, (n) => set({ leaguePerWeek: n }))} a week</td>
+        <td className="by-village">
+          about{' '}
+          {villages.length === 0
+            ? number('League times a week', core.leaguePerWeek, 0, 3, (n) => set({ leaguePerWeek: n }))
+            : villages.map((v) => (
+                <label key={v}>
+                  {v}{' '}
+                  {number(`League times a week for village ${v}`, leagueOf(settings, v), 0, 3, (n) => set({ leagueByVillage: { ...core.leagueByVillage, [v]: n } }))}
+                </label>
+              ))}{' '}
+          a week <Info text={HINT.aWeek} />
+        </td>
         <td colSpan={3} className="fixed">
-          A whole village (Tusc has triathlon training)
+          A whole village, set village by village. Mohawk's are double periods. For Tusc the number is triathlon sessions.
         </td>
       </tr>
       <tr>
         <th scope="row">Pool</th>
-        <td>once a week, at most {number('Pool at most a week', core.poolMaxPerWeek, 1, 2, (n) => set({ poolMaxPerWeek: n }))}</td>
+        <td>
+          at least {number('Pool times a week', core.poolPerWeek, 0, 1, (n) => set({ poolPerWeek: n, poolMaxPerWeek: Math.max(1, n, core.poolMaxPerWeek) }))} a
+          week <Info text={HINT.aWeek} />, at most {number('Pool at most a week', core.poolMaxPerWeek, 1, 2, (n) => set({ poolMaxPerWeek: n }))}{' '}
+          <Info text="A second swim in a week is given a whole village at a time, to the village that has swum least, when it fits." />
+        </td>
+        <td colSpan={3}>
+          Lessons alone for an O or C bunk: the first {number('Pool lessons alone', core.poolLessons, 0, 4, (n) => set({ poolLessons: n }))} swims. Most campers
+          at once: {number('Pool most campers at once', core.poolMaxCampers, 10, 500, (n) => set({ poolMaxCampers: n }))}
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">Ropes</th>
+        <td>exactly {number('Ropes times a session', core.ropesPerSession, 0, 2, (n) => set({ ropesPerSession: n }))} a session</td>
         <td colSpan={3} className="fixed">
-          The pool keeps its own rules
+          Low ropes first, then high ropes. Two bunks at a time, a double period.
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">Hobbies</th>
+        <td>
+          {number('Hobbies half-days a week', core.hobbyHalfDays, 0, 2, (n) => set({ hobbyHalfDays: n }))} half-days a week, and one more on a Sunday morning{' '}
+          {number('Hobbies Sunday chance in percent', core.hobbySundayPercent, 0, 100, (n) => set({ hobbySundayPercent: n }))}% of weeks{' '}
+          <Info text="A chance, not a count: each week after the first has this chance of a third hobbies half-day on Sunday morning." />
+        </td>
+        <td colSpan={3} className="fixed">
+          The whole camp. Friday morning, and Wednesday afternoon or Tuesday morning.
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">Shabbat Prep</th>
+        <td colSpan={4}>
+          <label>
+            <input
+              type="checkbox"
+              aria-label="Shabbat Prep on Friday afternoon"
+              checked={core.shabbatPrep}
+              disabled={disabled}
+              onChange={(e) => set({ shabbatPrep: e.target.checked })}
+            />{' '}
+            Friday afternoon, on the village's turn
+          </label>{' '}
+          <label>
+            <input
+              type="checkbox"
+              aria-label="Shabbat Prep extra period"
+              checked={core.shabbatPrepExtra}
+              disabled={disabled || !core.shabbatPrep}
+              onChange={(e) => set({ shabbatPrepExtra: e.target.checked })}
+            />{' '}
+            and one more period earlier that week
+          </label>
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">Trips</th>
+        <td colSpan={4} className="fixed">
+          A Tiyul or a bike trip is entered by hand on the Build tab, and the schedule is built around it.
         </td>
       </tr>
       {SHARED.map(({ key, name, area, atOnce }) => (

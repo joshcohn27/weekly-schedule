@@ -1,5 +1,5 @@
 import {
-  HOBBY_SUNDAY_PROBABILITY,
+  CALENDAR,
   HOBBY_WED_PM_PROBABILITY,
   SHABBAT_ROTATION,
   TRIP_LABELS,
@@ -40,7 +40,9 @@ export function planCalendar(
   rng: Rng,
 ): CalendarPlan {
   let hobbies: [number, number][];
-  if (input.lastWeek) hobbies = [[1, 0]]; // Monday morning only
+  if (CALENDAR.hobbyHalfDays === 0) hobbies = []; // no hobbies at all
+  else if (input.lastWeek) hobbies = [[1, 0]]; // Monday morning only
+  else if (CALENDAR.hobbyHalfDays === 1) hobbies = [[5, 0]]; // Friday morning only
   else {
     hobbies = [[5, 0]]; // Friday morning always
     // Wednesday afternoon, or Tuesday morning. When a village is away for one of them the other is used, so nobody misses hobbies.
@@ -48,7 +50,7 @@ export function planCalendar(
     const tueTaken = !!input.taken?.(2, 0);
     const drawWed = chance(rng, HOBBY_WED_PM_PROBABILITY);
     hobbies.push((wedTaken !== tueTaken ? tueTaken : drawWed) ? [3, 1] : [2, 0]);
-    const drawSunday = chance(rng, HOBBY_SUNDAY_PROBABILITY);
+    const drawSunday = chance(rng, CALENDAR.hobbySundayChance);
     if (input.weekIndex > 1 && drawSunday && !input.taken?.(0, 0)) hobbies.push([0, 0]);
   }
 
@@ -120,12 +122,13 @@ function findMiniBikeTrip(c: Ctx): void {
 }
 
 function placeShabbatPrep(c: Ctx): void {
-  const villages = SHABBAT_ROTATION[c.sessionWeeks][c.weekIndex] ?? [];
+  const villages = CALENDAR.shabbatPrep ? (SHABBAT_ROTATION[c.sessionWeeks][c.weekIndex] ?? []) : [];
   for (const v of villages) {
     if (!c.roster.byVillage[v]) continue;
     const friday = [...halfSlots(5, 1)];
     if (villageFree(c, v, friday)) putVillage(c, v, friday, 'Shabbat Prep');
     else warn(c, `Shabbat Prep on Friday afternoon could not be placed for village ${v} because that time is already filled in.`);
+    if (!CALENDAR.shabbatPrepExtra) continue;
     // one single period earlier in the week, in period 1 or 2, Monday to Wednesday (Thursday is the day before the Friday block)
     const singles: number[][] = [];
     for (const day of shuffle(c.rng, [1, 2, 3])) for (const p of shuffle(c.rng, [0, 1])) singles.push([slotAt(day, p)]);

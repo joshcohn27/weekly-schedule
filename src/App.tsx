@@ -16,7 +16,7 @@ import { startRun } from './autogen/background';
 import { checkSettings } from './autogen/feasibility';
 import { applySettings, isDefaultSettings, normalizeSettings, type Settings } from './autogen/settings';
 import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
-import { WEEK_COUNT } from './config';
+import { SUPPORT_LINK, WEEK_COUNT } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
 import { defaultWeeksState, loadWeeks, saveWeeks } from './storage';
@@ -437,7 +437,10 @@ export default function App() {
         </button>{' '}
         <button type="button" onClick={resetToSample} disabled={locked}>
           Reset to sample
-        </button>
+        </button>{' '}
+        <a className="support" href={SUPPORT_LINK}>
+          Contact support
+        </a>
       </footer>
     </div>
   );

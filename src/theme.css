@@ -158,6 +158,25 @@ table.specialist .visit + .visit {
   margin-bottom: 16px;
   break-inside: avoid;
 }
+/* a small i in a circle, beside something that is an estimate or needs a sentence */
+.info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border: 1px solid #4a6a8a;
+  border-radius: 50%;
+  color: #4a6a8a;
+  background: #fff;
+  font: italic bold 11px/1 Georgia, serif;
+  cursor: help;
+  vertical-align: middle;
+}
+/* the Contact support link in the footer */
+footer a.support {
+  margin-left: 12px;
+}
 /* the Settings tab */
 main h3 {
   margin: 18px 0 6px;

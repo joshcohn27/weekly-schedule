@@ -1,11 +1,12 @@
 import type { WeeksState } from '../types';
 import {
   AWAY_PERIODS_NO_MUSIC,
+  CALENDAR,
   FLEXIBLE_VILLAGES,
   GAP_MAX_MT,
   GAP_MAX_OCS,
   GAP_SLACK_BEFORE_LAST_WEEK,
-  LEAGUE_MIN_PER_WEEK,
+  leagueMinFor,
   MUSIC_PER_WEEK,
   POOL_SHORT_OK,
   POOL_TARGETS,
@@ -94,9 +95,9 @@ export function weekQuality(input: QualityInput): WeekQuality {
       // triathlon: one double and two singles; skipped in the last week of a 4-week session, and never mentioned then
       if (grid[f].filter((l) => TRIP_LABELS.includes(l)).length < TRI_AWAY_PERIODS) {
         const sessions = blocks[f].filter((k) => k.label === 'Tusc Triathlon Training').length;
-        if (sessions < LEAGUE_MIN_PER_WEEK) major.push(`Village ${v} is short on triathlon training this week.`);
+        if (sessions < leagueMinFor(v)) major.push(`Village ${v} is short on triathlon training this week.`);
       }
-    } else if (count(f, 'League') < LEAGUE_MIN_PER_WEEK) {
+    } else if (count(f, 'League') < leagueMinFor(v)) {
       major.push(`Village ${v} is short on league this week.`);
     }
   }
@@ -124,7 +125,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
   }
 
   // Shabbat Prep: the Friday double is a rule (checked above); the earlier single must be there too
-  for (const v of SHABBAT_ROTATION[sessionWeeks][weekIndex] ?? []) {
+  for (const v of CALENDAR.shabbatPrep && CALENDAR.shabbatPrepExtra ? (SHABBAT_ROTATION[sessionWeeks][weekIndex] ?? []) : []) {
     if (!roster.byVillage[v]) continue;
     if (!blocks[first(v)].some((k) => k.label === 'Shabbat Prep' && k.len === 1)) major.push(`Village ${v} is missing its extra Shabbat Prep period.`);
   }

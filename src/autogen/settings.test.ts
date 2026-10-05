@@ -10,10 +10,13 @@ import { sampleSchedule } from '../sample';
 import { computeTracking } from '../tracking';
 import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
-import { DANCE_TARGETS, DAY_CAP, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, setVisitWeek, weekly, type Sharing } from './config';
+import { planCalendar } from './calendar';
+import { blocksOf } from './history';
+import { CALENDAR, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
+import { mulberry32 } from './rng';
 import { checkSettings } from './feasibility';
 import { generateRun } from './session';
-import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, coreOf, defaultCore, defaultVisits, sameVisitIn, visitsOf, withCore, withSameVisit, withVisits, type Settings } from './settings';
+import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, coreOf, defaultCore, defaultVisits, leagueOf, sameVisitIn, visitsOf, withCore, withSameVisit, withVisits, type Settings } from './settings';
 import { TOKEN_AREAS } from './planner';
 import { buildRoster, isSameAgeGroup, pairKey, shareLevel, sharingLevel } from './roster';
 import { groupBreaks, slotGroupProblems } from './share';
@@ -110,6 +113,9 @@ describe('settings', () => {
     expect(html).not.toContain('aria-label="Dance at least"');
     expect(html).toMatch(/<button[^>]*disabled[^>]*>Reset to the default settings/); // nothing to reset yet
     for (const rule of FIXED_RULES) expect(html).toContain(rule.replace(/&/g, '&amp;'));
+    // one table for every program area, the ones entered by hand among them
+    expect((html.match(/<table/g) ?? []).length).toBe(1);
+    for (const name of ['Hobbies', 'Waterfront', 'League', 'Pool', 'Ropes', 'Shabbat Prep', 'Trips', 'Athletics', 'A&amp;C', 'Music', 'Time with UH']) expect(html, name).toContain(`>${name}</th>`);
     const changed = renderToStaticMarkup(createElement(SettingsView, { settings: withArea('Yoga', { min: 1, max: 1 }), villages: ['O'], onChange: noop, onReset: noop }));
     expect(changed).not.toMatch(/<button[^>]*disabled[^>]*>Reset to the default settings/);
   });
@@ -399,8 +405,17 @@ describe('the main areas and the visit numbers', () => {
 
   it('start as the numbers the generator has always used', () => {
     expect(coreOf(defaultSettings())).toEqual({
+      hobbyHalfDays: 2,
+      hobbySundayPercent: 20,
+      shabbatPrep: true,
+      shabbatPrepExtra: true,
+      ropesPerSession: 2,
+      poolPerWeek: 1,
+      poolLessons: 2,
+      poolMaxCampers: 80,
       waterfrontPerWeek: 2,
       leaguePerWeek: 3,
+      leagueByVillage: {},
       poolMaxPerWeek: 2,
       musicPerWeek: 1,
       uhMin: 1,
@@ -429,6 +444,79 @@ describe('the main areas and the visit numbers', () => {
     expect(withCore(defaultSettings(), defaultCore()).core).toBeUndefined();
     expect(isDefaultSettings(withCore(defaultSettings(), defaultCore()))).toBe(true);
   });
+
+  it('has hobbies, Shabbat Prep, ropes and the pool as settings too, and puts them back', () => {
+    const calendarFor = (week: number) => planCalendar({ weekIndex: week, sessionWeeks: 4, lastWeek: week === 4 }, mulberry32(7)).hobbies;
+    expect(calendarFor(2).some(([d, h]) => d === 5 && h === 0)).toBe(true); // Friday morning
+    expect(calendarFor(2).length).toBeGreaterThanOrEqual(2);
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 1, shabbatPrep: false, ropesPerSession: 1, poolPerWeek: 0, poolLessons: 0, poolMaxCampers: 120 }));
+    expect(calendarFor(2)).toEqual([[5, 0]]); // Friday morning only
+    expect(calendarFor(4)).toEqual([[1, 0]]); // the last week keeps its Monday morning
+    expect([CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([false, 0, 1, 0, 120]);
+    expect(POOL_TARGETS.O).toEqual({ perWeek: 0 });
+    expect(POOL_TARGETS.S).toEqual({ perSession: 0 });
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 0 }));
+    expect(calendarFor(2)).toEqual([]);
+    expect(calendarFor(4)).toEqual([]);
+    applySettings();
+    expect([CALENDAR.hobbyHalfDays, CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([2, true, 3, 2, 2, 80]);
+    expect(POOL_TARGETS.O).toEqual({ perWeek: 1 });
+    expect(POOL_TARGETS.S).toEqual({ perSession: 4 });
+  });
+
+  it('checks a week by the settings in force: fewer hobbies, no Shabbat Prep, no weekly swim', () => {
+    const rulesOf = (w: Schedule, week: number): string[] => validateWeek({ current: 0, weeks: week === 1 ? [w] : [sampleSchedule(), w] }, week, 4).map((v) => v.message);
+    // week 2 with Friday morning hobbies and nothing else: by default the midweek half-day, O and C's Shabbat Prep and swim are missed
+    const week = sampleSchedule();
+    for (const b of week.bunks) for (const p of [0, 1]) b.slots[5 * 4 + p] = 'AM Hobbies';
+    const missed = (messages: string[]) => ({
+      hobbies: messages.some((m) => m.includes('second weekly hobbies half-day')),
+      prep: messages.some((m) => m.includes('should have Shabbat Prep on Friday afternoon')),
+      swim: messages.some((m) => m.includes('swims 0 times this week')),
+    });
+    expect(missed(rulesOf(week, 2))).toEqual({ hobbies: true, prep: true, swim: true });
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 1, shabbatPrep: false, poolPerWeek: 0 }));
+    expect(missed(rulesOf(week, 2))).toEqual({ hobbies: false, prep: false, swim: false });
+  });
+
+  it('sets league village by village, and keeps only the villages that differ from the usual number', () => {
+    const s = withCore(defaultSettings(), { ...defaultCore(), leagueByVillage: { m: 2, O: 3, C: 9, ' ': 1 } });
+    expect(s.core?.leagueByVillage).toEqual({ M: 2 }); // O is on the usual three, and C's nine is cut back to three
+    expect(leagueOf(s, 'M')).toBe(2);
+    expect(leagueOf(s, 'S')).toBe(3);
+    applySettings(s);
+    expect([leagueFor('M'), leagueFor('O'), leagueMinFor('M'), leagueMinFor('O')]).toEqual([2, 3, 2, 2]);
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), leagueByVillage: { T: 2, S: 1 } }));
+    expect([leagueFor('T'), triathlonPeriodsAWeek(), leagueFor('S'), leagueMinFor('S')]).toEqual([2, 3, 1, 1]); // Tusc: a double and a single
+    applySettings();
+    expect([leagueFor('M'), leagueFor('T'), triathlonPeriodsAWeek()]).toEqual([3, 3, 4]);
+    // it travels in the Excel file
+    const wb = XLSX.read(XLSX.write(buildWeekWorkbook(sampleSchedule(), 1, s), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
+    expect(parseSettingsSheet(wb)).toEqual(s);
+  });
+
+  it('generates a session with Mohawk on two league periods a week, and every rule kept', async () => {
+    const settings = withCore(defaultSettings(), { ...defaultCore(), leagueByVillage: { M: 2 } });
+    const run = await generateRun({
+      weeks: [1, 2, 3, 4].map((w) => weekWithTrips(sampleSchedule(), w)),
+      steps: [0, 1, 2, 3].map((index) => ({ index, mode: 'fill-empty' as const })),
+      roster: sampleSchedule().bunks,
+      sessionWeeks: 4,
+      keepTrips: true,
+      useOtherWeeks: true,
+      seed: 61,
+      settings,
+    });
+    expect(run?.good).toBe(true);
+    const weeks: WeeksState = { current: 0, weeks: run?.weeks ?? [] };
+    for (let w = 1; w <= 4; w++) expect(validateWeek(weeks, w, 4)).toEqual([]);
+    for (const w of weeks.weeks) {
+      const league = (name: string): number => blocksOf((w as Schedule).bunks.find((b) => b.name === name)!.slots).filter((k) => k.area === 'League').length;
+      expect(league('M1')).toBeLessThanOrEqual(2);
+      expect(league('M1')).toBeGreaterThanOrEqual(1);
+      expect(league('O1')).toBeGreaterThanOrEqual(2); // the others are as they were
+    }
+  }, 900_000);
 
   it('asks for the same visit number only where the settings say so, and the search counts it the same way', () => {
     // Music asks for it to start with; Athletics does not
@@ -474,8 +562,16 @@ describe('the main areas and the visit numbers', () => {
     const html = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop }));
     for (const label of [
       'Waterfront times a week',
-      'League times a week',
+      'League times a week for village O',
+      'Pool times a week',
       'Pool at most a week',
+      'Pool lessons alone',
+      'Pool most campers at once',
+      'Ropes times a session',
+      'Hobbies half-days a week',
+      'Hobbies Sunday chance in percent',
+      'Shabbat Prep on Friday afternoon',
+      'Shabbat Prep extra period',
       'Athletics at most a week',
       'A&amp;C at most a week',
       'Music times a week',

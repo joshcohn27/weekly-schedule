@@ -25,6 +25,9 @@ The build output is the `dist/` folder from `npm run build`.
 
 ## Using it
 
+**Contact support** at the foot of every page (and in the how-to, and beside any settings problem) opens an email to
+joshcohn27@gmail.com. The address is `SUPPORT_EMAIL` in `src/config.ts`.
+
 The **?** next to the title opens a plain how-to for the whole page: the tabs, building a week step by step, changing
 things by hand, the rules that are always kept, the settings, and saving and printing. It is written for someone who
 has not seen the page before.
@@ -119,11 +122,13 @@ working, waiting), the time so far and a **Stop** button. Each week is put on th
 can look at weeks 1 and 2 while 3 and 4 are still being worked on. The weeks in the run can be looked at but not
 changed until it is over.
 
-**It only hands over a week that works.** A week usually takes a few seconds. When a week does not come out right (a
-rule broken, or something that matters missing) it is thrown away and generated again, without a word; the panel just
-says "try 2". If it fails twice in a whole-session run, the week before it is redone as well, because what an earlier
-week used up is the usual reason. Only after ten minutes in all does it settle for the best it found, which is what
-happens with a roster that cannot fit. It never shows warnings; the browser console has the details.
+**It only hands over a week that works.** Each week is tried several times at once, every attempt with its own seed
+and on its own processor core (one fewer than the machine has, six at most), and the first good week is kept. When
+none comes out right (a rule broken, or something that matters missing) the week is generated again, without a word;
+the panel just says "try 2". If it fails twice in a whole-session run, the week before it is redone as well, because
+what an earlier week used up is the usual reason. Only after five minutes in all does it settle for the best it
+found, which is what happens with a roster or settings that cannot fit. It never shows warnings; the browser console
+has the details.
 
 **Stop** keeps the weeks that are already done and leaves the rest as they were.
 
@@ -145,12 +150,25 @@ Ceramics, Yoga, Dance):
 Whatever periods these areas do not use become Athletics, A&C or Time with UH. So raising a number means less of
 those, and lowering one means more. Lowering is the risky direction: Athletics and A&C can only take so much (two
 bunks of a village a day each, on alternating days), and with too little else to do no schedule exists. With Yoga
-cut to 1 and no third Ceramics, for example, a run tried for its full ten minutes and did not find a good session.
+cut to 1 and no third Ceramics, for example, a run tried for its full time and did not find a good session.
 
-**Every program area has its numbers there.** The main areas have a table of their own: Waterfront and league (times
-a week), the pool (how many swims a week at most), Athletics and A&C (the most a week, bunks at once, bunks of one
-village in a day), Music (times a week and the most) and Time with UH (at least and at most a session). "A week" is
-the average over the session; a short week gets fewer. The defaults are what the generator has always used.
+**Every program area is in the one table**, and the defaults are what the generator has always used:
+
+- **Hobbies:** half-days a week (2 is Friday morning and one midweek, 1 is Friday morning only, 0 is none), and how
+  often a week gets one more on Sunday morning.
+- **Waterfront:** about how many times a week. **League:** about how many times a week, set village by village
+  (Mohawk's are double periods; for Tusc the number is triathlon sessions).
+- **Pool:** swims a week and the most a week, how many of an O or C bunk's first swims are lessons alone, and the most
+  campers in the water at once.
+- **Ropes:** times a session (low ropes first, then high).
+- **Shabbat Prep:** the Friday afternoon of a village's turn, and the extra period earlier that week, each on or off.
+- **Athletics and A&C:** the most a week, bunks at once, bunks of one village in a day.
+- **Music:** times a week and the most. **Time with UH:** at least and at most a session.
+- **Trips** have no numbers: a Tiyul or a bike trip is entered by hand.
+
+"A week" is a rough number, the average over the session; a short week gets fewer. Each number on the page is
+worded as what it is ("about", "at least", "at most", "exactly"), and a small **i** beside anything that is an
+estimate or needs a sentence says more when you point at it.
 
 **Same visit number.** Each area that bunks may share has a box for whether they must be on the same visit. It starts
 ticked everywhere except Athletics and Time with UH. One more switch lets bunks be one visit apart in the last week of
@@ -167,8 +185,8 @@ A&C; every area taken away is that many more.
 village; whether the paired villages (O with C, S with M) may mix; and how close in grade two bunks must be (the same
 grade, within one, or any). Behind **Advanced: customize sharing** is a grid with a box for every pair of bunks. It
 starts as what the three choices give. A box you tick or untick is outlined and wins over the choices for that pair,
-including in a group of three at A&C. The grid goes by bunk name. None of this touches the pool, whose rules are
-fixed, or Athletics, which takes any bunks; Tusc bunks share with each other unless a box says otherwise.
+including in a group of three at A&C. The grid goes by bunk name. None of this touches who swims together at the
+pool, or Athletics, which takes any bunks; Tusc bunks share with each other unless a box says otherwise.
 
 **The page checks the arithmetic as you type.** Above the table it says either that the settings add up, or what is
 wrong and what to try: "A schedule is not possible with these settings ... Try giving each bunk about 2 more visits
@@ -240,11 +258,17 @@ each limit on shortfalls is one looser.
 
 ### What to expect
 
-- The default roster (22 bunks): 100 simulated 4-week sessions all came out fully good (no rule break and nothing
-  short in any week). Half took 8 seconds or less, 9 in 10 about 20 seconds, the slowest 68 seconds. About 2 or 3
-  weeks in 100 fail on the first attempt, always weeks 3 and 4, where trips, Shabbat Prep and the short last week
-  leave the least room; those are the ones it redoes. Run the same check with
-  `AUTOGEN_RUNS=100 npx vitest run --pool=forks src/autogen/session.test.ts`. Smaller rosters generate cleanly.
+- The default roster (22 bunks) with its trips entered: 100 simulated 4-week sessions all came out fully good (no
+  rule break and nothing short in any week), measured one attempt at a time: half within 19 seconds, 9 in 10 within
+  40, the slowest 103. That was measured before the settings work and has not been repeated since. Run the same check
+  with `AUTOGEN_RUNS=100 npx vitest run --pool=forks src/autogen/session.test.ts` (it takes over half an hour and
+  slows the machine).
+- With no trips entered everyone is in camp all four weeks, which is the hardest case: one such session came out
+  fully good in 142 seconds, one attempt at a time. In the browser several attempts run at once; how much faster that
+  is has not been measured.
+- Settings that take activities away (fewer hobbies, Waterfront once a week, Yoga once a session) leave more periods
+  for Athletics and A&C than they can hold. Two such settings did not generate at all when tried. The Settings tab
+  says so before you generate.
 - Every bunk gets A&C. Mohawk has about six spare periods all session, so it ends with 1 to 4 A&C per bunk.
 - Pool ends at 4 or 5 swims per bunk in every village; now and then a Seneca or Mohawk bunk ends on 3.
 - Mohawk and Tusc have the least room (league doubles, Waterfront, trips, a short last week), so they may end the

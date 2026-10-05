@@ -132,13 +132,27 @@ export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 3, 'A&C': 3, 
 // ---- Pool (H16) ---------------------------------------------------------------------------------
 
 /** Total campers at the pool in one period, except a whole village. */
-export const POOL_MAX_CAMPERS = 80;
+export let POOL_MAX_CAMPERS = 80;
 /** A village takes a second swim in a week only when each of its bunks has at least this many periods to spare beyond what is planned. */
 export const EXTRA_POOL_MIN_SPARE = 2;
 /** Most times a bunk swims in one week. */
 export let POOL_MAX_PER_WEEK = 2;
 /** An O or C bunk's first this many regular Pool blocks are lessons, one bunk alone. The Swim Test is not a lesson. */
-export const POOL_LESSONS = 2;
+export let POOL_LESSONS = 2;
+/** Change the two pool numbers above (they are settings). */
+export function setPool(lessons: number, maxCampers: number): void {
+  POOL_LESSONS = lessons;
+  POOL_MAX_CAMPERS = maxCampers;
+}
+
+/**
+ * The parts of the fixed calendar that are settings. Hobbies: two half-days a week is Friday morning and one midweek, one is
+ * Friday morning only, none is no hobbies; `hobbySundayChance` is how often a week after the first gets one more on Sunday
+ * morning. Shabbat Prep: the Friday afternoon of a village's turn, and one more period earlier that week.
+ */
+export const CALENDAR = { hobbyHalfDays: 2, hobbySundayChance: 0.2, shabbatPrep: true, shabbatPrepExtra: true };
+/** Periods Shabbat Prep takes in the week of a village's turn. */
+export const shabbatPrepPeriods = (): number => (CALENDAR.shabbatPrep ? 2 + (CALENDAR.shabbatPrepExtra ? 1 : 0) : 0);
 
 export const WET_LABELS = ['Pool', 'Swim Test', 'Waterfront', 'Tusc Triathlon Training'];
 export const ACTIVE_LABELS = ['Athletics', ...ALL_LEAGUE_LABELS, 'Low Ropes', 'High Ropes', 'Tiyul'];
@@ -244,6 +258,17 @@ export const WATERFRONT_HALF_DAY_OFF = false;
  */
 export let LEAGUE_MIN_PER_WEEK = 2;
 
+/**
+ * League is set village by village: a village letter here has its own number of league periods a week, and one that is
+ * not here has LEAGUE_PER_WEEK. For Tusc the number is triathlon sessions: the first is a double period, the rest single.
+ */
+export const LEAGUE_BY_VILLAGE: Record<string, number> = {};
+export const leagueFor = (v: string): number => LEAGUE_BY_VILLAGE[v] ?? LEAGUE_PER_WEEK;
+/** The fewest a village may have in a week and still be fine: a short week has one fewer than usual, never more than its number. */
+export const leagueMinFor = (v: string): number => Math.min(LEAGUE_MIN_PER_WEEK, leagueFor(v));
+/** Periods Tusc's triathlon training takes in a week it is in camp. */
+export const triathlonPeriodsAWeek = (): number => (leagueFor('T') > 0 ? leagueFor('T') + 1 : 0);
+
 /** The numbers above that the Settings tab can change, as they stand. */
 export interface Weekly {
   waterfront: number;
@@ -287,7 +312,6 @@ export const UH_HELD_BACK = 1;
 export const UH_RELEASE_TRIP_PERIODS = 4;
 
 export const HOBBY_WED_PM_PROBABILITY = 0.65; // otherwise Tuesday AM
-export const HOBBY_SUNDAY_PROBABILITY = 0.2;
 
 // ---- Soft-preference weights (lower total score is better) --------------------------------
 

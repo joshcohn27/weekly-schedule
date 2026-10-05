@@ -8,8 +8,14 @@ import {
   SESSION_TARGETS,
   SHARING,
   SLOT_CAP,
+  CALENDAR,
+  LEAGUE_BY_VILLAGE,
+  POOL_LESSONS,
+  POOL_MAX_CAMPERS,
+  POOL_TARGETS,
   VISIT,
   WEEK_BLOCK_MAX,
+  setPool,
   setWeekly,
   weekly,
   type Sharing,
@@ -59,8 +65,22 @@ export interface SharedNumbers {
  * swim allowed up to `poolMaxPerWeek`; who swims together is not a setting.
  */
 export interface CoreSettings {
+  /** Hobbies: half-days a week (2 is Friday morning and one midweek, 1 is Friday morning only, 0 is none), and the chance, in percent, of one more on a Sunday morning after week 1. */
+  hobbyHalfDays: number;
+  hobbySundayPercent: number;
+  /** Shabbat Prep on the Friday afternoon of a village's turn, and one more period earlier that week. */
+  shabbatPrep: boolean;
+  shabbatPrepExtra: boolean;
+  /** Ropes in a session: low ropes first, then high ropes. */
+  ropesPerSession: number;
+  /** The pool: swims a week, how many of an O or C bunk's first swims are lessons alone, and the most campers in the water at once. */
+  poolPerWeek: number;
+  poolLessons: number;
+  poolMaxCampers: number;
   waterfrontPerWeek: number;
+  /** League periods a week, and any village that has its own number (for Tusc: triathlon sessions). */
   leaguePerWeek: number;
+  leagueByVillage: Record<string, number>;
   poolMaxPerWeek: number;
   musicPerWeek: number;
   uhMin: number;
@@ -80,6 +100,12 @@ export interface VisitSettings {
 
 /** The ranges the core numbers are kept inside. */
 const CORE_LIMITS = {
+  hobbyHalfDays: [0, 2],
+  hobbySundayPercent: [0, 100],
+  ropesPerSession: [0, 2],
+  poolPerWeek: [0, 1],
+  poolLessons: [0, 4],
+  poolMaxCampers: [10, 500],
   waterfrontPerWeek: [0, 3],
   leaguePerWeek: [0, 3],
   poolMaxPerWeek: [1, 2],
@@ -104,8 +130,17 @@ function readCore(): CoreSettings {
     return { atOnce: SLOT_CAP[area], villagePerDay: DAY_CAP[area], maxPerWeek: WEEK_BLOCK_MAX[area] ?? 0 };
   };
   return {
+    hobbyHalfDays: CALENDAR.hobbyHalfDays,
+    hobbySundayPercent: Math.round(CALENDAR.hobbySundayChance * 100),
+    shabbatPrep: CALENDAR.shabbatPrep,
+    shabbatPrepExtra: CALENDAR.shabbatPrepExtra,
+    ropesPerSession: SESSION_TARGETS.Ropes,
+    poolPerWeek: POOL_TARGETS.O?.perWeek ?? 1,
+    poolLessons: POOL_LESSONS,
+    poolMaxCampers: POOL_MAX_CAMPERS,
     waterfrontPerWeek: w.waterfront,
     leaguePerWeek: w.league,
+    leagueByVillage: { ...LEAGUE_BY_VILLAGE },
     poolMaxPerWeek: w.poolMax,
     musicPerWeek: w.music,
     uhMin: SESSION_TARGETS['TW UH'],
@@ -116,6 +151,7 @@ function readCore(): CoreSettings {
     uh: shared('uh'),
   };
 }
+const STARTING_POOL: Record<string, { perWeek?: number; perSession?: number }> = JSON.parse(JSON.stringify(POOL_TARGETS));
 const STARTING_CORE: CoreSettings = readCore();
 const STARTING_VISITS: VisitSettings = { free: [...VISIT.free], lastWeekSlack: VISIT.lastWeekSlack };
 export const defaultCore = (): CoreSettings => JSON.parse(JSON.stringify(STARTING_CORE)) as CoreSettings;
@@ -135,6 +171,17 @@ export function normalizeCore(raw: unknown): CoreSettings | null {
   if (!g || typeof g !== 'object') return null;
   for (const key of Object.keys(CORE_LIMITS) as (keyof typeof CORE_LIMITS)[]) out[key] = wholeIn(g[key], CORE_LIMITS[key], out[key]);
   out.uhMax = Math.max(out.uhMin, out.uhMax);
+  if (g.leagueByVillage && typeof g.leagueByVillage === 'object') {
+    out.leagueByVillage = {};
+    for (const [letter, n] of Object.entries(g.leagueByVillage)) {
+      const v = letter.trim().charAt(0).toUpperCase();
+      const times = wholeIn(n, CORE_LIMITS.leaguePerWeek, out.leaguePerWeek);
+      if (v && times !== out.leaguePerWeek) out.leagueByVillage[v] = times; // a village on the usual number is not listed
+    }
+  }
+  if (typeof g.shabbatPrep === 'boolean') out.shabbatPrep = g.shabbatPrep;
+  if (typeof g.shabbatPrepExtra === 'boolean') out.shabbatPrepExtra = g.shabbatPrepExtra;
+  out.poolMaxPerWeek = Math.max(out.poolMaxPerWeek, out.poolPerWeek, 1);
   for (const key of Object.keys(SHARED_LIMITS) as (keyof typeof SHARED_LIMITS)[]) {
     const given = g[key];
     if (!given || typeof given !== 'object') continue;
@@ -159,6 +206,9 @@ export function normalizeVisits(raw: unknown): VisitSettings | null {
   const same = JSON.stringify({ ...out, free: [...out.free].sort() }) === JSON.stringify({ ...STARTING_VISITS, free: [...STARTING_VISITS.free].sort() });
   return same ? null : out;
 }
+
+/** League periods a week for one village under these settings. */
+export const leagueOf = (s: Settings, v: string): number => coreOf(s).leagueByVillage[v] ?? coreOf(s).leaguePerWeek;
 
 /** These settings with the core numbers, or the visit settings, changed. What comes out as the default is not kept. */
 export function withCore(s: Settings, core: CoreSettings): Settings {
@@ -378,7 +428,19 @@ export function applySettings(settings?: Settings | null): void {
   // Waterfront, league, the pool, Music, Time with UH, Athletics and A&C
   const core = coreOf(s);
   setWeekly({ waterfront: core.waterfrontPerWeek, league: core.leaguePerWeek, music: core.musicPerWeek, poolMax: core.poolMaxPerWeek, uhMax: core.uhMax });
+  replace(LEAGUE_BY_VILLAGE, core.leagueByVillage);
   SESSION_TARGETS['TW UH'] = core.uhMin;
+  SESSION_TARGETS.Ropes = core.ropesPerSession;
+  CALENDAR.hobbyHalfDays = core.hobbyHalfDays;
+  CALENDAR.hobbySundayChance = core.hobbySundayPercent / 100;
+  CALENDAR.shabbatPrep = core.shabbatPrep;
+  CALENDAR.shabbatPrepExtra = core.shabbatPrepExtra;
+  setPool(core.poolLessons, core.poolMaxCampers);
+  // the pool: a weekly swim for the villages that have one, and a swim for each week of the session for the others
+  for (const v of Object.keys(POOL_TARGETS)) {
+    const start = STARTING_POOL[v];
+    POOL_TARGETS[v] = start.perWeek !== undefined ? { perWeek: core.poolPerWeek } : { perSession: (start.perSession ?? 0) * core.poolPerWeek };
+  }
   for (const key of Object.keys(SHARED_AREA_OF) as (keyof typeof SHARED_AREA_OF)[]) {
     const area = SHARED_AREA_OF[key];
     SLOT_CAP[area] = core[key].atOnce;
