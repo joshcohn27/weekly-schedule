@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { SUPPORT_EMAIL, SUPPORT_LINK } from '../config';
-import { FIXED_RULES } from './SettingsView';
 
 interface Props {
   onClose: () => void;
@@ -99,6 +98,7 @@ export default function HelpPanel({ onClose }: Props) {
           </li>
         </ul>
 
+        {/* Hidden for now: the rules that are always kept are not listed.
         <h3>The rules that are always kept</h3>
         <ul>
           {FIXED_RULES.map((rule) => (
@@ -107,6 +107,7 @@ export default function HelpPanel({ onClose }: Props) {
           <li>Bunks only share a period with bunks they are allowed to be with, and (except at Athletics) on the same visit number.</li>
           <li>League is about three times a week and Waterfront about twice. A short week gets fewer.</li>
         </ul>
+        */}
 
         <h3>Settings</h3>
         <ul>

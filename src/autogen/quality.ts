@@ -1,3 +1,4 @@
+import { areaOf } from '../config';
 import type { WeeksState } from '../types';
 import {
   AWAY_PERIODS_NO_MUSIC,
@@ -57,6 +58,8 @@ export interface QualityInput {
   stretch?: number;
   /** Bunks whose Music could not fit under their village's day cap this week. */
   musicExcused?: number[];
+  /** The weeks of the Taste of CSL bunks, who are not part of the grid: nobody shares a program area with them. */
+  guests?: readonly (readonly string[])[];
 }
 
 export const isBad = (q: WeekQuality): boolean => q.hard.length > 0 || q.major.length > 0;
@@ -74,6 +77,16 @@ export function weekQuality(input: QualityInput): WeekQuality {
   const stretch = input.stretch ?? 0;
 
   const hard = validateGrid({ weeks, weekIndex, sessionWeeks, roster, hist, grid, locked: input.locked }).map((v) => v.message);
+  // Taste of CSL has a program area to itself
+  for (const guest of input.guests ?? []) {
+    guest.forEach((label, s) => {
+      const area = areaOf(label);
+      if (!area || area === 'Hobbies') return;
+      for (let b = 0; b < n; b++) {
+        if (grid[b][s] !== '' && areaOf(grid[b][s]) === area && !input.locked?.[b]?.[s]) hard.push(`${roster.names[b]} is at ${area} in a period Taste of CSL has it.`);
+      }
+    });
+  }
   const major: string[] = [...(input.missing ?? [])];
   const minor: string[] = [];
 

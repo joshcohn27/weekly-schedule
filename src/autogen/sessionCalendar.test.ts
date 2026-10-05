@@ -8,7 +8,7 @@ import type { Schedule } from '../types';
 import { TRIP_LABELS } from './config';
 import { halfSlots, slotAt } from './history';
 import { SESSION_1, SESSION_2, SESSION_CALENDAR, SESSION_TEMPLATES, applyCalendar, calendarFor, normalizeCalendar, templateFor } from './sessionCalendar';
-import { applySettings, defaultSettings, normalizeSettings } from './settings';
+import { applySettings, defaultSettings, normalizeSettings, templateSettings } from './settings';
 
 const blankWeeks = (n: number): (Schedule | null)[] => Array.from({ length: 4 }, (_, i) => (i < n ? sampleSchedule() : null));
 const at = (weeks: (Schedule | null)[], week: number, bunk: string, day: number, period: number): string =>
@@ -19,7 +19,7 @@ describe('the session calendar', () => {
     for (const t of SESSION_TEMPLATES) {
       for (const e of t.events) {
         expect(e.week).toBeLessThanOrEqual(t.weeks);
-        if (isGuest(e.who)) continue; // Taste of CSL has ordinary activities on its set week
+        if (e.who.startsWith('TC')) continue; // Taste of CSL has ordinary activities on its set week
         expect(TRIP_LABELS, e.label).toContain(e.label);
         expect(e.week).toBeLessThanOrEqual(t.weeks);
         expect(areaOf(e.label) === null || areaOf(e.label) === 'Trips', e.label).toBe(true);
@@ -97,6 +97,14 @@ describe('the session calendar', () => {
     const row = (name: string): string[] => made.bunks.find((b) => b.name === name)!.slots;
     expect(row('TC1')).toEqual(week('TC1'));
     expect(row('TC4')).toEqual(week('TC4'));
+    // Taste of CSL has an area to itself: nobody else is at A&C, ropes, Athletics, Music, Teva or Dance when it is
+    for (const b of made.bunks) {
+      if (isGuest(b.name)) continue;
+      for (let s = 8; s < 24; s++) {
+        const theirs = [areaOf(row('TC1')[s]), areaOf(row('TC4')[s])];
+        if (areaOf(b.slots[s]) && areaOf(b.slots[s]) !== 'Hobbies') expect(theirs, `${b.name} period ${s}`).not.toContain(areaOf(b.slots[s]));
+      }
+    }
     for (const b of made.bunks) {
       if (isGuest(b.name)) continue;
       for (const s of [8, 9, 18]) expect(['Pool', 'Swim Test', 'Tusc Triathlon Training'], `${b.name} ${s}`).not.toContain(b.slots[s]);
@@ -104,6 +112,16 @@ describe('the session calendar', () => {
       expect(b.slots.slice(14, 16)).toEqual(['PM Hobbies', 'PM Hobbies']); // hobbies with Taste of CSL, Wednesday afternoon
     }
     expect((run?.weeks[1] as Schedule).bunks.some((b) => isGuest(b.name))).toBe(false);
+    // however many Taste bunks there are, the first half does what "TC 1" did and the rest what "TC 2" did
+    const six: Schedule = { ...sampleSchedule(), bunks: ['TC1', 'TC2', 'TC3', 'TC4', 'TC5', 'TC6', 'O1'].map((n) => newBunk(n, '3rd', '10')) };
+    const filled = applyCalendar([six, null, null, null], SESSION_2.events)[0] as Schedule;
+    expect(filled.bunks.map((b) => b.slots[10])).toEqual(['A&C', 'A&C', 'A&C', 'Low Ropes', 'Low Ropes', 'Low Ropes', '']);
+    // Session 2 starts with fewer Yoga and Dance than Session 1, and is otherwise the same
+    const two = templateSettings(SESSION_2);
+    expect(two.areas.Yoga).toMatchObject({ min: 1, max: 2 });
+    expect(two.areas.Dance.villages).toEqual({ O: 2, S: 2, C: 1, T: 1, M: 1 });
+    expect(two.areas.Teva).toEqual(defaultSettings().areas.Teva);
+    expect(templateSettings(SESSION_1)).toEqual(defaultSettings());
     expect(validateWeek({ current: 0, weeks: run?.weeks ?? [] }, 1, 3).filter((v) => v.bunk && isGuest(v.bunk))).toEqual([]);
   }, 120_000);
 

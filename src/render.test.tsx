@@ -149,10 +149,12 @@ describe('Auto generate UI', () => {
   it('has a "?" in the header that opens the how-to, written plainly and without long dashes', () => {
     expect(renderToStaticMarkup(<App />)).toContain('aria-label="How to use this page"');
     const html = renderToStaticMarkup(<HelpPanel onClose={noop} />);
-    for (const heading of ['How to use this page', 'The tabs', 'Building a week', 'Changing things by hand', 'The rules that are always kept', 'Settings', 'Saving, sharing and printing', 'Good to know']) {
+    for (const heading of ['How to use this page', 'The tabs', 'Building a week', 'Changing things by hand', 'Settings', 'Saving, sharing and printing', 'Good to know']) {
       expect(html).toContain(`>${heading}</h`);
     }
-    expect(html).toContain('No bunk has the same kind of period two days in a row.');
+    // the rules that are always kept are not listed for now
+    expect(html).not.toContain('The rules that are always kept');
+    expect(html).not.toContain('No bunk has the same kind of period two days in a row.');
     expect(html).toContain('Specialist schedules');
     expect(html).not.toMatch(/—|–/); // no em or en dashes
     expect(html).not.toMatch(/director/i);

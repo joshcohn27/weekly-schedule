@@ -32,7 +32,7 @@ import {
 import { pairKey } from './roster';
 import { BUILT_IN_TOKEN_AREAS, TOKEN_AREAS, TOKEN_LABEL } from './planner';
 import { resetSharedAreas } from './share';
-import { SESSION_CALENDAR, normalizeCalendar, type CalendarEvent } from './sessionCalendar';
+import { SESSION_CALENDAR, normalizeCalendar, type CalendarEvent, type SessionTemplate } from './sessionCalendar';
 import { resetAreaBits } from './state';
 
 /** How one program area is scheduled. Every number is per bunk unless it says otherwise. */
@@ -514,6 +514,19 @@ export function applySettings(settings?: Settings | null): void {
   SHARING.across = sharing.across;
   SHARING.grades = sharing.grades;
   SHARING.pairs = { ...sharing.pairs };
+}
+
+/** The settings a session starts with: the app's own, with the template's numbers put in. */
+export function templateSettings(template: SessionTemplate): Settings {
+  const s = defaultSettings();
+  for (const [area, n] of Object.entries(template.numbers ?? {})) {
+    const a = s.areas[area];
+    if (!a) continue;
+    if (n.min !== undefined) a.min = n.min;
+    a.max = Math.max(a.min, n.max ?? Math.min(a.max, a.min));
+    if (n.villages && a.villages) a.villages = { ...n.villages };
+  }
+  return normalizeSettings(s);
 }
 
 /** Are these the default settings? */

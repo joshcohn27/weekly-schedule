@@ -1,4 +1,4 @@
-import { GUEST_VILLAGE, villageOf } from '../autofill';
+import { GUEST_VILLAGE, isGuest, villageOf } from '../autofill';
 import { SLOT_COUNT } from '../config';
 import type { Schedule } from '../types';
 import { slotAt } from './history';
@@ -21,6 +21,9 @@ export interface CalendarEvent {
 }
 
 export const CAMP = 'camp';
+/** Taste of CSL in two halves, however many bunks it has: the first half follows what "TC 1" did in 2026 and the second half what "TC 2" did. */
+export const GUESTS_FIRST = 'TC first half';
+export const GUESTS_SECOND = 'TC second half';
 const AM = [0, 1];
 const PM = [2, 3];
 const ALL_DAY = [0, 1, 2, 3];
@@ -48,6 +51,8 @@ export interface SessionTemplate {
   events: CalendarEvent[];
   /** The bunks the session starts with: name, grades, campers. */
   roster: [string, string, string][];
+  /** Where this session's numbers differ from the app's own: times a session for an area, or for each village (Dance). */
+  numbers?: Record<string, { min?: number; max?: number; villages?: Record<string, number> }>;
 }
 
 /** The date of a day of a session: the Sunday of the week opening day falls in is day 0 of week 1. */
@@ -109,11 +114,14 @@ export const SESSION_2: SessionTemplate = {
     camp('No Periods', 1, SUN, ALL_DAY),
     camp('Opening Day', 1, MON, ALL_DAY),
     village('T', 'Trip', 1, TUE, ALL_DAY),
-    // Taste of CSL, week 1 only, exactly as in 2026: TC1 and TC2 do what "TC 1" did, TC3 and TC4 what "TC 2" did
+    // Taste of CSL, week 1 only, exactly as in 2026: the first half of its bunks do what "TC 1" did, the second half what
+    // "TC 2" did (with four bunks: TC1 and TC2, then TC3 and TC4)
     village(GUEST_VILLAGE, 'Swim Test', 1, TUE, [0]),
     village(GUEST_VILLAGE, 'Pool', 1, TUE, [1]),
-    ...['TC1', 'TC2'].flatMap((b) => [village(b, 'A&C', 1, TUE, [2]), village(b, 'Low Ropes', 1, TUE, [3])]),
-    ...['TC3', 'TC4'].flatMap((b) => [village(b, 'Low Ropes', 1, TUE, [2]), village(b, 'A&C', 1, TUE, [3])]),
+    village(GUESTS_FIRST, 'A&C', 1, TUE, [2]),
+    village(GUESTS_FIRST, 'Low Ropes', 1, TUE, [3]),
+    village(GUESTS_SECOND, 'Low Ropes', 1, TUE, [2]),
+    village(GUESTS_SECOND, 'A&C', 1, TUE, [3]),
     village(GUEST_VILLAGE, 'Waterfront', 1, WED, AM),
     village(GUEST_VILLAGE, 'PM Hobbies', 1, WED, PM),
     village(GUEST_VILLAGE, 'Athletics', 1, THU, [0]),
@@ -133,6 +141,8 @@ export const SESSION_2: SessionTemplate = {
     camp('Color War', 3, TUE, ALL_DAY),
     camp('Tusc Triathlon', 3, THU, PM),
   ],
+  // a shorter session: Yoga once (twice at the most) and Dance one fewer for everybody
+  numbers: { Yoga: { min: 1, max: 2 }, Dance: { min: 1, villages: { O: 2, S: 2, C: 1, T: 1, M: 1 } } },
   // 4 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL for week 1
   roster: [
     ['TC1', '3rd', '11'], ['TC2', '3rd', '11'], ['TC3', '3rd', '12'], ['TC4', '3rd', '12'],
@@ -168,7 +178,12 @@ export function normalizeCalendar(raw: unknown): CalendarEvent[] | null {
   return out;
 }
 
-const applies = (e: CalendarEvent, bunkName: string): boolean => e.who === CAMP || villageOf(bunkName) === e.who || bunkName.trim() === e.who;
+const applies = (e: CalendarEvent, bunkName: string, guests: readonly string[]): boolean => {
+  if (e.who === CAMP || villageOf(bunkName) === e.who || bunkName.trim() === e.who) return true;
+  if (e.who !== GUESTS_FIRST && e.who !== GUESTS_SECOND) return false;
+  const at = guests.indexOf(bunkName);
+  return at >= 0 && (at < Math.ceil(guests.length / 2)) === (e.who === GUESTS_FIRST);
+};
 const slotsOf = (e: CalendarEvent): number[] => e.periods.map((p) => slotAt(e.day, p));
 
 /**
@@ -182,9 +197,11 @@ export function applyCalendar(weeks: (Schedule | null)[], events: readonly Calen
   const planned = new Map<string, Set<string>>();
   const names = new Set<string>();
   for (const w of weeks) for (const b of w?.bunks ?? []) names.add(b.name);
+  // the Taste of CSL bunks in order: TC1, TC2, ... TC10
+  const guests = [...names].filter(isGuest).sort((x, y) => Number(x.replace(/\D/g, '')) - Number(y.replace(/\D/g, '')) || x.localeCompare(y));
   for (const e of events) {
     for (const name of names) {
-      if (!applies(e, name)) continue;
+      if (!applies(e, name, guests)) continue;
       const key = `${name}|${e.label}`;
       if (!planned.has(key)) planned.set(key, new Set());
       for (const s of slotsOf(e)) planned.get(key)?.add(`${e.week}:${s}`);
@@ -209,7 +226,7 @@ export function applyCalendar(weeks: (Schedule | null)[], events: readonly Calen
       bunks: w.bunks.map((b) => {
         const slots = [...b.slots];
         for (const e of mine) {
-          if (!applies(e, b.name) || own.has(`${b.name}|${e.label}`)) continue;
+          if (!applies(e, b.name, guests) || own.has(`${b.name}|${e.label}`)) continue;
           for (const s of slotsOf(e)) if (slots[s] === '') slots[s] = e.label;
         }
         return { ...b, slots };

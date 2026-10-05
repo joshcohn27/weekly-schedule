@@ -201,6 +201,7 @@ class WeekSearch {
         missing: c.missing,
         carried: c.carried,
         musicExcused: c.excused,
+        guests: this.guests,
         stretch,
       });
       // rule breaks first, then anything not acceptable, then the small stuff, then the soft preferences

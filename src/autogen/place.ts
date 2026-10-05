@@ -391,7 +391,7 @@ function okPlaceGroup(c: Ctx, unit: readonly number[], slots: readonly number[],
 // ---- Ropes --------------------------------------------------------------------------------------
 
 /** One group at ropes per half-day in the whole camp. */
-const ropesInHalf = (c: Ctx, slots: readonly number[]): boolean => c.grid.some((row) => slots.some((s) => areaOf(row[s]) === 'Ropes'));
+const ropesInHalf = (c: Ctx, slots: readonly number[]): boolean => [...c.grid, ...(c.guests ?? [])].some((row) => slots.some((s) => areaOf(row[s]) === 'Ropes'));
 
 export function placeRopes(c: Ctx, plan: Plan): void {
   const ropers = plan.Ropes.map((k, b) => (k > 0 ? b : -1)).filter((b) => b >= 0);

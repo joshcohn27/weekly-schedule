@@ -264,6 +264,8 @@ class FillSearch {
   private readonly base: { ath: number; ac: number; uh: number }[];
   /** Periods in which some village is at Shabbat Prep: the Music and Judaics specialists run it, so neither area has a bunk then. */
   private readonly prep: boolean[];
+  /** The program areas Taste of CSL is at in each period: it has an area to itself, so nobody else is there then. */
+  private readonly guestAt: Set<string>[];
   /** In a week with Shabbat Prep in it, a bunk's Music may be given up when it cannot fit. Any other week it never is. */
   readonly musicIsOptional: boolean;
 
@@ -294,6 +296,7 @@ class FillSearch {
     this.fillerBase = c.grid.map((_, b) => this.fillers.map((a) => other(b, a)));
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));
     this.prep = ALL_SLOTS.map((s) => c.grid.some((row) => row[s] === 'Shabbat Prep'));
+    this.guestAt = ALL_SLOTS.map((s) => new Set((c.guests ?? []).map((row) => areaOf(row[s])).filter((a): a is string => !!a && a !== 'Hobbies')));
     // and in a week the calendar has cut short
     this.musicIsOptional = this.prep.some(Boolean) || c.grid.some((row) => isShortWeek(openPeriods(row, c.lastWeek), c.lastWeek));
   }
@@ -320,7 +323,7 @@ class FillSearch {
           // a day takes one Athletics and one A&C at most, so the planned blocks go on the days with the most empty periods
           let openToday = 0;
           for (let p = 0; p < 4; p++) if (open.has(day * 4 + p)) openToday++;
-          const staffAway = this.prep[s] && SHABBAT_PREP_STAFF.includes(area);
+          const staffAway = (this.prep[s] && SHABBAT_PREP_STAFF.includes(area)) || this.guestAt[s].has(area);
           const score = (staffAway ? 50 : 0) + (sameDay ? 6 : 0) + (nextDay ? 5 : 0) + 3 * Math.max(0, at(s, label) + 1 - (SLOT_CAP[area] ?? 1)) + at(s, label) - 1.2 * openToday + c.rng() * 1.5;
           if (score < bestScore) {
             best = s;
@@ -454,6 +457,8 @@ class FillSearch {
         }
         const area = areaOf(label);
         if (!area) continue;
+        // nobody shares an area with Taste of CSL
+        if (!locked[s] && this.guestAt[s].has(area)) cost += HARD;
         // no Music or Judaics while a village is at Shabbat Prep
         if (this.prep[s] && !locked[s] && SHABBAT_PREP_STAFF.includes(area)) cost += HARD;
         // nothing in period 4 and again in period 1 the next day

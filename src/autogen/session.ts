@@ -5,8 +5,8 @@ import { APP_BACK_UP_AFTER, APP_MAX_MS, APP_TOTAL_MAX_MS, type SessionWeeks } fr
 import { isFilledWeek } from './history';
 import { generateWeekAsync, isBad, type AutoGenOptions, type AutoGenResult } from './index';
 import { compareQuality } from './quality';
-import { applyCalendar, calendarFor } from './sessionCalendar';
-import { applySettings, type Settings } from './settings';
+import { applyCalendar, calendarFor, templateFor } from './sessionCalendar';
+import { applySettings, isDefaultSettings, templateSettings, type Settings } from './settings';
 
 export interface RunStep {
   /** 0-based week. */
@@ -61,7 +61,9 @@ export interface RunResult {
  */
 export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
   const { steps } = opts;
-  applySettings(opts.settings);
+  // a session that has not been given numbers of its own starts from its template's (Session 2 has fewer Yoga and Dance)
+  const settings = opts.calendar && isDefaultSettings(opts.settings) ? templateSettings(templateFor(opts.sessionWeeks)) : opts.settings;
+  applySettings(settings);
   const started = performance.now();
   const maxTotalMs = opts.maxTotalMs ?? APP_TOTAL_MAX_MS;
   const generated = new Set(steps.map((s) => s.index));
