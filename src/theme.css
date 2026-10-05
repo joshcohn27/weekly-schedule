@@ -609,6 +609,11 @@ fieldset.readonly {
 }
 .sessionbar select {
   font-weight: bold;
+  width: auto;
+  font-size: 13px;
+}
+table.calendar-settings select {
+  width: auto;
 }
 table.calendar-settings th,
 table.calendar-settings td {
