@@ -105,7 +105,7 @@ export function parseSettingsSheet(wb: XLSX.WorkBook): Settings | null {
     }
     areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}) };
   }
-  return normalizeSettings({ areas, sharing: parseSharingSheet(wb), ...parseMainSheet(wb) });
+  return normalizeSettings({ areas, sharing: parseSharingSheet(wb), calendar: parseCalendarSheet(wb), ...parseMainSheet(wb) });
 }
 
 const SHARING_SHEET = 'Sharing';
@@ -144,6 +144,9 @@ const ANY_VISIT = 'Any visit number will do at';
 const LEAGUE_BY = 'League, villages with their own number of times a week';
 const LAST_WEEK = 'One visit apart in the last week';
 const VERSION_ROW = 'Settings version';
+const SESSION_ROW = 'Session';
+const CALENDAR_SHEET = 'Calendar';
+const CALENDAR_HEADER = ['What', 'Who', 'Week', 'Day', 'Periods'];
 const SHABBAT_BY = 'Shabbat, the villages each week (blank for the usual turns)';
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
 const SHARED_NAMES: [SharedKey, string][] = [
@@ -176,7 +179,7 @@ const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: Cor
 ];
 
 /** The Main areas tab: the numbers for Waterfront, league, the pool, Athletics, A&C, Music and Time with UH, and the visit rules. */
-function buildMainSheet(settings: Settings): XLSX.WorkSheet {
+function buildMainSheet(settings: Settings, session = ''): XLSX.WorkSheet {
   const core = coreOf(settings);
   const visits = visitsOf(settings);
   const sheet = XLSX.utils.aoa_to_sheet([
@@ -186,6 +189,7 @@ function buildMainSheet(settings: Settings): XLSX.WorkSheet {
     [ANY_VISIT, visits.free.join(', ')],
     [LAST_WEEK, visits.lastWeekSlack ? 'yes' : 'no'],
     [VERSION_ROW, SETTINGS_VERSION],
+    [SESSION_ROW, session],
     [SHABBAT_BY, core.shabbatWeeks ? core.shabbatWeeks.map((week, i) => `Week ${i + 1}: ${week.join(' ') || 'No Shabbat'}`).join('; ') : ''],
   ]);
   sheet['!cols'] = [{ wch: 62 }, { wch: 28 }];
@@ -216,19 +220,51 @@ function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown; 
   return { core, visits: value.has(ANY_VISIT) ? { free, lastWeekSlack: value.get(LAST_WEEK) === 'yes' } : undefined, v: Number(value.get(VERSION_ROW) ?? 1) || 1 };
 }
 
+/** The Calendar tab: the session calendar as it was changed on the Settings tab, one line for each item. Left out when it is the session's own. */
+function buildCalendarSheet(settings: Settings): XLSX.WorkSheet | null {
+  if (!settings.calendar) return null;
+  const sheet = XLSX.utils.aoa_to_sheet([CALENDAR_HEADER, ...settings.calendar.map((e) => [e.label, e.who, e.week, DAYS[e.day], e.periods.map((p) => p + 1).join(', ')])]);
+  sheet['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 7 }, { wch: 12 }, { wch: 12 }];
+  return sheet;
+}
+
+function parseCalendarSheet(wb: XLSX.WorkBook): unknown {
+  const sheet = wb.Sheets[CALENDAR_SHEET];
+  if (!sheet) return undefined;
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  return rows.slice(1).map((r) => ({
+    label: String(r[0] ?? ''),
+    who: String(r[1] ?? ''),
+    week: Number(r[2]),
+    day: DAYS.findIndex((d) => d.toLowerCase() === String(r[3] ?? '').trim().toLowerCase()),
+    periods: String(r[4] ?? '').split(',').map((p) => Number(p) - 1).filter((p) => Number.isInteger(p)),
+  }));
+}
+
+/** The session a file was saved from ('session1' or 'session2'), or null for a file from before sessions were told apart. */
+export function parseSession(wb: XLSX.WorkBook): 'session1' | 'session2' | null {
+  const sheet = wb.Sheets[MAIN_SHEET];
+  if (!sheet) return null;
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  const value = rows.find((r) => r[0] === SESSION_ROW)?.[1];
+  return value === 'session1' || value === 'session2' ? value : null;
+}
+
 /** One week's workbook: its own tab (re-imported on upload), a read-only Tracking tab, and the Settings, Main areas and Sharing tabs. */
-export function buildWeekWorkbook(schedule: Schedule, weekNumber: number, settings: Settings = defaultSettings()): XLSX.WorkBook {
+export function buildWeekWorkbook(schedule: Schedule, weekNumber: number, settings: Settings = defaultSettings(), session = ''): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildWeekSheet(schedule), weekSheetName(weekNumber));
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeTracking(schedule.bunks)), 'Tracking');
   XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
-  XLSX.utils.book_append_sheet(wb, buildMainSheet(settings), MAIN_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildMainSheet(settings, session), MAIN_SHEET);
   XLSX.utils.book_append_sheet(wb, buildSharingSheet(settings), SHARING_SHEET);
+  const calendar = buildCalendarSheet(settings);
+  if (calendar) XLSX.utils.book_append_sheet(wb, calendar, CALENDAR_SHEET);
   return wb;
 }
 
 /** One workbook covering every loaded week, each on its own "Week N" tab, plus a session Tracking tab and the Settings tab. */
-export function buildAllWeeksWorkbook(weeks: (Schedule | null)[], settings: Settings = defaultSettings()): XLSX.WorkBook {
+export function buildAllWeeksWorkbook(weeks: (Schedule | null)[], settings: Settings = defaultSettings(), session = ''): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   const loadedWeeks: Schedule[] = [];
 
@@ -240,8 +276,10 @@ export function buildAllWeeksWorkbook(weeks: (Schedule | null)[], settings: Sett
 
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeSessionTracking(loadedWeeks)), 'Whole Session Tracking');
   XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
-  XLSX.utils.book_append_sheet(wb, buildMainSheet(settings), MAIN_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildMainSheet(settings, session), MAIN_SHEET);
   XLSX.utils.book_append_sheet(wb, buildSharingSheet(settings), SHARING_SHEET);
+  const calendar = buildCalendarSheet(settings);
+  if (calendar) XLSX.utils.book_append_sheet(wb, calendar, CALENDAR_SHEET);
   return wb;
 }
 
@@ -264,12 +302,12 @@ export function downloadSpecialists(weeks: (Schedule | null)[]): void {
   XLSX.writeFile(buildSpecialistWorkbook(weeks), 'specialist-schedules.xlsx');
 }
 
-export function downloadWeek(schedule: Schedule, weekNumber: number, settings?: Settings): void {
-  XLSX.writeFile(buildWeekWorkbook(schedule, weekNumber, settings), `${weekSheetName(weekNumber)}.xlsx`);
+export function downloadWeek(schedule: Schedule, weekNumber: number, settings?: Settings, session?: string): void {
+  XLSX.writeFile(buildWeekWorkbook(schedule, weekNumber, settings, session), `${weekSheetName(weekNumber)}.xlsx`);
 }
 
-export function downloadAllWeeks(weeks: (Schedule | null)[], settings?: Settings): void {
-  XLSX.writeFile(buildAllWeeksWorkbook(weeks, settings), 'all-weeks.xlsx');
+export function downloadAllWeeks(weeks: (Schedule | null)[], settings?: Settings, session?: string): void {
+  XLSX.writeFile(buildAllWeeksWorkbook(weeks, settings, session), 'all-weeks.xlsx');
 }
 
 export interface ParsedUpload {
@@ -295,8 +333,8 @@ export function parseUploadedWorkbook(wb: XLSX.WorkBook): ParsedUpload[] {
 }
 
 /** The weeks in an uploaded file, and the settings it carries (null when it has no Settings tab). */
-export async function readUploadedFile(file: File): Promise<{ weeks: ParsedUpload[]; settings: Settings | null }> {
+export async function readUploadedFile(file: File): Promise<{ weeks: ParsedUpload[]; settings: Settings | null; session: 'session1' | 'session2' | null }> {
   const data = await file.arrayBuffer();
   const wb = XLSX.read(data, { type: 'array' });
-  return { weeks: parseUploadedWorkbook(wb), settings: parseSettingsSheet(wb) };
+  return { weeks: parseUploadedWorkbook(wb), settings: parseSettingsSheet(wb), session: parseSession(wb) };
 }

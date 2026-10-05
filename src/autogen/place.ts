@@ -6,7 +6,7 @@ import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
 import { beforeSwimTest, firstDay } from './share';
-import { isShortWeek, leagueWant, openPeriods, waterfrontWant } from './weekRoom';
+import { isShortWeek, leagueWant, openPeriods, swimIsOptional, waterfrontWant } from './weekRoom';
 import {
   ALL_SLOTS,
   areaOnDay,
@@ -588,7 +588,7 @@ function placePoolUnits(c: Ctx, units: number[][], extra: boolean): void {
     (unit) => `${extra ? 'A second Pool' : 'Pool'} for ${names(unit)} could not be placed this week.`,
     // a second swim that does not fit is simply not given, and a swim counted over the session may be made up in another week
     // and so is the weekly swim in a week the calendar has cut short
-    (unit) => (extra || unit.every((b) => POOL_TARGETS[c.roster.village[b]]?.perWeek === undefined || isShortWeek(openPeriods(c.grid[b], c.lastWeek), c.lastWeek)) ? 'Pool' : undefined),
+    (unit) => (extra || unit.every((b) => POOL_TARGETS[c.roster.village[b]]?.perWeek === undefined || swimIsOptional(openPeriods(c.grid[b], c.lastWeek), c.lastWeek)) ? 'Pool' : undefined),
     extra ? undefined : (unit) => swimInsteadOfLeague(c, unit),
   );
 }

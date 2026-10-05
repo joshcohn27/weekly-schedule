@@ -88,13 +88,36 @@ replaces whatever was in the cells it fills, without asking.
 - You can edit the file in Excel or Sheets and upload it again. Keep the tab names and the header rows. Numbers typed
   into Grades or Count are fine.
 
+## Sessions, dates and the calendar
+
+Pick the session at the top of the page: **Session 1** (4 weeks, June 27 to July 23, 2027) or **Session 2** (3 weeks,
+with Color War, July 26 to August 15, 2027). Each keeps its own bunks, schedule and settings, so switching does not
+lose the other. A session starts from its template (`src/autogen/sessionCalendar.ts`): its bunks, its numbers, and its
+calendar already on the schedule. **Start this session over** goes back to that. The week dropdown and the day
+headings carry the dates.
+
+**The session calendar** is everything that is not a period: opening day, the Tiyuls, the Tusc bike trips, village day
+(O-Day, C-Day, ...), Mass Program, Color War, Visitor's Day and the clean up. It starts as the session was in 2026 and
+is on the Settings tab, one line for each item (what, who, week, day, when). Move, remove or add a line there; the
+button under the table puts the calendar on the schedule (empty periods only). Auto generate does the same before it
+builds a week, and never moves anything that is on the calendar or was entered by hand.
+
+**Taste of CSL.** Bunks named TC1, TC2, ... are in camp for week 1 of Session 2 only. Their week is set (copied from
+2026: the first half of them follows what "TC 1" did, the rest what "TC 2" did), Auto generate leaves it alone, and
+nobody else is put at a program area in a period they have it. They are a village of their own, not part of Tusc.
+
+**A week the calendar cuts short gets fewer.** Waterfront and league are an average over the session, so a week with
+Mass Program or village day in it has fewer. The swim tests are on the first day that has periods. A bunk the calendar
+leaves well short of an ordinary session gets as many visits as fit, and the Settings page says so ("Will come up
+short") instead of calling the settings impossible.
+
 ## Auto generate
 
 The **Auto generate** button in the week bar builds the periods for one week, or for the whole session, from
 the bunks on the Build tab. It is disabled until the selected week has bunks.
 
-**Put the trips in first.** Auto generate never adds the Tusc bike trips or a Tiyul. Enter those by hand (the bulk
-fill tools make it quick), then generate: the schedule is built around them.
+**Trips.** They are on the session calendar and go on the schedule by themselves. A trip you enter by hand stays where
+you put it, and the calendar does not add a second one for that village.
 
 **What it builds.** A fixed calendar first: hobbies, the Sunday swim tests in week 1, the Shabbat Prep rotation, and in
 the last week of Session 1 the Monday hobbies, Hobby Culmination, Packing Time and Banquet Prep, with Friday left
@@ -115,9 +138,15 @@ Waterfront within one block between villages).
 - **Count what the other weeks already have.** On by default: a bunk that already had Yoga twice in a week you are
   keeping is not given a third, and its visit numbers carry on from there. Unticked, the weeks you are not generating
   are ignored, as if this were the only schedule.
-- **Session 1 (4 weeks, Mohawk plays MNL) or Session 2 (3 weeks, Mohawk plays MAL).**
+- **Leave the days that have already happened as they are (through today).** On by default: once the session is under
+  way, generating a week again only touches the days still to come, and what already happened counts toward the totals.
+
+Which session it is comes from the picker at the top of the page (Session 1: Mohawk plays MNL; Session 2: MAL).
 
 Day details (RH & LOD, birthdays, EVP, notes) are never touched.
+
+The Excel file carries the session it was saved from and, when it was changed, the session calendar (a `Calendar`
+tab), so an upload comes back into the right session with its calendar.
 
 **While it runs** it works in the background, so the page stays usable: switch tabs and weeks, look at Tracking,
 download. A panel under the week bar shows a progress bar (weeks done out of the total), where each week stands (done,
@@ -125,13 +154,17 @@ working, waiting), the time so far and a **Stop** button. Each week is put on th
 can look at weeks 1 and 2 while 3 and 4 are still being worked on. The weeks in the run can be looked at but not
 changed until it is over.
 
-**It only hands over a week that works.** Each week is tried several times at once, every attempt with its own seed
-and on its own processor core (one fewer than the machine has, six at most), and the first good week is kept. When
-none comes out right (a rule broken, or something that matters missing) the week is generated again, without a word;
-the panel just says "try 2". If it fails twice in a whole-session run, the week before it is redone as well, because
-what an earlier week used up is the usual reason. Only after five minutes in all does it settle for the best it
-found, which is what happens with a roster or settings that cannot fit. It never shows warnings; the browser console
-has the details.
+**What it hands over always keeps the rules.** Each week is tried several times at once, every attempt with its own
+seed and on its own processor core (one fewer than the machine has, six at most), and the first good week is kept. A
+try lasts 15 seconds at most. When none comes out right the week is generated again, without a word; the panel just
+says "try 2". If it fails twice in a whole-session run, the week before it is redone as well, once, because what an
+earlier week used up is the usual reason. A week is never worked on for more than 45 seconds in all: then the best one
+found is handed over with the periods that break a rule emptied and marked yellow, for you to fill by hand
+(`src/autogen/tidy.ts`). That is what happens with a roster or settings that are too tight to fit, for example six
+bunks in every village. It never shows warnings; the browser console has the details.
+
+**Six bunks in a village.** The Settings tab then offers suggested settings (4 bunks at once at Athletics, 3 bunks of a
+village a day at Athletics and A&C, 2 at once at Ceramics). They are never applied unasked.
 
 **Stop** keeps the weeks that are already done and leaves the rest as they were.
 

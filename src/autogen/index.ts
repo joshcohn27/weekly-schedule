@@ -20,6 +20,9 @@ export type { QualityInput, WeekQuality } from './quality';
 export { validateWeek } from './validate';
 export type { Violation } from './validate';
 
+/** What stands in an empty period of a day that has already happened while the week is built: it has no periods to fill. */
+const PAST_EMPTY = 'No Periods';
+
 export interface AutoGenOptions {
   /** All loaded weeks. */
   weeks: WeeksState;
@@ -36,6 +39,8 @@ export interface AutoGenOptions {
   maxRounds?: number;
   /** Stop after this many milliseconds and return the best week so far. generateWeek defaults to SYNC_MAX_MS; generateWeekAsync to no limit. */
   maxMs?: number;
+  /** Days of the week that have already happened, counted from Sunday. They stay exactly as they are, empty periods too. */
+  pastDays?: number;
   /** Abort a generateWeekAsync run (the Cancel button). It then resolves to null. */
   signal?: AbortSignal;
 }
@@ -105,6 +110,7 @@ class WeekSearch {
   private readonly maxMs: number;
   private readonly stretch: number;
   private readonly guests: string[][];
+  private readonly heldEmpty: boolean[][];
 
   constructor(private readonly opts: AutoGenOptions, defaultMaxMs: number) {
     this.maxMs = opts.maxMs ?? defaultMaxMs;
@@ -118,7 +124,11 @@ class WeekSearch {
     this.hist = buildHistory(opts.weeks, opts.weekIndex, this.roster.names);
     // replacing clears the week; the trips that were entered by hand stay unless the user said otherwise
     const keep = (l: string): boolean => opts.keepTrips !== false && TRIP_LABELS.includes(l);
-    this.start = bunks.map((b) => (opts.mode === 'replace-all' ? b.slots.map((l) => (keep(l) ? l : '')) : [...b.slots]));
+    // days that have already happened are kept whatever the mode, and a period that was empty then stays empty: it is
+    // held with a stand-in while the week is built, and emptied again when the week is handed back
+    const past = (s: number): boolean => s < (opts.pastDays ?? 0) * 4;
+    this.start = bunks.map((b) => b.slots.map((l, s) => (past(s) ? l || PAST_EMPTY : opts.mode === 'replace-all' && !keep(l) ? '' : l)));
+    this.heldEmpty = bunks.map((b) => b.slots.map((l, s) => past(s) && l === ''));
     this.locked = this.start.map((row) => row.map((label) => label !== ''));
     // trips are expected to be there; anything else that was filled in by hand may put a target out of reach
     this.stretch = this.start.some((row) => row.some((label) => label !== '' && !TRIP_LABELS.includes(label))) ? BUILD_AROUND_STRETCH : 0;
@@ -237,7 +247,14 @@ class WeekSearch {
     const noted = (notes: string): string => (notes.includes(MOHAWK_SWIM_NOTE) ? notes : [notes.trim(), MOHAWK_SWIM_NOTE].filter(Boolean).join('. '));
     const days = opts.weekIndex === 1 && roster.byVillage.M ? source.days.map((d, i) => (i === firstDayOf(this.start) ? { ...d, notes: noted(d.notes) } : d)) : source.days;
     return {
-      schedule: { bunks: source.bunks.map((b) => (isGuest(b.name) ? b : { ...b, slots: chosen.grid[roster.names.indexOf(b.name.trim())] ?? b.slots })), days },
+      schedule: {
+        bunks: source.bunks.map((b) => {
+          const at = isGuest(b.name) ? -1 : roster.names.indexOf(b.name.trim());
+          if (at < 0) return b;
+          return { ...b, slots: chosen.grid[at].map((l, s) => (this.heldEmpty[at][s] ? '' : l)) };
+        }),
+        days,
+      },
       warnings: [...new Set([...chosen.warnings, ...chosen.quality.hard, ...sessionWarnings(roster, hist, chosen.grid, opts.weekIndex, sessionWeeks)])],
       seed: opts.seed,
       quality: chosen.quality,

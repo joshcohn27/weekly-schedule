@@ -19,8 +19,8 @@ import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } 
 import { APP_VERSION, SUPPORT_LINK } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
-import { datesOf, dayLabels, startSession, templateOf, weekDates, withCalendar, type SessionId } from './session';
-import { SESSION_TEMPLATES } from './autogen/sessionCalendar';
+import { datesOf, dayLabels, pastDaysOf, startSession, templateOf, weekDates, withCalendar, type SessionId } from './session';
+import { SESSION_TEMPLATES, calendarFor } from './autogen/sessionCalendar';
 import { isFirstVisit, loadSession, loadWeeks, markHelpSeen, saveSession, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
 // import type { DayInfo } from './types';
@@ -267,7 +267,8 @@ export default function App() {
     const started = startRun(
       {
         weeks: before,
-        steps: plan.weeks,
+        // days that have already happened stay as they are, when that is asked for
+        steps: plan.weeks.map((w) => ({ ...w, pastDays: plan.keepPast ? pastDaysOf(template, w.index + 1) : 0 })),
         roster: schedule.bunks, // a week with no bunks yet takes the bunks of the week on screen
         sessionWeeks: template.weeks,
         keepTrips: plan.keepTrips,
@@ -308,8 +309,8 @@ export default function App() {
     setAuto(null);
   };
 
-  const handleDownload = () => downloadWeek(schedule, current + 1, settings);
-  const handleDownloadAll = () => downloadAllWeeks(weeksState.weeks, settings);
+  const handleDownload = () => downloadWeek(schedule, current + 1, settings, template.id);
+  const handleDownloadAll = () => downloadAllWeeks(weeksState.weeks, settings, template.id);
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
@@ -318,7 +319,7 @@ export default function App() {
     e.target.value = '';
     if (!file) return;
 
-    const { weeks: parsed, settings: uploaded } = await readUploadedFile(file);
+    const { weeks: parsed, settings: uploaded, session: fileSession } = await readUploadedFile(file);
     if (parsed.length === 0) {
       window.alert("Couldn't read that file. Upload something downloaded from this app.");
       return;
@@ -336,10 +337,15 @@ export default function App() {
       .map((p) => `${weekLabel(p.weekNumber - 1)}${isEmpty(weeksState.weeks[p.weekNumber - 1]) ? '' : ' (overwrite)'}`)
       .join(', ');
     const settingsNote = uploaded && !isDefaultSettings(uploaded) ? ' The file also carries its own settings, which will replace the ones here.' : '';
-    if (!window.confirm(`Load ${summary}?${overflowNote}${settingsNote}`)) return;
+    // a file saved from the other session is loaded into that session, and this one is put away as it is
+    const other = fileSession && fileSession !== template.id ? templateOf(fileSession) : null;
+    const sessionNote = other ? ` The file is from ${other.name}: it will be loaded there, and ${template.name} is kept as it is.` : '';
+    if (!window.confirm(`Load ${summary}?${overflowNote}${settingsNote}${sessionNote}`)) return;
 
     setAuto(null);
-    setWeeksState((ws) => {
+    if (other) saveSession(template.id, { ...weeksState, session: template.id });
+    setWeeksState((now) => {
+      const ws: WeeksState = other ? (loadSession(other.id) ?? { session: other.id, current: 0, weeks: now.weeks.map(() => null) }) : now;
       const weeks = [...ws.weeks];
       for (const p of inRange) weeks[p.weekNumber - 1] = p.schedule;
       // a file with a Settings tab brings its settings along; an older file leaves the ones here alone
@@ -475,7 +481,7 @@ export default function App() {
             onChange={setSettings}
             onReset={() => setSettings(null)}
             disabled={run !== null}
-            problems={checkSettings(settings, weeksState.weeks)}
+            problems={checkSettings(settings, weeksState.weeks, template.weeks, calendarFor(template.weeks))}
             bunks={schedule.bunks}
             calendar={{ template, onApply: putCalendarOn }}
           />

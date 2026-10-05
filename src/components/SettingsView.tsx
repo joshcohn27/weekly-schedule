@@ -4,6 +4,7 @@ import type { Bunk } from '../types';
 import SharingSettings from './SharingSettings';
 import { useState } from 'react';
 import { coreOf, withCore, NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
+import { villageOf } from '../autofill';
 import CalendarSettings from './CalendarSettings';
 import CoreRows, { LastWeekSwitch } from './CoreSettings';
 import type { SessionTemplate } from '../autogen/sessionCalendar';
@@ -50,6 +51,17 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
   const [name, setName] = useState('');
   const [draft, setDraft] = useState<AreaSettings>(NEW_AREA);
   const blocked = name.trim() === '' ? null : whyNotAdd(settings, name);
+  // a village with six or more bunks needs more places than the usual numbers give: offered, never done unasked
+  const bigVillage = villages.find((v) => bunks.filter((b) => villageOf(b.name) === v).length >= 6);
+  const core = coreOf(settings);
+  const suggested = core.athletics.atOnce >= 4 && core.athletics.villagePerDay >= 3 && core.ac.villagePerDay >= 3 && settings.areas.Ceramics.atOnce >= 2;
+  const useSuggested = () =>
+    onChange(
+      withCore(
+        { ...settings, areas: { ...settings.areas, Ceramics: { ...settings.areas.Ceramics, atOnce: 2, villagePerDay: Math.max(2, settings.areas.Ceramics.villagePerDay) } } },
+        { ...core, athletics: { ...core.athletics, atOnce: 4, villagePerDay: Math.max(3, core.athletics.villagePerDay) }, ac: { ...core.ac, villagePerDay: Math.max(3, core.ac.villagePerDay) } },
+      ),
+    );
   const add = () => {
     if (whyNotAdd(settings, name)) return;
     onChange(addArea(settings, name, draft));
@@ -100,7 +112,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
         <ul className="settings-problems" role="alert">
           {problems.map((p) => (
             <li key={p.text} data-level={p.level}>
-              <strong>{p.level === 'no' ? 'Not possible.' : 'Unlikely to work.'}</strong> {p.level === 'unlikely' && <Info text={HINT.estimate} />} {p.text}{' '}
+              <strong>{p.level === 'no' ? 'Not possible.' : p.level === 'short' ? 'Will come up short.' : 'Unlikely to work.'}</strong> {p.level === 'unlikely' && <Info text={HINT.estimate} />} {p.text}{' '}
               <em>{p.fix}</em>
             </li>
           ))}
@@ -247,6 +259,15 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
           Reset to the default settings
         </button>
       </p>
+      {bigVillage && (
+        <p className="hint big-villages">
+          Village {bigVillage} has six or more bunks. With that many, the usual numbers leave too few places: try 4 bunks at once at
+          Athletics, 3 bunks of a village a day at Athletics and at A&amp;C, and 2 at once at Ceramics.{' '}
+          <button type="button" disabled={disabled || suggested} onClick={useSuggested}>
+            {suggested ? 'The suggested settings are in use' : 'Use the suggested settings'}
+          </button>
+        </p>
+      )}
       {calendar && <CalendarSettings settings={settings} template={calendar.template} villages={villages} onChange={onChange} onApply={calendar.onApply} disabled={disabled} />}
       {/* Hidden for now: the list of rules that are always kept is not shown on this page.
       <h3>Always kept</h3>

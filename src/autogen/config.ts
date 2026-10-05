@@ -294,15 +294,16 @@ export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
 /** Attempts (counted over the whole search) made before three consecutive bunks of one village may share Ropes. */
 export const TRIO_AFTER = 64;
 /**
- * In the app a week that does not come out good is thrown away and generated again. One try at a week lasts this long at
- * most; after APP_BACK_UP_AFTER failed tries the week before it is redone as well.
+ * In the app a week that does not come out good is thrown away and generated again. One try at a week lasts APP_MAX_MS at
+ * most. After APP_BACK_UP_AFTER failed tries the week before it is redone as well, once. A week is never worked on for
+ * longer than APP_WEEK_MAX_MS in all: when that is up, the best week found is handed over with the periods that break a
+ * rule emptied and marked, so what comes back always keeps the rules. (The user's limits: 15 seconds a week as a rule,
+ * 45 at the very most.)
  */
-export const APP_MAX_MS = 20000;
+export const APP_MAX_MS = 15000;
 export const APP_BACK_UP_AFTER = 2;
-/**
- * A run never hands back a week that is not good unless it has been going this long in all: then a week that cannot be made
- * good (a roster that does not fit, a week filled in by hand in a way no schedule can meet) still comes back. Stop ends it sooner.
- */
+export const APP_WEEK_MAX_MS = 45000;
+/** A whole run never goes on longer than this, whatever the weeks are doing. */
 export const APP_TOTAL_MAX_MS = 300000;
 /** The most attempts at one week that run at the same time, each on its own processor core. */
 export const APP_MAX_WORKERS = 6;

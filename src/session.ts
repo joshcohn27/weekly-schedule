@@ -38,3 +38,14 @@ export function startSession(t: SessionTemplate): WeeksState {
 
 /** Put the calendar in force on every week of the session that has bunks. Only empty periods are written. */
 export const withCalendar = (state: WeeksState): WeeksState => ({ ...state, weeks: applyCalendar(state.weeks, calendarFor(templateOf(state.session).weeks)) });
+
+/**
+ * How many days of a week of the session have already happened, counted from Sunday: today counts as happened. Those days
+ * are left exactly as they are when the week is generated again.
+ */
+export function pastDaysOf(t: SessionTemplate, week: number, today: Date = new Date()): number {
+  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  let n = 0;
+  for (let day = 0; day < DAYS.length; day++) if (dateOf(t, week, day).getTime() <= end) n++;
+  return n;
+}

@@ -5,6 +5,10 @@ import { isGuest } from './autofill';
 import { SESSION_1, SESSION_2 } from './autogen/sessionCalendar';
 import { defaultSettings, normalizeSettings, templateSettings } from './autogen/settings';
 import CalendarSettings from './components/CalendarSettings';
+import SettingsView from './components/SettingsView';
+import { checkSettings } from './autogen/feasibility';
+import { applySettings } from './autogen/settings';
+import { newBunk } from './sample';
 import { datesOf, dayLabels, startSession, templateOf, weekDates, withCalendar } from './session';
 import { normalizeWeeksState } from './storage';
 import type { Schedule } from './types';
@@ -37,6 +41,30 @@ describe('starting a session from its template', () => {
     expect(back?.session).toBe('session2');
     expect(back?.settings).toEqual(templateSettings(SESSION_2));
     expect(templateOf(undefined)).toBe(SESSION_1); // a schedule from before sessions were told apart
+  });
+
+  it('the settings check knows the calendar: Session 1 adds up, Session 2 is told it will come up short, never that it is impossible', () => {
+    const one = startSession(SESSION_1);
+    applySettings(templateSettings(SESSION_1));
+    expect(checkSettings(templateSettings(SESSION_1), one.weeks, 4, SESSION_1.events)).toEqual([]);
+    const two = startSession(SESSION_2);
+    applySettings(templateSettings(SESSION_2));
+    const found = checkSettings(templateSettings(SESSION_2), two.weeks, 3, SESSION_2.events);
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.every((p) => p.level === 'short')).toBe(true);
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: templateSettings(SESSION_2), villages: ['O'], onChange: noop, onReset: noop, problems: found }));
+    expect(html).toContain('Will come up short.');
+    expect(html).not.toContain('Not possible.');
+    applySettings();
+  });
+
+  it('offers suggested settings when a village has six bunks, and never applies them by itself', () => {
+    const six = ['O1', 'O2', 'O3', 'O4', 'O5', 'O6'].map((n) => newBunk(n, '5th', '10'));
+    let next: ReturnType<typeof defaultSettings> | null = null;
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: (s) => (next = s), onReset: noop, bunks: six }));
+    expect(html).toContain('Use the suggested settings');
+    expect(next).toBeNull();
+    expect(renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop, bunks: six.slice(0, 5) }))).not.toContain('suggested settings');
   });
 
   it('a calendar line that was moved on the Settings tab goes on the schedule where it was put', () => {

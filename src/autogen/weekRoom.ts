@@ -53,3 +53,9 @@ export const ordinarySessionOpen = (sessionWeeks: number): number => (sessionWee
  * were set for a full one, so it gets as many as fit, and ending short is not held against the last week.
  */
 export const SQUEEZED_SHARE = 0.9;
+/**
+ * Is the weekly swim only wanted this week, not required? In a week the calendar has cut short, and in the last week of a
+ * 4-week session, which has about ten periods for the whole camp: with one group at the pool at a time, and the youngest
+ * bunks swimming alone, there may not be a period for everyone.
+ */
+export const swimIsOptional = (open: number, lastWeek: boolean): boolean => lastWeek || isShortWeek(open, lastWeek);

@@ -25,7 +25,7 @@ import { blocksOf, type BunkHistory } from './history';
 import { musicDue, sessionTargetOf } from './planner';
 import type { Roster } from './roster';
 import { validateGrid } from './validate';
-import { SQUEEZED_SHARE, isShortWeek, leagueWant, openPeriods, ordinarySessionOpen, waterfrontWant } from './weekRoom';
+import { SQUEEZED_SHARE, swimIsOptional, isShortWeek, leagueWant, openPeriods, ordinarySessionOpen, waterfrontWant } from './weekRoom';
 
 /**
  * How good a generated week is.
@@ -142,7 +142,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
     // Pool: weekly minimum for some villages, a session total for the rest
     const t = POOL_TARGETS[roster.village[b]] ?? POOL_TARGET_OTHER;
     if ('perWeek' in t && t.perWeek !== undefined) {
-      if (count(b, 'Pool') < t.perWeek && !isShortWeek(open(b), lastWeek)) major.push(`${roster.names[b]} has no Pool this week.`);
+      if (count(b, 'Pool') < t.perWeek && !swimIsOptional(open(b), lastWeek)) major.push(`${roster.names[b]} has no Pool this week.`);
     } else if (lastOfSession) {
       const by = sessionTargetOf(roster.village[b], sessionWeeks, 'Pool') - total(b, 'Pool');
       if (by > POOL_SHORT_OK + stretch && !squeezed(b)) major.push(`${roster.names[b]} is short on Pool.`);

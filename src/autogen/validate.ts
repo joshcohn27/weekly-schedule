@@ -34,7 +34,7 @@ import {
   type BunkHistory,
 } from './history';
 import { buildRoster, isRun, shareLevel, type Roster } from './roster';
-import { isShortWeek, openPeriods } from './weekRoom';
+import { openPeriods, swimIsOptional } from './weekRoom';
 import { isGuest } from '../autofill';
 import { OPEN, beforeSwimTest, firstDayOf, isFixedMohawkAthletics, setFirstDay, sharedArea, slotGroupProblems } from './share';
 
@@ -281,7 +281,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     if (roster.village[b] !== 'O' && roster.village[b] !== 'C') continue;
     const swims = blocks[b].filter((k) => k.label === 'Pool' || k.label === 'Swim Test');
     // a week the calendar has cut short is not held to the weekly swim
-    const due = isShortWeek(openPeriods(grid[b], lastWeek), lastWeek) ? 0 : (POOL_TARGETS[roster.village[b]]?.perWeek ?? 0);
+    const due = swimIsOptional(openPeriods(grid[b], lastWeek), lastWeek) ? 0 : (POOL_TARGETS[roster.village[b]]?.perWeek ?? 0);
     if ((swims.length < due || swims.length > POOL_MAX_PER_WEEK) && !swims.some((k) => lockedAny(b, k.start, k.len)) && !(weekIsLocked(b))) {
       add('H16', `${roster.names[b]} swims ${swims.length} times this week, and it should be once or twice.`, b);
     }
