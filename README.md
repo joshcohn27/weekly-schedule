@@ -93,7 +93,9 @@ replaces whatever was in the cells it fills, without asking.
 Pick the session at the top of the page: **Session 1** (4 weeks, June 27 to July 23, 2027) or **Session 2** (3 weeks,
 with Color War, July 26 to August 15, 2027). Each keeps its own bunks, schedule and settings, so switching does not
 lose the other. A session starts from its template (`src/autogen/sessionCalendar.ts`): its bunks, its numbers, and its
-calendar already on the schedule. **Start this session over** goes back to that. The week dropdown and the day
+calendar already on the schedule. **Start this session over** goes back to that. On the Build tab, **Add a bunk to**
+O, C, S, M or T adds the next bunk of that village to every week, and **Fill in the biggest camp** brings every village
+up to its most bunks (5, 6, 6, 6 and 4) at 15 campers each, a round number to plan with that nothing enforces. The week dropdown and the day
 headings carry the dates.
 
 **The session calendar** is everything that is not a period: opening day, the Tiyuls, the Tusc bike trips, village day

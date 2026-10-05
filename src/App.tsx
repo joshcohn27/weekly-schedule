@@ -19,7 +19,7 @@ import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } 
 import { APP_VERSION, SUPPORT_LINK } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
-import { datesOf, dayLabels, pastDaysOf, startSession, templateOf, weekDates, withCalendar, type SessionId } from './session';
+import { MAX_CAMPERS_PER_BUNK, addableVillages, biggestCampSize, datesOf, dayLabels, pastDaysOf, startSession, withBiggestCamp, withBunkAdded, templateOf, weekDates, withCalendar, type SessionId } from './session';
 import { SESSION_TEMPLATES, calendarFor } from './autogen/sessionCalendar';
 import { isFirstVisit, loadSession, loadWeeks, markHelpSeen, saveSession, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
@@ -89,6 +89,16 @@ export default function App() {
     if (!window.confirm(`Start ${template.name} over? Its bunks, its schedule and its settings go back to the way the session starts. This cannot be undone.`)) return;
     setAuto(null);
     setWeeksState(startSession(template));
+  };
+  // Setting up: a bunk added with one click goes into every week of the session, and the biggest camp can be filled in at once
+  const addBunkTo = (village: string) => {
+    setAuto(null);
+    setWeeksState((ws) => withBunkAdded(ws, village));
+  };
+  const fillBiggestCamp = () => {
+    if (!window.confirm(`Fill in the biggest camp for ${template.name}? Every village goes up to its most bunks in every week, and every bunk is set to ${MAX_CAMPERS_PER_BUNK} campers. Bunks that are already there stay, with everything on their rows.`)) return;
+    setAuto(null);
+    setWeeksState((ws) => withBiggestCamp(ws));
   };
   const putCalendarOn = () => {
     setAuto(null);
@@ -452,6 +462,18 @@ export default function App() {
         {view === 'build' && (
           <fieldset className="readonly" disabled={locked}>
             {locked && <p className="hint">This week is being generated. You can look at it, and change it once the run is over.</p>}
+            <p className="bunkbar">
+              Add a bunk to{' '}
+              {addableVillages(template).map((v) => (
+                <button key={v} type="button" disabled={run !== null} onClick={() => addBunkTo(v)} title={`Adds the next ${v} bunk to every week of the session.`}>
+                  {v}
+                </button>
+              ))}{' '}
+              <button type="button" disabled={run !== null} onClick={fillBiggestCamp}>
+                Fill in the biggest camp ({biggestCampSize(template)} bunks, {MAX_CAMPERS_PER_BUNK} campers each)
+              </button>{' '}
+              <span className="muted">A bunk added here goes into every week of the session.</span>
+            </p>
             <BuildGrid
               bunks={schedule.bunks}
               onCell={setCell}

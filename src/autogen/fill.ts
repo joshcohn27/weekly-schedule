@@ -18,6 +18,7 @@ import {
   SLOT_CAP,
   MIN_WEEK_CAPACITY,
   AREA_WEEK_SHARE,
+  CAMPER_CAP,
   VILLAGE_TARGETS,
   BUDDY_PLANNING,
   visitFree,
@@ -130,7 +131,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
  * same number of visits this week wherever they stand level, and the one that is behind is let catch up.
  */
 function matchBuddies(c: Ctx, tok: Record<string, number>[], free: number[][], total: (b: number, area: string) => number): void {
-  const areas = TOKEN_AREAS.filter((a) => a !== 'Music' && (SLOT_CAP[a] ?? 1) >= 2 && !visitFree(a));
+  const areas = TOKEN_AREAS.filter((a) => a !== 'Music' && placesAtOnce(c, a) > 1 && !visitFree(a));
   for (const v of c.roster.villages) {
     const members = c.roster.byVillage[v];
     for (let k = 0; k + 1 < members.length; k += 2) {
@@ -166,6 +167,34 @@ function matchBuddies(c: Ctx, tok: Record<string, number>[], free: number[][], t
 }
 
 /**
+ * How many bunks an area really takes at once, for planning. An area that goes by campers (Yoga) takes as many as fit
+ * under its camper limit: with full bunks that is one, however many the table allows. Never more than two are counted on:
+ * who may share and on which visit keeps the rest of the places from being used.
+ */
+function placesAtOnce(c: Ctx, area: string): number {
+  const campers = CAMPER_CAP[area];
+  if (campers === undefined) return Math.min(SLOT_CAP[area] ?? 1, 2);
+  // the two smallest bunks that stand next to each other in a village: if they do not fit together, nobody does
+  let pair = Infinity;
+  for (const v of c.roster.villages) {
+    const members = c.roster.byVillage[v];
+    for (let k = 0; k + 1 < members.length; k++) pair = Math.min(pair, c.roster.campers[members[k]] + c.roster.campers[members[k + 1]]);
+  }
+  if (pair > campers) return 1;
+  // some pairs fit and some do not: count on the share that does
+  let fit = 0;
+  let all = 0;
+  for (const v of c.roster.villages) {
+    const members = c.roster.byVillage[v];
+    for (let k = 0; k + 1 < members.length; k++) {
+      all++;
+      if (c.roster.campers[members[k]] + c.roster.campers[members[k + 1]] <= campers) fit++;
+    }
+  }
+  return 1 + (all > 0 ? fit / all : 0);
+}
+
+/**
  * What a week cannot hold is put off, however much a bunk still owes (the last week of a session the calendar has
  * squeezed is asked for everything that is left). A bunk has an area on days that are not next to each other, so no more
  * times than half its open days; and an area only has so many places in the week.
@@ -183,7 +212,7 @@ function trimToWeek(c: Ctx, tok: Record<string, number>[], free: number[][]): vo
   }
   const periods = ALL_SLOTS.filter((s) => fillable(c, s) && free.some((cells) => cells.includes(s))).length;
   for (const area of areas) {
-    const places = Math.floor(Math.min(SLOT_CAP[area] ?? 1, 2) * periods * AREA_WEEK_SHARE);
+    const places = Math.floor(placesAtOnce(c, area) * periods * AREA_WEEK_SHARE);
     let planned = tok.reduce((sum, t) => sum + (t[area] ?? 0), 0);
     while (planned > places) {
       // from the bunk that has the most of it this week
@@ -225,7 +254,7 @@ function topUp(c: Ctx, tok: Record<string, number>[], free: number[][], total: (
         .filter((a) => sessionTargetOf(v, c.sessionWeeks, a) - total(b, a) - (tok[b][a] ?? 0) > 0)
         // an area goes on days that are not next to each other, and a village only sends so many bunks to it in a day
         .filter((a) => (tok[b][a] ?? 0) < Math.ceil(days / 2) && members.reduce((sum, x) => sum + (tok[x][a] ?? 0), 0) < (DAY_CAP[a] ?? Infinity) * days)
-        .map((a) => ({ a, load: (planned(a) + 1) / ((SLOT_CAP[a] ?? 1) * periods) + (tok[b][a] ?? 0) + c.rng() * 0.05 }))
+        .map((a) => ({ a, load: (planned(a) + 1) / (placesAtOnce(c, a) * periods) + (tok[b][a] ?? 0) + c.rng() * 0.05 }))
         .filter((o) => o.load - (tok[b][o.a] ?? 0) <= TOP_UP_MAX_LOAD);
       if (options.length === 0) break;
       const pick = options.reduce((x, y) => (y.load < x.load ? y : x)).a;

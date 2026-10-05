@@ -177,7 +177,7 @@ export const DAY_CAP: Record<string, number> = {
  * Areas that go by campers, the way Ropes does: bunks next to each other in a village share a period as long as they have no
  * more campers between them than this. It is a setting. (Ropes has its own number, ROPES_MAX_CAMPERS.)
  */
-export const CAMPER_CAP: Record<string, number> = { Yoga: 22 };
+export const CAMPER_CAP: Record<string, number> = { Yoga: 20 };
 /** What SLOT_CAP and DAY_CAP hold for such an area: high enough never to be the limit. */
 export const BY_CAMPERS_SLOT_CAP = 8;
 export const BY_CAMPERS_DAY_CAP = 6;

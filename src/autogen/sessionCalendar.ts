@@ -51,6 +51,8 @@ export interface SessionTemplate {
   events: CalendarEvent[];
   /** The bunks the session starts with: name, grades, campers. */
   roster: [string, string, string][];
+  /** The most bunks each village has in this session, for filling in the biggest camp in one go. */
+  most: Record<string, number>;
   /** A village's own number of times for an area in this session (area, then village letter), and the villages that start ropes on High. */
   villageTargets?: Record<string, Record<string, number>>;
   ropesStartHigh?: string[];
@@ -93,6 +95,7 @@ export const SESSION_1: SessionTemplate = {
     ...overnight('S', 4, MON),
     ...overnight('M', 4, TUE),
   ],
+  most: { O: 5, C: 6, S: 6, M: 6, T: 4 },
   roster: [
     ['O1', '4th', '11'], ['O2', '4th/5th', '12'], ['O3', '5th', '9'], ['O4', '5th/6th', '13'], ['O5', '6th', '10'],
     ['C1', '4th', '12'], ['C2', '4th/5th', '8'], ['C3', '5th/6th', '13'], ['C4', '6th', '11'],
@@ -150,6 +153,7 @@ export const SESSION_2: SessionTemplate = {
   villageTargets: { Ceramics: { T: 1 }, Ropes: { T: 1 } },
   ropesStartHigh: ['T'],
   // 4 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL for week 1
+  most: { TC: 4, O: 5, C: 6, S: 6, M: 6, T: 4 },
   roster: [
     ['TC1', '3rd', '11'], ['TC2', '3rd', '11'], ['TC3', '3rd', '12'], ['TC4', '3rd', '12'],
     ['O1', '4th', '11'], ['O2', '4th/5th', '12'], ['O3', '5th/6th', '9'], ['O4', '6th', '13'],

@@ -91,7 +91,7 @@ describe('settings', () => {
     applySettings(back);
     expect(CAMPER_CAP.Yoga).toBe(26);
     applySettings();
-    expect(CAMPER_CAP.Yoga).toBe(22);
+    expect(CAMPER_CAP.Yoga).toBe(20);
   });
 
   it('repairs whatever it is given: missing areas, text, numbers out of range, a maximum under the minimum', () => {
@@ -436,7 +436,7 @@ describe('the main areas and the visit numbers', () => {
       shabbatWeeks: null,
       ropesPerSession: 2,
       ropesMaxCampers: 30,
-      yogaMaxCampers: 22,
+      yogaMaxCampers: 20,
       poolPerWeek: 1,
       poolLessons: 2,
       poolMaxCampers: 80,

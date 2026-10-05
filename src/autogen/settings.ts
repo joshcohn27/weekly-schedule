@@ -74,8 +74,11 @@ export interface Settings {
 /**
  * 2: Judaics and Yoga take two bunks at once (two of a village a day). Settings saved before that still hold the old one
  * and one for them, so those two numbers are moved up when such settings are read.
+ * 3: Yoga takes 20 campers at once, not 22. Settings saved with the old 22 are moved to 20.
  */
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
+/** What Yoga's camper limit started at before settings version 3. */
+const OLD_YOGA_CAMPERS = 22;
 
 /** An area that bunks may share: how many at once, how many of one village in a day, and (Athletics, A&C) how many times a bunk may have it in a week. */
 export interface SharedNumbers {
@@ -375,7 +378,8 @@ export function normalizeSettings(raw: unknown): Settings {
   const out = defaultSettings();
   const given = (raw as { areas?: Record<string, Partial<AreaSettings>> } | null)?.areas;
   if (!given || typeof given !== 'object') return out;
-  const older = Number((raw as { v?: unknown }).v ?? 1) < SETTINGS_VERSION;
+  const saved = Number((raw as { v?: unknown }).v ?? 1);
+  const older = saved < 2;
   // Added areas: the ones listed, or (a spreadsheet has no list) every area that does not come with the app.
   const listed = (raw as { custom?: unknown }).custom;
   const names = Array.isArray(listed) ? listed.map(String) : Object.keys(given).filter((k) => !SETTING_AREAS.includes(k));
@@ -389,7 +393,9 @@ export function normalizeSettings(raw: unknown): Settings {
   }
   const sharing = normalizeSharing((raw as { sharing?: unknown }).sharing);
   if (sharing) out.sharing = sharing;
-  const core = normalizeCore((raw as { core?: unknown }).core);
+  const givenCore = (raw as { core?: { yogaMaxCampers?: unknown } | null }).core;
+  // saved while Yoga started at 22 campers: that was the app's number, not a choice, so it follows the app to 20
+  const core = normalizeCore(saved < 3 && givenCore && Number(givenCore.yogaMaxCampers) === OLD_YOGA_CAMPERS ? { ...givenCore, yogaMaxCampers: defaultCore().yogaMaxCampers } : givenCore);
   if (core) out.core = core;
   const visits = normalizeVisits((raw as { visits?: unknown }).visits);
   if (visits) out.visits = visits;

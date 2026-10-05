@@ -619,3 +619,7 @@ table.calendar-settings th,
 table.calendar-settings td {
   padding: 2px 6px;
 }
+
+.bunkbar button {
+  margin-right: 4px;
+}

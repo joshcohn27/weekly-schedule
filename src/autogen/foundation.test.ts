@@ -189,12 +189,12 @@ describe('who may share a period and an area', () => {
     expect(problems('Judaics', ['C2', 'C3'], [1, 2])).toEqual(['H5']);
     expect(problems('Judaics', ['O1', 'C1'])).toEqual(['H13']);
     expect(problems('Judaics', ['C1', 'C2', 'C3'])).toEqual(['H14']);
-    // Yoga goes by campers: every bunk in this roster has 12, and the most together is 22
+    // Yoga goes by campers: every bunk in this roster has 12, and the most together is 20
     expect(problems('Yoga', ['C2', 'C3'])).toEqual(['H14']);
     CAMPER_CAP.Yoga = 24;
     expect(problems('Yoga', ['C2', 'C3'])).toEqual([]);
     expect(problems('Yoga', ['C1', 'C2', 'C3'])).toEqual(['H14']);
-    CAMPER_CAP.Yoga = 22;
+    CAMPER_CAP.Yoga = 20;
     expect(problems('Israel Education', ['C2', 'C3'])).toEqual([]);
     expect(problems('Israel Education', ['O1', 'C1'])).toEqual([]); // the same age across O and C
     expect(problems('Israel Education', ['O1', 'O4'])).toEqual(['H13']);
