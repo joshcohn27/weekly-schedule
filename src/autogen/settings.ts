@@ -32,6 +32,7 @@ import {
 import { pairKey } from './roster';
 import { BUILT_IN_TOKEN_AREAS, TOKEN_AREAS, TOKEN_LABEL } from './planner';
 import { resetSharedAreas } from './share';
+import { SESSION_CALENDAR, normalizeCalendar, type CalendarEvent } from './sessionCalendar';
 import { resetAreaBits } from './state';
 
 /** How one program area is scheduled. Every number is per bunk unless it says otherwise. */
@@ -58,6 +59,8 @@ export interface Settings {
   core?: CoreSettings;
   /** Visit numbers, when they are not the default. */
   visits?: VisitSettings;
+  /** The session calendar (trips, village days, Mass Program, ...) when it is not the template for the session's length. */
+  calendar?: CalendarEvent[];
   /** Which set of defaults these settings were saved under. Settings from before SETTINGS_VERSION are brought up to date when read. */
   v?: number;
 }
@@ -384,6 +387,8 @@ export function normalizeSettings(raw: unknown): Settings {
   if (core) out.core = core;
   const visits = normalizeVisits((raw as { visits?: unknown }).visits);
   if (visits) out.visits = visits;
+  const calendar = normalizeCalendar((raw as { calendar?: unknown }).calendar);
+  if (calendar) out.calendar = calendar;
   for (const area of SETTING_AREAS) {
     const g = given[area];
     if (!g || typeof g !== 'object') continue;
@@ -500,6 +505,7 @@ export function applySettings(settings?: Settings | null): void {
     if (key !== 'uh') WEEK_BLOCK_MAX[area] = core[key].maxPerWeek;
   }
   rememberDayCaps();
+  SESSION_CALENDAR.events = s.calendar ?? null;
   const visits = visitsOf(s);
   VISIT.free = [...visits.free];
   VISIT.lastWeekSlack = visits.lastWeekSlack;

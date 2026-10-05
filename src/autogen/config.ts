@@ -87,8 +87,30 @@ export function setShabbat(picked: string[][] | null): void {
 /** The specialists of these areas run Shabbat Prep, so none of them has a period while any village is at Shabbat Prep. */
 export const SHABBAT_PREP_STAFF = ['Music', 'Judaics'];
 export const AC_ATHLETICS_MAX_GAP = 1;
-/** Trips are entered by hand before generating. The generator never writes them, and "replace" leaves them where they are. */
-export const TRIP_LABELS = ['Bike Trip', 'Tiyul'];
+/**
+ * Everything on the session calendar that is not a period: trips, village days, Mass Program, Color War, Visitor's Day and
+ * so on. They come from the calendar or are entered by hand before generating. The search never moves or writes them,
+ * "replace" leaves them where they are, and a bunk is away for as long as it has one.
+ */
+export const TRIP_LABELS = [
+  'Bike Trip',
+  'Tiyul',
+  'Trip',
+  'Village Day',
+  'All-Camp Event',
+  'O-Day',
+  'C-Day',
+  'S-Day',
+  'M-Day',
+  'T-Day',
+  'Mass Program',
+  'Color War',
+  "Visitor's Day",
+  'All Camp Clean Up',
+  'Tusc Triathlon',
+  'Opening Day',
+  'No Periods',
+];
 /** A week with at most this share of its periods empty counts as already built; one with more is still to be generated. */
 export const BUILT_WEEK_MAX_EMPTY = 0.25;
 

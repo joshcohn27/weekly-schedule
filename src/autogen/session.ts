@@ -4,6 +4,7 @@ import { APP_BACK_UP_AFTER, APP_MAX_MS, APP_TOTAL_MAX_MS, type SessionWeeks } fr
 import { isFilledWeek } from './history';
 import { generateWeekAsync, isBad, type AutoGenOptions, type AutoGenResult } from './index';
 import { compareQuality } from './quality';
+import { applyCalendar, calendarFor } from './sessionCalendar';
 import { applySettings, type Settings } from './settings';
 
 export interface RunStep {
@@ -26,6 +27,8 @@ export interface RunOptions {
   seed: number;
   /** The numbers to generate with; the defaults when left out. */
   settings?: Settings;
+  /** True puts the session calendar on the weeks first. Off until the generator shares a week's numbers out over the days the calendar leaves it. */
+  calendar?: boolean;
   signal?: AbortSignal;
   /** Called each time a week is started. `tries` counts the failed tries at it so far. A step lower than the last one means that week is being redone. */
   onProgress?: (step: number, tries: number) => void;
@@ -62,9 +65,11 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
   const maxTotalMs = opts.maxTotalMs ?? APP_TOTAL_MAX_MS;
   const generated = new Set(steps.map((s) => s.index));
   // what each week holds before it is generated: a week that is redone starts from this again
-  const input = opts.weeks.map((w, i) =>
+  const blank = opts.weeks.map((w, i) =>
     generated.has(i) && !isFilledWeek(w) ? { ...emptySchedule(), bunks: opts.roster.map((b) => newBunk(b.name, b.grades, b.count)) } : w,
   );
+  // the session calendar goes down first, on every week this run builds: trips, village days, Mass Program and the rest
+  const input = opts.calendar ? applyCalendar(blank, calendarFor(opts.sessionWeeks), generated) : blank;
   const working = [...input];
   const results: (AutoGenResult | null)[] = steps.map(() => null);
   const best: (AutoGenResult | null)[] = steps.map(() => null);
