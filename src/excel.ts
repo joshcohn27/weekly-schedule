@@ -143,6 +143,7 @@ const MAIN_SHEET = 'Main areas';
 const ANY_VISIT = 'Any visit number will do at';
 const LEAGUE_BY = 'League, villages with their own number of times a week';
 const LAST_WEEK = 'One visit apart in the last week';
+const SHABBAT_BY = 'Shabbat, the villages each week (blank for the usual turns)';
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
 const SHARED_NAMES: [SharedKey, string][] = [
   ['athletics', 'Athletics'],
@@ -153,8 +154,7 @@ const SHARED_NAMES: [SharedKey, string][] = [
 /** Every number on the Main areas tab: its label, and how to read it from and write it to the settings. */
 const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: CoreSettings, n: unknown) => void }[] = [
   { label: 'Hobbies, sessions in the whole session', get: (c) => c.hobbySessions, set: (c, n) => (c.hobbySessions = n as number) },
-  { label: 'Shabbat Prep on Friday afternoon (1 yes, 0 no)', get: (c) => (c.shabbatPrep ? 1 : 0), set: (c, n) => (c.shabbatPrep = String(n) !== '0') },
-  { label: 'Shabbat Prep, one more period earlier in the week (1 yes, 0 no)', get: (c) => (c.shabbatPrepExtra ? 1 : 0), set: (c, n) => (c.shabbatPrepExtra = String(n) !== '0') },
+  { label: 'Shabbat Prep, single periods on top of the Friday afternoon double', get: (c) => c.shabbatPrepExtra, set: (c, n) => (c.shabbatPrepExtra = n as number) },
   { label: 'Ropes, times a session', get: (c) => c.ropesPerSession, set: (c, n) => (c.ropesPerSession = n as number) },
   { label: 'Ropes, most campers at once', get: (c) => c.ropesMaxCampers, set: (c, n) => (c.ropesMaxCampers = n as number) },
   { label: 'Pool, times a week', get: (c) => c.poolPerWeek, set: (c, n) => (c.poolPerWeek = n as number) },
@@ -183,6 +183,7 @@ function buildMainSheet(settings: Settings): XLSX.WorkSheet {
     [LEAGUE_BY, Object.entries(core.leagueByVillage).map(([v, n]) => `${v} ${n}`).join(', ')],
     [ANY_VISIT, visits.free.join(', ')],
     [LAST_WEEK, visits.lastWeekSlack ? 'yes' : 'no'],
+    [SHABBAT_BY, core.shabbatWeeks ? core.shabbatWeeks.map((week, i) => `Week ${i + 1}: ${week.join(' ') || 'No Shabbat'}`).join('; ') : ''],
   ]);
   sheet['!cols'] = [{ wch: 62 }, { wch: 28 }];
   return sheet;
@@ -198,6 +199,14 @@ function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown }
   for (const part of String(value.get(LEAGUE_BY) ?? '').split(',')) {
     const match = part.trim().match(/^(\S+)\s+(\d+)$/);
     if (match) core.leagueByVillage[match[1]] = Number(match[2]);
+  }
+  const shabbat = String(value.get(SHABBAT_BY) ?? '').trim();
+  if (shabbat) {
+    core.shabbatWeeks = [];
+    for (const part of shabbat.split(';')) {
+      const match = part.trim().match(/^Week (\d+):\s*(.*)$/);
+      if (match) core.shabbatWeeks[Number(match[1]) - 1] = match[2] === 'No Shabbat' ? [] : match[2].split(/\s+/).filter(Boolean);
+    }
   }
   const free = String(value.get(ANY_VISIT) ?? '').split(',').map((a) => a.trim()).filter(Boolean);
   return { core, visits: value.has(ANY_VISIT) ? { free, lastWeekSlack: value.get(LAST_WEEK) === 'yes' } : undefined };

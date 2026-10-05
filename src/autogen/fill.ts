@@ -13,6 +13,7 @@ import {
   MUSIC_LIGHT_VILLAGES,
   RARE_AREAS,
   SESSION_FILLER_MAX,
+  SHABBAT_PREP_STAFF,
   SLOT_CAP,
   TRIP_LABELS,
   UH_HELD_BACK,
@@ -101,6 +102,9 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
   search.seed(tok);
   const clean = search.run();
   c.dayMask = buildDayMasks(c.grid);
+  // In a week with Shabbat Prep the Music specialists lose those periods, so a bunk whose Music did not fit goes without
+  // it this week and it is not held against the week.
+  for (let b = 0; b < n; b++) if ((tok[b].Music ?? 0) > 0 && search.musicIsOptional && !c.grid[b].includes('Music')) c.excused.push(b);
   return clean;
 }
 
@@ -178,6 +182,10 @@ class FillSearch {
   /** Most Time with UH each bunk may have had by the end of this week. */
   private readonly uhLimit: number[];
   private readonly base: { ath: number; ac: number; uh: number }[];
+  /** Periods in which some village is at Shabbat Prep: the Music and Judaics specialists run it, so neither area has a bunk then. */
+  private readonly prep: boolean[];
+  /** In a week with Shabbat Prep in it, a bunk's Music may be given up when it cannot fit. Any other week it never is. */
+  readonly musicIsOptional: boolean;
 
   constructor(private readonly c: Ctx, private readonly cells: number[][]) {
     this.n = c.roster.n;
@@ -205,6 +213,8 @@ class FillSearch {
     this.leftover = [...LEFTOVER_ALWAYS, ...this.fillers.map(labelOf)];
     this.fillerBase = c.grid.map((_, b) => this.fillers.map((a) => other(b, a)));
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));
+    this.prep = ALL_SLOTS.map((s) => c.grid.some((row) => row[s] === 'Shabbat Prep'));
+    this.musicIsOptional = this.prep.some(Boolean);
   }
 
   /** Put every bunk's planned blocks and leftover areas down roughly: the search does the rest. */
@@ -229,7 +239,8 @@ class FillSearch {
           // a day takes one Athletics and one A&C at most, so the planned blocks go on the days with the most empty periods
           let openToday = 0;
           for (let p = 0; p < 4; p++) if (open.has(day * 4 + p)) openToday++;
-          const score = (sameDay ? 6 : 0) + (nextDay ? 5 : 0) + 3 * Math.max(0, at(s, label) + 1 - (SLOT_CAP[area] ?? 1)) + at(s, label) - 1.2 * openToday + c.rng() * 1.5;
+          const staffAway = this.prep[s] && SHABBAT_PREP_STAFF.includes(area);
+          const score = (staffAway ? 50 : 0) + (sameDay ? 6 : 0) + (nextDay ? 5 : 0) + 3 * Math.max(0, at(s, label) + 1 - (SLOT_CAP[area] ?? 1)) + at(s, label) - 1.2 * openToday + c.rng() * 1.5;
           if (score < bestScore) {
             best = s;
             bestScore = score;
@@ -245,7 +256,7 @@ class FillSearch {
         const day = dayOf(s);
         const own = (day + this.athleticsDays[b]) % 2 === 0 ? 'Athletics' : 'A&C';
         const clear = (label: string, area: string): boolean => !has(row, day, area) && !has(row, day - 1, area) && !has(row, day + 1, area) && row.every((l) => l !== label || area === 'Music');
-        row[s] = !has(row, day, own) ? own : clear('Time with UH', 'TW UH') ? 'Time with UH' : clear('Music', 'Music') ? 'Music' : own;
+        row[s] = !has(row, day, own) ? own : clear('Time with UH', 'TW UH') ? 'Time with UH' : !this.prep[s] && clear('Music', 'Music') ? 'Music' : own;
       }
     }
     for (let b = 0; b < this.n; b++) this.refresh(b);
@@ -359,6 +370,8 @@ class FillSearch {
         }
         const area = areaOf(label);
         if (!area) continue;
+        // no Music or Judaics while a village is at Shabbat Prep
+        if (this.prep[s] && !locked[s] && SHABBAT_PREP_STAFF.includes(area)) cost += HARD;
         // nothing in period 4 and again in period 1 the next day
         if (s === first && day > 0 && !locked[s] && !locked[s - 1] && area !== 'Trips' && areaOf(row[s - 1]) === area) cost += HARD;
         if (!trip && !locked[s]) {
@@ -402,7 +415,7 @@ class FillSearch {
     if (this.flexible[b] && ac === 0 && (athWeek > 0 || uh > 0)) cost += WEIGHTS.noAcWeek;
     // no bunk goes without A&C: one that has had none yet gets it before any leftover period goes to Athletics or Time with UH
     if (this.base[b].ac + ac === 0 && (athWeek > 0 || uhOwn > 0)) cost += WEIGHTS.gapOver;
-    if (this.musicPlanned[b] && music === 0) cost += HARD; // the week's own Music is never given up
+    if (this.musicPlanned[b] && music === 0) cost += this.musicIsOptional ? WEIGHTS.musicSkipped : HARD; // the week's own Music is never given up, except to Shabbat Prep
     for (let k = 0; k < this.fillers.length; k++) {
       // a planned Yoga or Ceramics stays; one more may fill a period, up to the most a session allows
       cost += HARD * Math.max(0, this.fillerPlanned[b][k] - fillers[k]);

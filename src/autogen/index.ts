@@ -1,5 +1,5 @@
 import type { Schedule, WeeksState } from '../types';
-import { placeCalendar, planCalendar } from './calendar';
+import { placeCalendar, placeShabbatExtras, planCalendar } from './calendar';
 import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, setVisitWeek, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, halfSlots, isFilledWeek, type BunkHistory } from './history';
@@ -169,6 +169,7 @@ class WeekSearch {
       placeWaterfront(c, plan);
       placeLeague(c);
       placeTri(c);
+      placeShabbatExtras(c);
       placeRopes(c, plan);
       placePool(c, plan);
       placeExtraPool(c, plan);

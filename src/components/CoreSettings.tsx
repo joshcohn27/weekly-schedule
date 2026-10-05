@@ -3,7 +3,9 @@ import {
   sameVisitIn,
   visitsOf,
   withCore,
+  shabbatWeeksOf,
   withSameVisit,
+  withShabbatWeek,
   withVisits,
   type CoreSettings as Core,
   type Settings,
@@ -139,26 +141,41 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
       <tr>
         <th scope="row">Shabbat Prep</th>
         <td colSpan={4}>
-          <label>
-            <input
-              type="checkbox"
-              aria-label="Shabbat Prep on Friday afternoon"
-              checked={core.shabbatPrep}
-              disabled={disabled}
-              onChange={(e) => set({ shabbatPrep: e.target.checked })}
-            />{' '}
-            Friday afternoon, on the village's turn
-          </label>{' '}
-          <label>
-            <input
-              type="checkbox"
-              aria-label="Shabbat Prep extra period"
-              checked={core.shabbatPrepExtra}
-              disabled={disabled || !core.shabbatPrep}
-              onChange={(e) => set({ shabbatPrepExtra: e.target.checked })}
-            />{' '}
-            and one more period earlier that week
-          </label>
+          In a village's Shabbat week: the Friday afternoon double always, and exactly{' '}
+          {number('Shabbat Prep extra periods', core.shabbatPrepExtra, 0, 2, (n) => set({ shabbatPrepExtra: n }))} more single periods earlier that
+          week{' '}
+          <Info text="The Friday afternoon double is always there in a village's Shabbat week. The number is how many single periods it gets on top, earlier in the week (0 to 2; two are never on days next to each other). Shabbat Prep is run by the Music and Judaics specialists, so no bunk has Music or Judaics while a village is at Shabbat Prep. Villages that share a week prepare together." />
+          <div className="shabbat-weeks">
+            Who has Shabbat each week:
+            {shabbatWeeksOf(settings).map((picked, i) => (
+              <span key={i} className="by-village">
+                <strong>Week {i + 1}</strong>
+                {(villages.length ? villages : ['O', 'C', 'S', 'M', 'T']).map((v) => (
+                  <label key={v}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Shabbat week ${i + 1} village ${v}`}
+                      checked={picked.includes(v)}
+                      disabled={disabled}
+                      onChange={(e) => onChange(withShabbatWeek(settings, i + 1, e.target.checked ? [...picked, v] : picked.filter((x) => x !== v)))}
+                    />{' '}
+                    {v}
+                  </label>
+                ))}
+                <label>
+                  <input
+                    type="checkbox"
+                    aria-label={`Shabbat week ${i + 1} no Shabbat`}
+                    checked={picked.length === 0}
+                    disabled={disabled || picked.length === 0}
+                    onChange={() => onChange(withShabbatWeek(settings, i + 1, []))}
+                  />{' '}
+                  No Shabbat
+                </label>
+              </span>
+            ))}{' '}
+            <Info text="The villages ticked for a week get Shabbat Prep that week. No Shabbat means nobody prepares that week. The last Friday of a 4-week session has no periods, so week 4 of a 4-week session never has Shabbat Prep. Until you change these, a 3-week session uses its own usual turns: S and M, then O and C, then Tusc." />
+          </div>
         </td>
       </tr>
       <tr>

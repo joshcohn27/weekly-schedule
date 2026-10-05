@@ -10,6 +10,7 @@ import {
   POOL_MAX_PER_WEEK,
   SESSION_HARD_MAX,
   setVisitWeek,
+  SHABBAT_PREP_STAFF,
   SHABBAT_ROTATION,
   SINGLE_PERIOD_AREAS,
   TRIP_LABELS,
@@ -28,13 +29,12 @@ import {
   ordinalAt,
   periodOf,
   slotAt,
-  villageWeeksWithLabel,
   type BunkHistory,
 } from './history';
 import { buildRoster, isRun, shareLevel, type Roster } from './roster';
 import { OPEN, beforeSwimTest, isFixedMohawkAthletics, sharedArea, slotGroupProblems } from './share';
 
-export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16' | 'H17' | 'H18';
+export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16' | 'H17' | 'H18' | 'H19';
 
 export interface Violation {
   rule: Rule;
@@ -64,9 +64,9 @@ export interface ValidationInput {
   locked?: boolean[][];
 }
 
-/** Check a week that is already in hand (roster and history built) against the hard rules H1 to H16. */
+/** Check a week that is already in hand (roster and history built) against the hard rules H1 to H19. */
 export function validateGrid(input: ValidationInput): Violation[] {
-  const { weeks, weekIndex, sessionWeeks, roster, hist, grid } = input;
+  const { weekIndex, sessionWeeks, roster, hist, grid } = input;
   setVisitWeek(weekIndex >= sessionWeeks);
   const n = roster.n;
   const locked = (b: number, s: number): boolean => !!input.locked?.[b]?.[s];
@@ -204,12 +204,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     }
   }
 
-  // H8: Shabbat Prep once per village per session, following the calendar. Tiyul is entered by hand and is not checked.
-  const prepElsewhere = villageWeeksWithLabel(weeks, weekIndex, 'Shabbat Prep');
-  for (const v of roster.villages) {
-    const members = roster.byVillage[v];
-    if (members.some((b) => grid[b].includes('Shabbat Prep')) && (prepElsewhere[v] ?? 0) > 0) add('H8', `Village ${v} has Shabbat Prep in more than one week.`, members[0]);
-  }
+  // H8: Shabbat Prep in the weeks a village has Shabbat, as picked in the settings. Tiyul is entered by hand and is not checked.
   const rotation = SHABBAT_ROTATION[sessionWeeks][weekIndex] ?? [];
   for (const v of roster.villages) {
     const members = roster.byVillage[v];
@@ -364,6 +359,15 @@ export function validateGrid(input: ValidationInput): Violation[] {
     }
   }
 
+  // H19: the Music and Judaics specialists run Shabbat Prep, so neither area has a bunk while any village is at it
+  for (let s = 0; s < SLOTS; s++) {
+    if (!grid.some((row) => row[s] === 'Shabbat Prep')) continue;
+    for (let b = 0; b < n; b++) {
+      const area = areaOf(grid[b][s]);
+      if (area && SHABBAT_PREP_STAFF.includes(area) && !locked(b, s)) add('H19', `${roster.names[b]} has ${area} on ${where(s)}, during Shabbat Prep.`, b, s);
+    }
+  }
+
   // H12: only known activity labels (cells already filled before generating may be write-ins)
   for (let b = 0; b < n; b++) {
     for (let s = 0; s < SLOTS; s++) {
@@ -374,7 +378,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
   return out;
 }
 
-/** Check one week against the hard rules H1 to H16. An empty list means the week is valid. */
+/** Check one week against the hard rules H1 to H19. An empty list means the week is valid. */
 export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks: SessionWeeks, opts: ValidateOptions = {}): Violation[] {
   const schedule = weeks.weeks[weekIndex - 1];
   if (!isFilledWeek(schedule)) return [];

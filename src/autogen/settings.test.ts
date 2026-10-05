@@ -12,11 +12,11 @@ import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
 import { planCalendar } from './calendar';
 import { blocksOf } from './history';
-import { CALENDAR, hobbyMost, hobbyWeeks, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
+import { CALENDAR, hobbyMost, hobbyWeeks, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, SHABBAT_ROTATION, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
 import { mulberry32 } from './rng';
 import { checkSettings } from './feasibility';
 import { generateRun } from './session';
-import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, coreOf, defaultCore, defaultVisits, leagueOf, sameVisitIn, visitsOf, withCore, withSameVisit, withVisits, type Settings } from './settings';
+import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, coreOf, defaultCore, defaultVisits, leagueOf, sameVisitIn, visitsOf, withCore, withSameVisit, withShabbatWeek, shabbatWeeksOf, withVisits, type Settings } from './settings';
 import { TOKEN_AREAS } from './planner';
 import { buildRoster, isSameAgeGroup, pairKey, shareLevel, sharingLevel } from './roster';
 import { groupBreaks, slotGroupProblems } from './share';
@@ -407,7 +407,8 @@ describe('the main areas and the visit numbers', () => {
     expect(coreOf(defaultSettings())).toEqual({
       hobbySessions: 7,
       shabbatPrep: true,
-      shabbatPrepExtra: true,
+      shabbatPrepExtra: 1,
+      shabbatWeeks: null,
       ropesPerSession: 2,
       ropesMaxCampers: 30,
       poolPerWeek: 1,
@@ -449,10 +450,10 @@ describe('the main areas and the visit numbers', () => {
     const calendarFor = (week: number) => planCalendar({ weekIndex: week, sessionWeeks: 4, lastWeek: week === 4 }, mulberry32(7)).hobbies;
     expect(calendarFor(2).some(([d, h]) => d === 5 && h === 0)).toBe(true); // Friday morning
     expect(calendarFor(2).length).toBeGreaterThanOrEqual(2);
-    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 4, shabbatPrep: false, ropesPerSession: 1, poolPerWeek: 0, poolLessons: 0, poolMaxCampers: 120 }));
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 4, shabbatPrepExtra: 0, ropesPerSession: 1, poolPerWeek: 0, poolLessons: 0, poolMaxCampers: 120 }));
     expect(calendarFor(2)).toEqual([[5, 0]]); // Friday morning only
     expect(calendarFor(4)).toEqual([[1, 0]]); // the last week keeps its Monday morning
-    expect([CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([false, 0, 1, 0, 120]);
+    expect([CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([true, 2, 1, 0, 120]);
     expect(POOL_TARGETS.O).toEqual({ perWeek: 0 });
     expect(POOL_TARGETS.S).toEqual({ perSession: 0 });
     applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 0 }));
@@ -506,8 +507,27 @@ describe('the main areas and the visit numbers', () => {
       swim: messages.some((m) => m.includes('swims 0 times this week')),
     });
     expect(missed(rulesOf(week, 2))).toEqual({ hobbies: true, prep: true, swim: true });
-    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 4, shabbatPrep: false, poolPerWeek: 0 }));
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 4, shabbatWeeks: [[], [], [], []], poolPerWeek: 0 }));
     expect(missed(rulesOf(week, 2))).toEqual({ hobbies: false, prep: false, swim: false });
+  });
+
+  it('lets the Shabbat villages of each week be picked, with No Shabbat as a choice', () => {
+    expect(shabbatWeeksOf(defaultSettings())).toEqual([['M'], ['C', 'O'], ['S', 'T'], []]);
+    // the usual turns are not kept as a change
+    expect(withShabbatWeek(defaultSettings(), 1, ['M']).core).toBeUndefined();
+    const s = withShabbatWeek(withShabbatWeek(defaultSettings(), 1, ['s', 'M', 'M']), 2, []);
+    expect(shabbatWeeksOf(s)).toEqual([['M', 'S'], [], ['S', 'T'], []]);
+    applySettings(s);
+    expect(SHABBAT_ROTATION[4]).toEqual({ 1: ['M', 'S'], 2: [], 3: ['S', 'T'] });
+    expect(SHABBAT_ROTATION[3]).toEqual({ 1: ['M', 'S'], 2: [], 3: ['S', 'T'] });
+    applySettings();
+    expect(SHABBAT_ROTATION[4]).toEqual({ 1: ['M'], 2: ['O', 'C'], 3: ['S', 'T'] });
+    expect(SHABBAT_ROTATION[3]).toEqual({ 1: ['S', 'M'], 2: ['O', 'C'], 3: ['T'] });
+    // an older file: Shabbat Prep switched off is No Shabbat every week, and the yes or no for the extra period is 1 or 0
+    const old = normalizeSettings({ areas: {}, core: { ...defaultCore(), shabbatPrep: false, shabbatPrepExtra: true } });
+    expect(shabbatWeeksOf(old)).toEqual([[], [], [], []]);
+    expect(coreOf(old).shabbatPrepExtra).toBe(1);
+    expect(coreOf(withCore(defaultSettings(), { ...defaultCore(), shabbatPrepExtra: 9 })).shabbatPrepExtra).toBe(2);
   });
 
   it('sets league village by village, and keeps only the villages that differ from the usual number', () => {
@@ -601,8 +621,9 @@ describe('the main areas and the visit numbers', () => {
       'Ropes times a session',
       'Hobbies sessions in the whole session',
       'Ropes most campers at once',
-      'Shabbat Prep on Friday afternoon',
-      'Shabbat Prep extra period',
+      'Shabbat Prep extra periods',
+      'Shabbat week 2 village O',
+      'Shabbat week 4 no Shabbat',
       'Athletics at most a week',
       'A&amp;C at most a week',
       'Music times a week',

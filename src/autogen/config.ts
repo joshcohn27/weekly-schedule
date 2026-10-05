@@ -63,10 +63,29 @@ export const TIYUL_WEEKS: Record<SessionWeeks, Record<string, number[]>> = {
   3: { O: [2], C: [2], S: [2], M: [2] },
 };
 // The 2026 key. Friday of week 4 has no periods, so a 4-week session has none in week 4.
-export const SHABBAT_ROTATION: Record<SessionWeeks, Record<number, string[]>> = {
+const USUAL_SHABBAT: Record<SessionWeeks, Record<number, string[]>> = {
   4: { 1: ['M'], 2: ['O', 'C'], 3: ['S', 'T'] },
   3: { 1: ['S', 'M'], 2: ['O', 'C'], 3: ['T'] },
 };
+/**
+ * Which villages have Shabbat in each week, and so get Shabbat Prep: the week's list, by week number. It is a setting
+ * (the villages picked for each week, week 1 first; an empty week is "No Shabbat"); with nothing picked it is the usual key.
+ */
+export function shabbatFor(picked: string[][] | null, sessionWeeks: SessionWeeks): Record<number, string[]> {
+  if (!picked) return USUAL_SHABBAT[sessionWeeks];
+  const out: Record<number, string[]> = {};
+  // the last Friday of a 4-week session has no periods, so nothing is prepared in week 4
+  for (let week = 1; week <= (sessionWeeks === 4 ? 3 : sessionWeeks); week++) out[week] = [...(picked[week - 1] ?? [])];
+  return out;
+}
+/** The Shabbat weeks in force. setShabbat() overwrites them in place. */
+export const SHABBAT_ROTATION: Record<SessionWeeks, Record<number, string[]>> = { 4: shabbatFor(null, 4), 3: shabbatFor(null, 3) };
+export function setShabbat(picked: string[][] | null): void {
+  SHABBAT_ROTATION[4] = shabbatFor(picked, 4);
+  SHABBAT_ROTATION[3] = shabbatFor(picked, 3);
+}
+/** The specialists of these areas run Shabbat Prep, so none of them has a period while any village is at Shabbat Prep. */
+export const SHABBAT_PREP_STAFF = ['Music', 'Judaics'];
 export const AC_ATHLETICS_MAX_GAP = 1;
 /** Trips are entered by hand before generating. The generator never writes them, and "replace" leaves them where they are. */
 export const TRIP_LABELS = ['Bike Trip', 'Tiyul'];
@@ -153,9 +172,12 @@ export function setPool(lessons: number, maxCampers: number): void {
 /**
  * The parts of the fixed calendar that are settings. Hobbies: `hobbySessions` is exactly how many hobby sessions (half-days
  * for the whole camp) the whole session has; hobbyWeeks() shares them out over the weeks. Shabbat Prep: the Friday afternoon
- * of a village's turn, and one more period earlier that week.
+ * double of a village's Shabbat week always, and `shabbatPrepExtra` single periods earlier that week (0 to 2: they are never
+ * on two days in a row, and never on the Thursday before the Friday block).
  */
-export const CALENDAR = { hobbySessions: 7, shabbatPrep: true, shabbatPrepExtra: true };
+export const CALENDAR = { hobbySessions: 7, shabbatPrep: true, shabbatPrepExtra: 1 };
+/** The most extra Shabbat Prep periods a week can hold. */
+export const SHABBAT_PREP_EXTRA_MAX = 2;
 
 /**
  * How many hobby sessions each week gets when the whole session has `total` of them: the answer for week 1 first.
@@ -177,7 +199,7 @@ export const hobbyMost = (sessionWeeks: number): number => hobbyWeeks(Infinity, 
 /** How many hobby sessions this week gets, under the setting in force. */
 export const hobbiesInWeek = (weekIndex: number, sessionWeeks: number): number => hobbyWeeks(CALENDAR.hobbySessions, sessionWeeks)[weekIndex - 1] ?? 0;
 /** Periods Shabbat Prep takes in the week of a village's turn. */
-export const shabbatPrepPeriods = (): number => (CALENDAR.shabbatPrep ? 2 + (CALENDAR.shabbatPrepExtra ? 1 : 0) : 0);
+export const shabbatPrepPeriods = (): number => (CALENDAR.shabbatPrep ? 2 + CALENDAR.shabbatPrepExtra : 0);
 
 export const WET_LABELS = ['Pool', 'Swim Test', 'Waterfront', 'Tusc Triathlon Training'];
 export const ACTIVE_LABELS = ['Athletics', ...ALL_LEAGUE_LABELS, 'Low Ropes', 'High Ropes', 'Tiyul'];
@@ -362,6 +384,8 @@ export const WEIGHTS = {
   gapOver: 300,
   /** Athletics ahead of A&C (when they differ, A&C should be the higher one). */
   athleticsAhead: 2,
+  /** A bunk going without its Music in a week with Shabbat Prep in it: allowed when the Music cannot fit, never wanted. */
+  musicSkipped: 120,
   /** A second Music in a week: allowed when it fits, but it is there to fill a period, not a target. */
   musicExtra: 6,
   /** Each Time with UH beyond a bunk's first: it is there to fill a period nothing else can, so it is saved for when it is needed. */

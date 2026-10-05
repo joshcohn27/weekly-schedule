@@ -159,6 +159,22 @@ describe('validateWeek', () => {
     expect(has(state(israel(), israel(), israel()), 3, 'H7')).toBe(true);
   });
 
+  it('H19: no Music or Judaics while a village is at Shabbat Prep', () => {
+    const messages = (s: Schedule, locked?: boolean[][]): string[] => validateWeek(state(sampleSchedule(), s), 2, 4, { locked }).filter((v) => v.rule === 'H19').map((v) => v.message);
+    const w = sampleSchedule();
+    for (const b of w.bunks) for (let s = 0; s < 24; s++) if (b.slots[s] === 'Music' || b.slots[s] === 'Judaics') b.slots[s] = 'Athletics';
+    put(w, village(w, 'O'), [S(2, 0)], 'Shabbat Prep');
+    expect(messages(w)).toEqual([]);
+    const s1 = village(w, 'S')[0];
+    put(w, [s1], [S(2, 0)], 'Music');
+    put(w, [village(w, 'M')[0]], [S(2, 0)], 'Judaics');
+    put(w, [village(w, 'S')[1]], [S(2, 1)], 'Music'); // the next period is fine
+    expect(messages(w)).toHaveLength(2);
+    expect(messages(w)[0]).toContain(`${s1} has Music on Tuesday period 1, during Shabbat Prep.`);
+    // filled in by hand: left alone
+    expect(messages(w, w.bunks.map(() => Array<boolean>(24).fill(true)))).toEqual([]);
+  });
+
   it('H8: Shabbat Prep follows the calendar; Tiyul is entered by hand and never checked', () => {
     const shabbat = (s: Schedule, names: string[]) => put(s, names, [S(5, 2), S(5, 3)], 'Shabbat Prep');
     const w2 = sampleSchedule();

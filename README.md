@@ -168,7 +168,7 @@ cut to 1 and no third Ceramics, for example, a run tried for its full time and d
   campers in the water at once.
 - **Ropes:** times a session (low ropes first, then high), and the most campers at ropes at once. Ropes goes by
   people, not by bunks.
-- **Shabbat Prep:** the Friday afternoon of a village's turn, and the extra period earlier that week, each on or off.
+- **Shabbat Prep:** which village or villages have Shabbat in each week (or No Shabbat), and how many single periods (0 to 2) a village gets earlier in its Shabbat week on top of the Friday afternoon double, which is always there. Music and Judaics never have a period while a village is at Shabbat Prep, because their specialists run it; villages that share a week prepare together. The extra periods go where the fewest other bunks are free, and in a week with Shabbat Prep a bunk whose Music cannot fit goes without it that week.
 - **Athletics and A&C:** the most a week, bunks at once, bunks of one village in a day.
 - **Music:** times a week and the most. **Time with UH:** at least and at most a session.
 - **Trips** have no numbers: a Tiyul or a bike trip is entered by hand.

@@ -263,6 +263,17 @@ table.settings td.by-village label {
   display: inline-block;
   margin: 2px 6px;
 }
+table.settings .shabbat-weeks {
+  margin-top: 6px;
+}
+table.settings .shabbat-weeks > span {
+  display: block;
+  margin: 2px 0;
+}
+table.settings .shabbat-weeks label {
+  display: inline-block;
+  margin: 2px 6px;
+}
 /* a period emptied with the Clear tool, until something is put there again */
 td.cleared {
   background: #ffe95c;

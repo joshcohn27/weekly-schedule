@@ -117,6 +117,11 @@ export default function HelpPanel({ onClose }: Props) {
             village, and hobbies is an exact number of sessions for the whole session.
           </li>
           <li>
+            Shabbat Prep: tick which village or villages have Shabbat in each week, or No Shabbat. A village gets the Friday afternoon
+            double in its Shabbat week, plus as many single periods earlier that week as you set. Nobody has Music or Judaics while a
+            village is at Shabbat Prep, because those specialists run it.
+          </li>
+          <li>
             A number "a week" is rough: it is the average over the session, and a short week gets fewer. A small <strong>i</strong> beside
             a number says more when you point at it.
           </li>

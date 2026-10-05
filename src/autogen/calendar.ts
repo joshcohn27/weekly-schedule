@@ -1,7 +1,10 @@
+import { areaOf } from '../config';
 import {
   CALENDAR,
   hobbiesInWeek,
   HOBBY_WED_PM_PROBABILITY,
+  SHABBAT_PREP_EXTRA_MAX,
+  SHABBAT_PREP_STAFF,
   SHABBAT_ROTATION,
   TRIP_LABELS,
   type SessionWeeks,
@@ -123,19 +126,54 @@ function findMiniBikeTrip(c: Ctx): void {
   if (cells.length > 0 && cells.length <= 2) c.tripDay = dayOf(cells[0]);
 }
 
+/** The villages that have Shabbat this week and are in the roster. */
+const shabbatVillages = (c: Ctx): string[] =>
+  (CALENDAR.shabbatPrep ? (SHABBAT_ROTATION[c.sessionWeeks][c.weekIndex] ?? []) : []).filter((v) => c.roster.byVillage[v]);
+
 function placeShabbatPrep(c: Ctx): void {
-  const villages = CALENDAR.shabbatPrep ? (SHABBAT_ROTATION[c.sessionWeeks][c.weekIndex] ?? []) : [];
-  for (const v of villages) {
-    if (!c.roster.byVillage[v]) continue;
+  for (const v of shabbatVillages(c)) {
     const friday = [...halfSlots(5, 1)];
     if (villageFree(c, v, friday)) putVillage(c, v, friday, 'Shabbat Prep');
     else warn(c, `Shabbat Prep on Friday afternoon could not be placed for village ${v} because that time is already filled in.`);
-    if (!CALENDAR.shabbatPrepExtra) continue;
-    // one single period earlier in the week, in period 1 or 2, Monday to Wednesday (Thursday is the day before the Friday block)
-    const singles: number[][] = [];
-    for (const day of shuffle(c.rng, [1, 2, 3])) for (const p of shuffle(c.rng, [0, 1])) singles.push([slotAt(day, p)]);
-    if (!placeVillageFirstFit(c, v, singles, 'Shabbat Prep', 'Shabbat Prep')) {
-      warn(c, `The extra Shabbat Prep period for village ${v} could not be placed earlier in the week.`);
+  }
+}
+
+/**
+ * The single periods of Shabbat Prep earlier in the week, on top of the Friday afternoon double. One is Monday to
+ * Wednesday; two are on days that are not next to each other (Thursday is out: it is the day before the Friday block, and
+ * the first Sunday has the swim tests). Period 1 or 2 when one is open, else period 3 or 4.
+ *
+ * The Music and Judaics specialists run it, so nobody has Music or Judaics in that period, and every bunk that is not
+ * busy then needs one of the other areas, which do not hold the whole camp. So this is placed after Waterfront and the
+ * league, in the period where the fewest other bunks are still free, and the villages of one week have it together when
+ * they can.
+ */
+export function placeShabbatExtras(c: Ctx): void {
+  const villages = shabbatVillages(c);
+  const extra = Math.min(CALENDAR.shabbatPrepExtra, SHABBAT_PREP_EXTRA_MAX);
+  if (extra <= 0 || villages.length === 0) return;
+  const staffBusy = (s: number): boolean => c.grid.some((row) => SHABBAT_PREP_STAFF.includes(areaOf(row[s]) ?? ''));
+  const fits = (v: string, s: number): boolean => !staffBusy(s) && villageFree(c, v, [s]) && !villageAreaOnDay(c, v, dayOf(s), 'Shabbat Prep');
+  /** Bunks of the other villages with nothing yet in this period: fewer is better. */
+  const othersFree = (s: number): number => c.grid.filter((row, b) => row[s] === '' && !villages.includes(c.roster.village[b])).length;
+  /** The best period of a day for these villages, mornings first, or -1. */
+  const best = (day: number, who: string[]): number => {
+    for (const periods of [[0, 1], [2, 3]]) {
+      const open = shuffle(c.rng, periods).map((p) => slotAt(day, p)).filter((s) => who.every((v) => fits(v, s)));
+      if (open.length) return open.sort((x, y) => othersFree(x) - othersFree(y))[0];
+    }
+    return -1;
+  };
+  const daySets = extra === 1 ? [[1], [2], [3]] : [[1, 3], [0, 2], [0, 3]].filter((set) => c.weekIndex > 1 || !set.includes(0));
+  /** How good a set of days is: the bunks left free in its periods, and a day with no period for everyone together counts as the whole camp. */
+  const cost = (set: number[]): number => set.reduce((sum, day) => sum + (best(day, villages) < 0 ? c.roster.n : othersFree(best(day, villages))), 0);
+  const days = shuffle(c.rng, daySets).map((set) => ({ set, cost: cost(set) })).sort((x, y) => x.cost - y.cost)[0].set;
+  for (const day of days) {
+    const together = best(day, villages);
+    for (const v of villages) {
+      const s = together >= 0 ? together : best(day, [v]);
+      if (s >= 0) putVillage(c, v, [s], 'Shabbat Prep');
+      else warn(c, `An extra Shabbat Prep period for village ${v} could not be placed earlier in the week.`);
     }
   }
 }

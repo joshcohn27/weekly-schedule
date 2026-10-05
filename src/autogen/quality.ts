@@ -124,10 +124,10 @@ export function weekQuality(input: QualityInput): WeekQuality {
     if (lastOfSession && total(b, 'Ropes') < sessionTargetOf(roster.village[b], sessionWeeks, 'Ropes')) major.push(`${roster.names[b]} is short on Ropes.`);
   }
 
-  // Shabbat Prep: the Friday double is a rule (checked above); the earlier single must be there too
-  for (const v of CALENDAR.shabbatPrep && CALENDAR.shabbatPrepExtra ? (SHABBAT_ROTATION[sessionWeeks][weekIndex] ?? []) : []) {
+  // Shabbat Prep: the Friday double is a rule (checked above); the earlier single periods must be there too
+  for (const v of CALENDAR.shabbatPrep && CALENDAR.shabbatPrepExtra > 0 ? (SHABBAT_ROTATION[sessionWeeks][weekIndex] ?? []) : []) {
     if (!roster.byVillage[v]) continue;
-    if (!blocks[first(v)].some((k) => k.label === 'Shabbat Prep' && k.len === 1)) major.push(`Village ${v} is missing its extra Shabbat Prep period.`);
+    if (blocks[first(v)].filter((k) => k.label === 'Shabbat Prep' && k.len === 1).length < CALENDAR.shabbatPrepExtra) major.push(`Village ${v} is missing its extra Shabbat Prep period.`);
   }
 
   // Rare areas: how far short is each bunk?

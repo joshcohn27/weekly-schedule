@@ -32,6 +32,7 @@ export const FIXED_RULES = [
   'No area twice in one day for a bunk.',
   'No Waterfront until the swim test is done: in week 1, never on Sunday morning and never before the village has swum. Mohawk swims its test during General Swim on the first day, so its Waterfront starts on the second.',
   'Athletics and A&C stay within two of each other for each bunk over the session.',
+  'No Music or Judaics period while any village is at Shabbat Prep: those specialists run it.',
   'The pool: one group at a time, O and C never together, Tusc always together, and S with M only at the same age.',
 ];
 

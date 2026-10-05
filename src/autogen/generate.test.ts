@@ -16,7 +16,7 @@ const env: Env = (globalThis as unknown as { process?: { env?: Env } }).process?
 const SESSIONS = Math.max(1, Number(env.AUTOGEN_SEEDS ?? 3));
 /** The first seed, so a long run can be split into parts (AUTOGEN_FIRST=21 AUTOGEN_SEEDS=20 runs seeds 21 to 40). */
 const FIRST = Math.max(1, Number(env.AUTOGEN_FIRST ?? 1));
-const RULES: Rule[] = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18'];
+const RULES: Rule[] = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19'];
 const KNOWN = new Set(ACTIVITIES.map((a) => a.label));
 const TRIPS = ['Bike Trip', 'Tiyul'];
 
@@ -37,7 +37,7 @@ describe('hard rules', () => {
     for (const run of sessions) expect(hardViolations(run)).toEqual([]);
   });
 
-  it('checks each rule H1 to H18 on its own', () => {
+  it('checks each rule H1 to H19 on its own', () => {
     for (const rule of RULES) {
       const found = sessions.flatMap((run) => run.weeks.weeks.flatMap((_, i) => validateWeek(run.weeks, i + 1, 4).filter((v) => v.rule === rule)));
       expect(found, rule).toEqual([]);

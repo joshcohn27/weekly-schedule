@@ -1,6 +1,6 @@
 import { villageOf } from '../autofill';
 import type { Schedule } from '../types';
-import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, TIYUL_WEEKS, TRIP_LABELS, hobbyWeeks, type SessionWeeks } from './config';
+import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, SHABBAT_PREP_STAFF, TIYUL_WEEKS, TRIP_LABELS, hobbyWeeks, shabbatFor, type SessionWeeks } from './config';
 import { coreOf, settingAreas, type Settings } from './settings';
 
 /**
@@ -47,12 +47,18 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
   const membersOf = (v: string): number => roster.filter((b) => villageOf(b.name) === v).length;
   const timesFor = (area: string, v: string): number => settings.areas[area].villages?.[v] ?? settings.areas[area].min;
 
+  // Shabbat Prep: the weeks each village has it, and the periods it takes from Music and Judaics (their specialists run it)
+  const prepCore = coreOf(settings);
+  const prepEach = prepCore.shabbatPrep ? 2 + prepCore.shabbatPrepExtra : 0;
+  const shabbat = Object.values(shabbatFor(prepCore.shabbatWeeks, sessionWeeks)).map((week) => week.filter((v) => villages.includes(v)));
+  const prepPeriods = shabbat.filter((week) => week.length > 0).length * prepEach;
+
   // 1. An area can only hold so many bunks in a session: (bunks at once) x (periods).
   const areas = settingAreas(settings);
   for (const area of areas) {
     const a = settings.areas[area];
     const visits = villages.reduce((sum, v) => sum + membersOf(v) * timesFor(area, v), 0);
-    const room = periods * a.atOnce;
+    const room = (periods - (SHABBAT_PREP_STAFF.includes(area) ? prepPeriods : 0)) * a.atOnce;
     const most = Math.floor((room * ONE_AT_A_TIME_SHARE) / roster.length);
     if (visits > room) {
       out.push({
@@ -107,7 +113,7 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
     const league = v === 'T' ? normalWeeks * (leagueTimes > 0 ? leagueTimes + 1 : 0) : v === 'M' ? leagueWeeks * 2 : leagueWeeks;
     const waterfront = normalWeeks * core.waterfrontPerWeek * 2 + (four ? Math.min(1, core.waterfrontPerWeek) * 2 : 0);
     const music = core.musicPerWeek === 0 ? 0 : MUSIC_LIGHT_VILLAGES.includes(v) ? MUSIC_LIGHT_PER_SESSION : sessionWeeks;
-    const prep = core.shabbatPrep ? 2 + (core.shabbatPrepExtra ? 1 : 0) : 0;
+    const prep = shabbat.filter((week) => week.includes(v)).length * prepEach;
     const fixed = prep /* Shabbat Prep */ + 1 /* the first Sunday */ + tripPeriods(v) + waterfront + league + sessionWeeks * core.poolPerWeek /* pool */ + music + 2 * core.ropesPerSession /* ropes */ + core.uhMin /* Time with UH */;
     const planned = areas.reduce((sum, a) => sum + timesFor(a, v), 0);
     const leftover = periods - fixed - planned - flexible;

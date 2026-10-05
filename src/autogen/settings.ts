@@ -16,9 +16,12 @@ import {
   ROPES_MAX_CAMPERS,
   VISIT,
   WEEK_BLOCK_MAX,
+  SHABBAT_PREP_EXTRA_MAX,
   setPool,
   setRopesMax,
+  setShabbat,
   setWeekly,
+  shabbatFor,
   weekly,
   type Sharing,
 } from './config';
@@ -69,9 +72,12 @@ export interface SharedNumbers {
 export interface CoreSettings {
   /** Hobby sessions in the whole session, exactly. A session is a half-day for the whole camp; hobbyWeeks() shares them out over the weeks. */
   hobbySessions: number;
-  /** Shabbat Prep on the Friday afternoon of a village's turn, and one more period earlier that week. */
+  /** Shabbat Prep: always true (kept so an older file that had it switched off can be read; that becomes "No Shabbat" every week). */
   shabbatPrep: boolean;
-  shabbatPrepExtra: boolean;
+  /** Single periods of Shabbat Prep earlier in a village's Shabbat week, on top of the Friday afternoon double. */
+  shabbatPrepExtra: number;
+  /** The villages that have Shabbat in each week, week 1 first, and so get Shabbat Prep; an empty week is "No Shabbat". Null is the usual turns. */
+  shabbatWeeks: string[][] | null;
   /** Ropes in a session (low ropes first, then high ropes), and the most campers at ropes at once. */
   ropesPerSession: number;
   ropesMaxCampers: number;
@@ -103,6 +109,7 @@ export interface VisitSettings {
 /** The ranges the core numbers are kept inside. */
 const CORE_LIMITS = {
   hobbySessions: [0, 9],
+  shabbatPrepExtra: [0, SHABBAT_PREP_EXTRA_MAX],
   ropesPerSession: [0, 2],
   ropesMaxCampers: [5, 200],
   poolPerWeek: [0, 1],
@@ -122,6 +129,17 @@ const SHARED_LIMITS: Record<'athletics' | 'ac' | 'music' | 'uh', { atOnce: [numb
   music: { atOnce: [1, 2], maxPerWeek: [1, 2] },
   uh: { atOnce: [1, 2], maxPerWeek: [0, 0] },
 };
+/** Weeks the Shabbat setting covers. */
+export const SHABBAT_WEEKS = 4;
+/** The usual Shabbat turns, as the setting holds them: a list of villages for each week, sorted. */
+const usualShabbat = (): string[][] => Array.from({ length: SHABBAT_WEEKS }, (_, i) => [...(shabbatFor(null, 4)[i + 1] ?? [])].sort());
+/** The villages that have Shabbat in each week under these settings, week 1 first. */
+export const shabbatWeeksOf = (s: Settings): string[][] => coreOf(s).shabbatWeeks ?? usualShabbat();
+/** These settings with one week's Shabbat villages changed. An empty list is "No Shabbat" that week. */
+export function withShabbatWeek(s: Settings, week: number, villages: string[]): Settings {
+  const picked = shabbatWeeksOf(s).map((w, i) => (i === week - 1 ? villages : w));
+  return withCore(s, { ...coreOf(s), shabbatWeeks: picked });
+}
 /** The program area each shared entry stands for. */
 const SHARED_AREA_OF = { athletics: 'Athletics', ac: 'A&C', music: 'Music', uh: 'TW UH' } as const;
 
@@ -135,6 +153,7 @@ function readCore(): CoreSettings {
     hobbySessions: CALENDAR.hobbySessions,
     shabbatPrep: CALENDAR.shabbatPrep,
     shabbatPrepExtra: CALENDAR.shabbatPrepExtra,
+    shabbatWeeks: null,
     ropesPerSession: SESSION_TARGETS.Ropes,
     ropesMaxCampers: ROPES_MAX_CAMPERS,
     poolPerWeek: POOL_TARGETS.O?.perWeek ?? 1,
@@ -181,8 +200,14 @@ export function normalizeCore(raw: unknown): CoreSettings | null {
       if (v && times !== out.leaguePerWeek) out.leagueByVillage[v] = times; // a village on the usual number is not listed
     }
   }
-  if (typeof g.shabbatPrep === 'boolean') out.shabbatPrep = g.shabbatPrep;
-  if (typeof g.shabbatPrepExtra === 'boolean') out.shabbatPrepExtra = g.shabbatPrepExtra;
+  if (typeof g.shabbatPrepExtra === 'boolean') out.shabbatPrepExtra = g.shabbatPrepExtra ? 1 : 0; // an older file: yes or no
+  if (Array.isArray(g.shabbatWeeks)) {
+    const letters = (week: unknown): string[] => [...new Set((Array.isArray(week) ? week : []).map((v) => String(v).trim().charAt(0).toUpperCase()).filter(Boolean))].sort();
+    const picked = Array.from({ length: SHABBAT_WEEKS }, (_, i) => letters((g.shabbatWeeks as unknown[])[i]));
+    if (JSON.stringify(picked) !== JSON.stringify(usualShabbat())) out.shabbatWeeks = picked; // the usual turns are not kept as a change
+  }
+  // an older file with Shabbat Prep switched off: nobody has Shabbat in any week
+  if (g.shabbatPrep === false) out.shabbatWeeks = Array.from({ length: SHABBAT_WEEKS }, () => []);
   out.poolMaxPerWeek = Math.max(out.poolMaxPerWeek, out.poolPerWeek, 1);
   for (const key of Object.keys(SHARED_LIMITS) as (keyof typeof SHARED_LIMITS)[]) {
     const given = g[key];
@@ -437,6 +462,7 @@ export function applySettings(settings?: Settings | null): void {
   CALENDAR.hobbySessions = core.hobbySessions;
   CALENDAR.shabbatPrep = core.shabbatPrep;
   CALENDAR.shabbatPrepExtra = core.shabbatPrepExtra;
+  setShabbat(core.shabbatWeeks);
   setPool(core.poolLessons, core.poolMaxCampers);
   // the pool: a weekly swim for the villages that have one, and a swim for each week of the session for the others
   for (const v of Object.keys(POOL_TARGETS)) {
