@@ -61,13 +61,16 @@ export function beforeSwimTest(weekIndex: number, row: readonly string[], slot: 
 export const isFixedMohawkAthletics = (weekIndex: number, village: string, slot: number, label: string): boolean =>
   weekIndex === 1 && slot === 3 && village === 'M' && label === 'Athletics';
 
+/** The most campers at once in an area that goes by campers (Ropes, Yoga), or undefined for an area that goes by bunks. */
+export const camperLimit = (area: string): number | undefined => (area === 'Ropes' ? ROPES_MAX_CAMPERS : CAMPER_CAP[area]);
+
 /**
  * Check the bunks that are in one program area in one period (rules H13, H14 and the equal ordinal of H5).
  *  - No more than SLOT_CAP bunks (Ropes goes by campers instead).
  *  - Athletics: two or three bunks, any bunks. The same ordinal is preferred there, never required.
  *  - A&C: two bunks that may share, or three bunks of the same age; always on the same ordinal.
  *  - Time with UH: two bunks of one village.
- *  - Ropes: neighbours in one village, with no more campers between them than ROPES_MAX_CAMPERS.
+ *  - Ropes and Yoga: neighbours in one village, with no more campers between them than the area's limit.
  *  - Everything else: two bunks only when shareLevel says they may, on the same ordinal.
  */
 export function slotGroupProblems(
@@ -84,12 +87,13 @@ export function slotGroupProblems(
   const names = group.map((b) => r.names[b]).join(', ');
   const at = where ? ` ${where}` : '';
   if (cap === undefined) return out;
-  if (area === 'Ropes') {
-    // Ropes goes by people, not by bunks: neighbours in one village, with no more campers than the ropes course takes
-    const line = ropesLine(r, group);
+  const most = camperLimit(area);
+  if (most !== undefined) {
+    // Ropes and Yoga go by people, not by bunks: neighbours in one village, with no more campers than the place takes
+    const line = ropesLine(r, group, area);
     const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
-    if (!line) out.push({ rule: 'H13', message: `${names} share Ropes${at}, but bunks at Ropes together must be next to each other in one village.` });
-    if (campers > ROPES_MAX_CAMPERS) out.push({ rule: 'H14', message: `${names} are ${campers} campers at Ropes${at}, and the most is ${ROPES_MAX_CAMPERS}.` });
+    if (!line) out.push({ rule: 'H13', message: `${names} share ${area}${at}, but bunks at ${area} together must be next to each other in one village.` });
+    if (campers > most) out.push({ rule: 'H14', message: `${names} are ${campers} campers at ${area}${at}, and the most is ${most}.` });
     const order = line ?? [...group];
     for (let i = 1; i < order.length && !visitFree(area); i++) {
       const oa = ordinal(order[i - 1]);
@@ -104,9 +108,6 @@ export function slotGroupProblems(
     out.push({ rule: 'H14', message: `${names} are ${group.length} at ${area}${at}, and the most is ${cap}.` });
     return out;
   }
-  const camperCap = CAMPER_CAP[area];
-  const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
-  if (camperCap !== undefined && campers > camperCap) out.push({ rule: 'H14', message: `${names} are ${campers} campers at ${area}${at}, and the most is ${camperCap}.` });
   const matched: [number, number][] = [];
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) if (shareLevel(r, group[i], group[j], area) > 0) matched.push([group[i], group[j]]);
@@ -160,12 +161,13 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
     const ob = ordinal(b);
     return oa > 0 && ob > 0 && Math.abs(oa - ob) > VISIT.slackNow ? 1 : 0;
   };
-  if (area === 'Ropes') {
-    const line = ropesLine(r, group);
+  const most = camperLimit(area);
+  if (most !== undefined) {
+    const line = ropesLine(r, group, area);
     let campers = 0;
     for (const b of group) campers += r.campers[b];
     const order = line ?? group;
-    let n = (line ? 0 : 1) + (campers > ROPES_MAX_CAMPERS ? 1 : 0);
+    let n = (line ? 0 : 1) + (campers > most ? 1 : 0);
     for (let i = 1; i < order.length; i++) n += differ(order[i - 1], order[i]);
     return n;
   }
@@ -177,15 +179,8 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
   };
   if (area === 'Athletics') return chain();
   if (area === 'TW UH' || area === 'Judaics') return (r.village[group[0]] === r.village[group[1]] ? 0 : 1) + chain();
-  const camperCap = CAMPER_CAP[area];
-  let over = 0;
-  if (camperCap !== undefined) {
-    let campers = 0;
-    for (const b of group) campers += r.campers[b];
-    if (campers > camperCap) over = 1;
-  }
   if (area === 'A&C' && group.length === 3) {
-    return over + (isSameAgeGroup(r, group) ? 0 : 1) + differ(group[0], group[1]) + differ(group[1], group[2]);
+    return (isSameAgeGroup(r, group) ? 0 : 1) + differ(group[0], group[1]) + differ(group[1], group[2]);
   }
   let matched = 0;
   let unequal = 0;
@@ -196,16 +191,16 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
       unequal += differ(group[i], group[j]);
     }
   }
-  if (group.length === 2) return over + unequal + (matched === 0 ? 1 : 0);
-  return over + unequal + 1; // three or more, anywhere a group of three has no rule of its own
+  if (group.length === 2) return unequal + (matched === 0 ? 1 : 0);
+  return unequal + 1; // three or more, anywhere a group of three has no rule of its own
 }
 
 /**
  * The bunks at Ropes together, in the order they stand in their village's list, when they are one unbroken line of
  * neighbours who may share. Null when they are not (two villages, a gap in the line, or neighbours too far apart in grade).
  */
-export function ropesLine(r: Roster, group: readonly number[]): number[] | null {
+export function ropesLine(r: Roster, group: readonly number[], area = 'Ropes'): number[] | null {
   const line = [...group].sort((x, y) => r.pos[x] - r.pos[y]);
-  for (let i = 1; i < line.length; i++) if (shareLevel(r, line[i - 1], line[i], 'Ropes') === 0) return null;
+  for (let i = 1; i < line.length; i++) if (shareLevel(r, line[i - 1], line[i], area) === 0) return null;
   return line;
 }

@@ -3,7 +3,7 @@ import { SUPPORT_LINK } from '../config';
 import type { Bunk } from '../types';
 import SharingSettings from './SharingSettings';
 import { useState } from 'react';
-import { NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
+import { coreOf, withCore, NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
 import CoreRows, { LastWeekSwitch } from './CoreSettings';
 import Info, { HINT } from './Info';
 
@@ -154,13 +154,24 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                       {number(area, 'at most', a.max, 0, 12, (n) => set(area, { max: n, min: Math.min(n, a.min) }))} <Info text={HINT.atMost} />
                     </td>
                   )}
-                  <td>
-                    <select aria-label={`${nameOf(area)} bunks at once`} value={a.atOnce} disabled={disabled} onChange={(e) => set(area, { atOnce: Number(e.target.value) })}>
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                    </select>
-                  </td>
-                  <td>{number(area, 'bunks of one village in a day', a.villagePerDay, 1, 6, (n) => set(area, { villagePerDay: n }))}</td>
+                  {area === 'Yoga' ? (
+                    <td colSpan={2}>
+                      At most{' '}
+                      {number(area, 'most campers at once', coreOf(settings).yogaMaxCampers, 5, 200, (n) => onChange(withCore(settings, { ...coreOf(settings), yogaMaxCampers: n })))}{' '}
+                      campers at once{' '}
+                      <Info text="Yoga goes by people, not by bunks, the way Ropes does: bunks that are next to each other in a village go together as long as their campers add up to no more than this. A bunk bigger than the number goes alone." />
+                    </td>
+                  ) : (
+                    <>
+                      <td>
+                        <select aria-label={`${nameOf(area)} bunks at once`} value={a.atOnce} disabled={disabled} onChange={(e) => set(area, { atOnce: Number(e.target.value) })}>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </td>
+                      <td>{number(area, 'bunks of one village in a day', a.villagePerDay, 1, 6, (n) => set(area, { villagePerDay: n }))}</td>
+                    </>
+                  )}
                   <td>
                     <input
                       type="checkbox"

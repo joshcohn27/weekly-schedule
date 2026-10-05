@@ -60,8 +60,9 @@ describe('settings', () => {
     expect(SESSION_TARGETS.Yoga).toBe(1);
     expect(SESSION_FILLER_MAX.Yoga).toBeUndefined(); // no room above the minimum: it never fills a period
     expect(SESSION_HARD_MAX.Yoga).toBe(1);
-    expect(SLOT_CAP.Yoga).toBe(2);
-    expect(DAY_CAP.Yoga).toBe(3);
+    expect(SLOT_CAP.Yoga).toBe(8); // Yoga goes by campers, like Ropes, so it is not held to a number of bunks
+    expect(DAY_CAP.Yoga).toBe(6);
+    expect(SLOT_CAP.Teva).toBe(2);
     expect(SESSION_TARGETS.Teva).toBe(2);
     expect(SESSION_FILLER_MAX.Teva).toBe(4);
     expect(DANCE_TARGETS).toEqual({ O: 1, M: 2, '*': 2 });
@@ -586,7 +587,7 @@ describe('the main areas and the visit numbers', () => {
     for (let w = 1; w <= 4; w++) expect(validateWeek(weeks, w, 4)).toEqual([]);
     for (const w of weeks.weeks) {
       const league = (name: string): number => blocksOf((w as Schedule).bunks.find((b) => b.name === name)!.slots).filter((k) => k.area === 'League').length;
-      expect(league('M1')).toBeLessThanOrEqual(2);
+      expect(league('M1')).toBeLessThanOrEqual(3); // two are planned, and one more goes in where a half-day is open
       expect(league('M1')).toBeGreaterThanOrEqual(1);
       expect(league('O1')).toBeGreaterThanOrEqual(2); // the others are as they were
     }

@@ -14,6 +14,8 @@ import {
   POOL_MAX_CAMPERS,
   POOL_TARGETS,
   ROPES_MAX_CAMPERS,
+  BY_CAMPERS_DAY_CAP,
+  BY_CAMPERS_SLOT_CAP,
   CAMPER_CAP,
   VISIT,
   WEEK_BLOCK_MAX,
@@ -340,7 +342,8 @@ function readConfig(): Settings {
   for (const area of SETTING_AREAS) {
     const dance = area === 'Dance';
     const min = dance ? DANCE_TARGETS[OTHER] : SESSION_TARGETS[area];
-    areas[area] = { min, max: Math.max(min, SESSION_FILLER_MAX[area] ?? min), atOnce: SLOT_CAP[area], villagePerDay: DAY_CAP[area] };
+    const byCampers = CAMPER_CAP[area] !== undefined; // the check reads such an area as about two bunks at a time
+    areas[area] = { min, max: Math.max(min, SESSION_FILLER_MAX[area] ?? min), atOnce: byCampers ? 2 : SLOT_CAP[area], villagePerDay: byCampers ? 2 : DAY_CAP[area] };
     if (dance) {
       const villages = { ...DANCE_TARGETS };
       delete villages[OTHER];
@@ -466,8 +469,9 @@ export function applySettings(settings?: Settings | null): void {
       if (a.max > a.min) filler[area] = a.max;
       hardMax[area] = a.max;
     }
-    SLOT_CAP[area] = a.atOnce;
-    DAY_CAP[area] = a.villagePerDay;
+    // an area that goes by campers is not held to a number of bunks
+    SLOT_CAP[area] = CAMPER_CAP[area] !== undefined ? BY_CAMPERS_SLOT_CAP : a.atOnce;
+    DAY_CAP[area] = CAMPER_CAP[area] !== undefined ? BY_CAMPERS_DAY_CAP : a.villagePerDay;
   }
   replace(SESSION_FILLER_MAX, filler);
   replace(SESSION_HARD_MAX, hardMax);

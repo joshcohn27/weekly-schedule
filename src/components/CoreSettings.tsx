@@ -128,14 +128,6 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
         </td>
       </tr>
       <tr>
-        <th scope="row">Yoga together</th>
-        <td colSpan={4}>
-          Two bunks have Yoga together only when they have at most{' '}
-          {number('Yoga most campers at once', core.yogaMaxCampers, 5, 200, (n) => set({ yogaMaxCampers: n }))} campers between them{' '}
-          <Info text="Yoga goes by people, not by bunks: two smaller bunks may share a period, two bigger ones may not. How often each bunk has Yoga, and whether two may be there at once at all, is set on the Yoga line." />
-        </td>
-      </tr>
-      <tr>
         <th scope="row">Hobbies</th>
         <td>
           exactly {number('Hobbies sessions in the whole session', core.hobbySessions, 0, 9, (n) => set({ hobbySessions: n }))} sessions in the whole

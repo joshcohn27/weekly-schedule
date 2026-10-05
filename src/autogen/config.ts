@@ -123,7 +123,7 @@ export const SLOT_CAP: Record<string, number> = {
   Music: 2,
   Teva: 2,
   Dance: 2,
-  Yoga: 2, // two bunks only when they are small enough together: CAMPER_CAP
+  Yoga: 8, // not the limit at Yoga: that is CAMPER_CAP.Yoga, a number of campers
   Ceramics: 1,
   Judaics: 2, // two bunks of one village
   'Israel Education': 2,
@@ -137,14 +137,20 @@ export const DAY_CAP: Record<string, number> = {
   Music: 2,
   Teva: 2,
   Dance: 2,
-  Yoga: 2,
+  Yoga: 6, // Yoga goes by campers, so a village is not held to a number of bunks a day
   Ceramics: 1,
   Judaics: 2,
   'Israel Education': 2,
   'TW UH': 2,
 };
-/** Areas that go by campers: bunks share a period there only when they have no more campers between them than this. It is a setting. */
+/**
+ * Areas that go by campers, the way Ropes does: bunks next to each other in a village share a period as long as they have no
+ * more campers between them than this. It is a setting. (Ropes has its own number, ROPES_MAX_CAMPERS.)
+ */
 export const CAMPER_CAP: Record<string, number> = { Yoga: 22 };
+/** What SLOT_CAP and DAY_CAP hold for such an area: high enough never to be the limit. */
+export const BY_CAMPERS_SLOT_CAP = 8;
+export const BY_CAMPERS_DAY_CAP = 6;
 /** Areas where only bunks of one village are together. */
 export const ONE_VILLAGE_AREAS = ['TW UH', 'Judaics'];
 /** H17: these areas are never a double period. A block of them is always one period. */
