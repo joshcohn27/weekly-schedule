@@ -5,6 +5,8 @@ import type { WeeksState } from '../types';
 import { blocksOf, buildHistory, villageWeeksWithLabel } from './history';
 import { mulberry32, shuffle, weightedSample } from './rng';
 import { buildRoster, isSameAgeGroup, parseAge, shareLevel } from './roster';
+import { ropeGroups } from './groups';
+import { applySettings, defaultCore, defaultSettings, withCore } from './settings';
 import { OPEN, STRICT, groupBreaks, slotGroupProblems } from './share';
 
 describe('rng', () => {
@@ -190,11 +192,36 @@ describe('who may share a period and an area', () => {
     expect(problems('TW UH', ['O1', 'O2', 'O3'])).toEqual(['H14']);
   });
 
-  it('Ropes: neighbours of one village, and three in a row only as a last resort', () => {
-    expect(problems('Ropes', ['O1', 'O2'])).toEqual([]);
-    expect(problems('Ropes', ['O1', 'C1'])).toEqual(['H13']);
-    expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1], OPEN)).toEqual([]);
-    expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1], STRICT)).toEqual(['H13']);
+  it('Ropes goes by people: neighbours of one village, with no more campers than the limit', () => {
+    // the limit starts at 30 campers, and every bunk in this roster has 12
+    expect(problems('Ropes', ['O1', 'O2'])).toEqual([]); // 24 campers
+    expect(problems('Ropes', ['O1', 'C1'])).toEqual(['H13']); // two villages
+    expect(problems('Ropes', ['O1', 'O3'])).toEqual(['H13']); // not next to each other
+    expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1])).toEqual(['H14']); // 36 campers
+    expect(problems('Ropes', ['O1', 'O2'], [1, 2])).toEqual(['H5']); // still on the same visit
+    // it is the number of campers that counts, not the number of bunks
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 40 }));
+    expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1])).toEqual([]);
+    expect(problems('Ropes', ['O1', 'O2', 'O3', 'O4'], [1, 1, 1, 1])).toEqual(['H14']); // 48 campers
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 20 }));
+    expect(problems('Ropes', ['O1', 'O2'])).toEqual(['H14']);
+    applySettings();
+  });
+
+  it('puts bunks into ropes groups by campers, and leaves a bunk that is too big on its own', () => {
+    const names = (groups: number[][]): string[] => groups.map((g) => g.map((b) => r.names[b]).join('+'));
+    const onondaga = r.byVillage.O; // four bunks of 12 campers
+    const first = () => 0;
+    const last = () => 1;
+    expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1+O2', 'O3+O4']); // 24 each, under 30
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 45 }));
+    expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1+O2+O3', 'O4']); // three bunks is 36
+    expect(names(ropeGroups(r, onondaga, () => 0, last))).toEqual(['O1', 'O2+O3+O4']); // packed from the other end
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 10 }));
+    expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1', 'O2', 'O3', 'O4']); // too big to pair: every bunk goes alone
+    applySettings();
+    // bunks on different visits are never grouped
+    expect(names(ropeGroups(r, onondaga, (b) => (b === onondaga[1] ? 1 : 0), first))).toEqual(['O1', 'O2', 'O3+O4']);
   });
 
   it('counts breaks the same way the search does', () => {

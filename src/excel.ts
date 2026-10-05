@@ -152,11 +152,11 @@ const SHARED_NAMES: [SharedKey, string][] = [
 ];
 /** Every number on the Main areas tab: its label, and how to read it from and write it to the settings. */
 const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: CoreSettings, n: unknown) => void }[] = [
-  { label: 'Hobbies, half-days a week', get: (c) => c.hobbyHalfDays, set: (c, n) => (c.hobbyHalfDays = n as number) },
-  { label: 'Hobbies, percent of weeks with one more on Sunday morning', get: (c) => c.hobbySundayPercent, set: (c, n) => (c.hobbySundayPercent = n as number) },
+  { label: 'Hobbies, sessions a week', get: (c) => c.hobbyHalfDays, set: (c, n) => (c.hobbyHalfDays = n as number) },
   { label: 'Shabbat Prep on Friday afternoon (1 yes, 0 no)', get: (c) => (c.shabbatPrep ? 1 : 0), set: (c, n) => (c.shabbatPrep = String(n) !== '0') },
   { label: 'Shabbat Prep, one more period earlier in the week (1 yes, 0 no)', get: (c) => (c.shabbatPrepExtra ? 1 : 0), set: (c, n) => (c.shabbatPrepExtra = String(n) !== '0') },
   { label: 'Ropes, times a session', get: (c) => c.ropesPerSession, set: (c, n) => (c.ropesPerSession = n as number) },
+  { label: 'Ropes, most campers at once', get: (c) => c.ropesMaxCampers, set: (c, n) => (c.ropesMaxCampers = n as number) },
   { label: 'Pool, times a week', get: (c) => c.poolPerWeek, set: (c, n) => (c.poolPerWeek = n as number) },
   { label: 'Pool, lessons alone for an O or C bunk', get: (c) => c.poolLessons, set: (c, n) => (c.poolLessons = n as number) },
   { label: 'Pool, most campers at once', get: (c) => c.poolMaxCampers, set: (c, n) => (c.poolMaxCampers = n as number) },

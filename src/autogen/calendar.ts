@@ -50,8 +50,8 @@ export function planCalendar(
     const tueTaken = !!input.taken?.(2, 0);
     const drawWed = chance(rng, HOBBY_WED_PM_PROBABILITY);
     hobbies.push((wedTaken !== tueTaken ? tueTaken : drawWed) ? [3, 1] : [2, 0]);
-    const drawSunday = chance(rng, CALENDAR.hobbySundayChance);
-    if (input.weekIndex > 1 && drawSunday && !input.taken?.(0, 0)) hobbies.push([0, 0]);
+    // a third session is Sunday morning: never in week 1 (the swim tests are then), and not when someone is away for it
+    if (CALENDAR.hobbyHalfDays >= 3 && input.weekIndex > 1 && !input.taken?.(0, 0)) hobbies.push([0, 0]);
   }
 
   return { hobbies, swimOrder: shuffle(rng, [0, 1, 2, 3]) };

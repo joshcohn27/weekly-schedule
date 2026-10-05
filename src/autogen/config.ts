@@ -97,7 +97,7 @@ export const SHARING: Sharing = { within: 'next', across: true, grades: 'one', p
 
 /** Areas where an O bunk may share with a C bunk, or an S bunk with an M bunk. Pool is S with M only. */
 export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Israel Education', 'Pool'];
-/** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Time with UH takes two bunks of one village. Ropes is one group of 2 (3 as a trio). */
+/** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Time with UH takes two bunks of one village. Ropes goes by campers (ROPES_MAX_CAMPERS), not by this. */
 export const SLOT_CAP: Record<string, number> = {
   Athletics: 3,
   'A&C': 3,
@@ -109,7 +109,7 @@ export const SLOT_CAP: Record<string, number> = {
   Judaics: 1,
   'Israel Education': 2,
   'TW UH': 2,
-  Ropes: 2,
+  Ropes: 8, // not the limit at Ropes: that is ROPES_MAX_CAMPERS, a number of campers
 };
 /** H15: most bunks of one village at this area in one day. */
 export const DAY_CAP: Record<string, number> = {
@@ -139,6 +139,11 @@ export const EXTRA_POOL_MIN_SPARE = 2;
 export let POOL_MAX_PER_WEEK = 2;
 /** An O or C bunk's first this many regular Pool blocks are lessons, one bunk alone. The Swim Test is not a lesson. */
 export let POOL_LESSONS = 2;
+/** Ropes goes by people, not by bunks: the most campers at ropes at once. It is a setting. */
+export let ROPES_MAX_CAMPERS = 30;
+export function setRopesMax(campers: number): void {
+  ROPES_MAX_CAMPERS = campers;
+}
 /** Change the two pool numbers above (they are settings). */
 export function setPool(lessons: number, maxCampers: number): void {
   POOL_LESSONS = lessons;
@@ -147,10 +152,11 @@ export function setPool(lessons: number, maxCampers: number): void {
 
 /**
  * The parts of the fixed calendar that are settings. Hobbies: two half-days a week is Friday morning and one midweek, one is
- * Friday morning only, none is no hobbies; `hobbySundayChance` is how often a week after the first gets one more on Sunday
- * morning. Shabbat Prep: the Friday afternoon of a village's turn, and one more period earlier that week.
+ * Friday morning only, none is no hobbies, and three adds Sunday morning (not in week 1, which has the swim tests then). It is
+ * an exact number, with no chance in it. Shabbat Prep: the Friday afternoon of a village's turn, and one more period earlier
+ * that week.
  */
-export const CALENDAR = { hobbyHalfDays: 2, hobbySundayChance: 0.2, shabbatPrep: true, shabbatPrepExtra: true };
+export const CALENDAR = { hobbyHalfDays: 2, shabbatPrep: true, shabbatPrepExtra: true };
 /** Periods Shabbat Prep takes in the week of a village's turn. */
 export const shabbatPrepPeriods = (): number => (CALENDAR.shabbatPrep ? 2 + (CALENDAR.shabbatPrepExtra ? 1 : 0) : 0);
 

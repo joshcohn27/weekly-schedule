@@ -118,7 +118,7 @@ export function expectedSpare(c: Ctx, b: number, week: number): number {
   let free = 24;
   const hobbies = CALENDAR.hobbyHalfDays;
   if (last) free -= 8 + (hobbies > 0 ? 2 : 0); // Friday, Thursday and Monday hobbies
-  else free -= 2 * hobbies + (week > 1 && hobbies > 1 ? 2 * CALENDAR.hobbySundayChance : 0); // hobbies, and the chance of one more on Sunday
+  else free -= 2 * (week === 1 ? Math.min(hobbies, 2) : hobbies); // hobbies (the third session is Sunday morning, which week 1 does not have)
   if (week === 1) free -= 1; // Sunday swim test, or Mohawk's Athletics
   if (v === 'T') free -= triathlonPeriods(c, b, week); // triathlon: one double and two singles
   else free -= v === 'M' ? leagueFor(v) * 2 : leagueFor(v);
@@ -271,9 +271,9 @@ export function planWeek(c: Ctx): Plan {
     mins[area] = d.min;
   };
 
-  // Ropes go in groups (bunks next to each other in a village, in twos), so a group draws its week once and every member follows.
+  // Ropes go in groups (bunks next to each other in a village, up to the camper limit), so a group draws its week once and every member follows.
   const ropeNeed = Array.from({ length: n }, (_, b) => b).filter((b) => counted(c, inWeek, b, 'Ropes') < SESSION_TARGETS.Ropes);
-  const groups = ropeGroups(c.roster, ropeNeed, (b) => counted(c, inWeek, b, 'Ropes'), () => 0, false);
+  const groups = ropeGroups(c.roster, ropeNeed, (b) => counted(c, inWeek, b, 'Ropes'), () => 0);
   const leaders = new Set(groups.map((g) => g[0]));
   draw('Ropes', 'Ropes', (b) => (leaders.has(b) ? SESSION_TARGETS.Ropes : counted(c, inWeek, b, 'Ropes')), () => 1);
   for (const g of groups) {

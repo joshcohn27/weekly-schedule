@@ -155,13 +155,15 @@ cut to 1 and no third Ceramics, for example, a run tried for its full time and d
 
 **Every program area is in the one table**, and the defaults are what the generator has always used:
 
-- **Hobbies:** half-days a week (2 is Friday morning and one midweek, 1 is Friday morning only, 0 is none), and how
-  often a week gets one more on Sunday morning.
+- **Hobbies:** exactly how many sessions a week. A session is a half-day for the whole camp. 1 is Friday morning, 2
+  adds Wednesday afternoon or Tuesday morning, 3 adds Sunday morning (not in week 1, when the swim tests are then),
+  0 is none. There is no chance in it: the number is what every week gets.
 - **Waterfront:** about how many times a week. **League:** about how many times a week, set village by village
   (Mohawk's are double periods; for Tusc the number is triathlon sessions).
 - **Pool:** swims a week and the most a week, how many of an O or C bunk's first swims are lessons alone, and the most
   campers in the water at once.
-- **Ropes:** times a session (low ropes first, then high).
+- **Ropes:** times a session (low ropes first, then high), and the most campers at ropes at once. Ropes goes by
+  people, not by bunks.
 - **Shabbat Prep:** the Friday afternoon of a village's turn, and the extra period earlier that week, each on or off.
 - **Athletics and A&C:** the most a week, bunks at once, bunks of one village in a day.
 - **Music:** times a week and the most. **Time with UH:** at least and at most a session.
@@ -211,8 +213,9 @@ Who may share a period in the same area:
 - **Music, Teva, Dance:** two bunks that may share, on the same visit number; one bunk is preferred.
 - **Yoga, Ceramics, Judaics, Israel:** one bunk at a time. Judaics and Israel may run in the same period.
 - **Time with UH:** one bunk, or two of the same village.
-- **Ropes:** one group per half-day in the whole camp, two bunks next to each other in a village (three in a row only
-  as a last resort), low ropes first and high ropes second.
+- **Ropes:** one group per half-day in the whole camp. It goes by people, not by bunks: bunks next to each other in a
+  village go together as long as their campers add up to no more than the number in Settings (30 to start with), and
+  a bunk bigger than that goes alone. Low ropes first and high ropes second.
 
 How much:
 

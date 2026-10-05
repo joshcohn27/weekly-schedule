@@ -13,9 +13,7 @@ export function groupSoft(c: Ctx, s: number, area: string): number {
   let score = 0;
   if (area === 'Athletics' || area === 'A&C') {
     if (g.length === 3) score += WEIGHTS.thirdBunk;
-  } else if (area === 'Ropes') {
-    if (g.length === 3) score += WEIGHTS.trio;
-  } else score += WEIGHTS.sharedPreferredOne;
+  } else if (area !== 'Ropes') score += WEIGHTS.sharedPreferredOne; // at Ropes any group under the camper limit is as good as another
   if (pairs.some((p) => p === 1)) score += WEIGHTS.pairFarAge;
   return score;
 }

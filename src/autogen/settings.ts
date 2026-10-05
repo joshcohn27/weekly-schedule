@@ -13,9 +13,11 @@ import {
   POOL_LESSONS,
   POOL_MAX_CAMPERS,
   POOL_TARGETS,
+  ROPES_MAX_CAMPERS,
   VISIT,
   WEEK_BLOCK_MAX,
   setPool,
+  setRopesMax,
   setWeekly,
   weekly,
   type Sharing,
@@ -65,14 +67,14 @@ export interface SharedNumbers {
  * swim allowed up to `poolMaxPerWeek`; who swims together is not a setting.
  */
 export interface CoreSettings {
-  /** Hobbies: half-days a week (2 is Friday morning and one midweek, 1 is Friday morning only, 0 is none), and the chance, in percent, of one more on a Sunday morning after week 1. */
+  /** Hobby sessions a week, exactly: 1 is Friday morning, 2 adds one midweek, 3 adds Sunday morning (not in week 1), 0 is none. */
   hobbyHalfDays: number;
-  hobbySundayPercent: number;
   /** Shabbat Prep on the Friday afternoon of a village's turn, and one more period earlier that week. */
   shabbatPrep: boolean;
   shabbatPrepExtra: boolean;
-  /** Ropes in a session: low ropes first, then high ropes. */
+  /** Ropes in a session (low ropes first, then high ropes), and the most campers at ropes at once. */
   ropesPerSession: number;
+  ropesMaxCampers: number;
   /** The pool: swims a week, how many of an O or C bunk's first swims are lessons alone, and the most campers in the water at once. */
   poolPerWeek: number;
   poolLessons: number;
@@ -100,9 +102,9 @@ export interface VisitSettings {
 
 /** The ranges the core numbers are kept inside. */
 const CORE_LIMITS = {
-  hobbyHalfDays: [0, 2],
-  hobbySundayPercent: [0, 100],
+  hobbyHalfDays: [0, 3],
   ropesPerSession: [0, 2],
+  ropesMaxCampers: [5, 200],
   poolPerWeek: [0, 1],
   poolLessons: [0, 4],
   poolMaxCampers: [10, 500],
@@ -131,10 +133,10 @@ function readCore(): CoreSettings {
   };
   return {
     hobbyHalfDays: CALENDAR.hobbyHalfDays,
-    hobbySundayPercent: Math.round(CALENDAR.hobbySundayChance * 100),
     shabbatPrep: CALENDAR.shabbatPrep,
     shabbatPrepExtra: CALENDAR.shabbatPrepExtra,
     ropesPerSession: SESSION_TARGETS.Ropes,
+    ropesMaxCampers: ROPES_MAX_CAMPERS,
     poolPerWeek: POOL_TARGETS.O?.perWeek ?? 1,
     poolLessons: POOL_LESSONS,
     poolMaxCampers: POOL_MAX_CAMPERS,
@@ -431,8 +433,8 @@ export function applySettings(settings?: Settings | null): void {
   replace(LEAGUE_BY_VILLAGE, core.leagueByVillage);
   SESSION_TARGETS['TW UH'] = core.uhMin;
   SESSION_TARGETS.Ropes = core.ropesPerSession;
+  setRopesMax(core.ropesMaxCampers);
   CALENDAR.hobbyHalfDays = core.hobbyHalfDays;
-  CALENDAR.hobbySundayChance = core.hobbySundayPercent / 100;
   CALENDAR.shabbatPrep = core.shabbatPrep;
   CALENDAR.shabbatPrepExtra = core.shabbatPrepExtra;
   setPool(core.poolLessons, core.poolMaxCampers);

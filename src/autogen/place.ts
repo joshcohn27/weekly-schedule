@@ -364,7 +364,7 @@ const ropesInHalf = (c: Ctx, slots: readonly number[]): boolean => c.grid.some((
 export function placeRopes(c: Ctx, plan: Plan): void {
   const ropers = plan.Ropes.map((k, b) => (k > 0 ? b : -1)).filter((b) => b >= 0);
   const base = (b: number): number => (c.hist[b].earlier.Ropes ?? 0) + inWeekCount(c, b, 'Ropes');
-  const units = ropeGroups(c.roster, ropers, base, (k) => Math.floor(c.rng() * k), c.relax.trio);
+  const units = ropeGroups(c.roster, ropers, base, (k) => Math.floor(c.rng() * k));
   const names = (unit: number[]): string => unit.map((b) => c.roster.names[b]).join(' and ');
   placeMostConstrainedFirst<{ day: number; half: number }>(
     c,

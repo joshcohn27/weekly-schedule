@@ -1,6 +1,6 @@
 import { areaOf } from '../config';
-import { SLOT_CAP, VILLAGE_LEVEL_LABELS, VISIT } from './config';
-import { isConsecutiveTrio, isSameAgeGroup, shareLevel, type Roster } from './roster';
+import { ROPES_MAX_CAMPERS, SLOT_CAP, VILLAGE_LEVEL_LABELS, VISIT } from './config';
+import { isSameAgeGroup, shareLevel, type Roster } from './roster';
 
 /**
  * Which last-resort grouping the generator may use right now. The validator always allows it, because it is legal;
@@ -63,11 +63,11 @@ export const isFixedMohawkAthletics = (weekIndex: number, village: string, slot:
 
 /**
  * Check the bunks that are in one program area in one period (rules H13, H14 and the equal ordinal of H5).
- *  - No more than SLOT_CAP bunks (Ropes: two, or three as a trio).
+ *  - No more than SLOT_CAP bunks (Ropes goes by campers instead).
  *  - Athletics: two or three bunks, any bunks. The same ordinal is preferred there, never required.
  *  - A&C: two bunks that may share, or three bunks of the same age; always on the same ordinal.
  *  - Time with UH: two bunks of one village.
- *  - Ropes: two bunks that may share, or as a last resort three in a row in one village.
+ *  - Ropes: neighbours in one village, with no more campers between them than ROPES_MAX_CAMPERS.
  *  - Everything else: two bunks only when shareLevel says they may, on the same ordinal.
  */
 export function slotGroupProblems(
@@ -75,7 +75,7 @@ export function slotGroupProblems(
   area: string,
   group: readonly number[],
   ordinal: (bunk: number) => number | null,
-  relax: Relax = OPEN,
+  _relax: Relax = OPEN,
   where = '',
 ): ShareProblem[] {
   const out: ShareProblem[] = [];
@@ -84,8 +84,23 @@ export function slotGroupProblems(
   const names = group.map((b) => r.names[b]).join(', ');
   const at = where ? ` ${where}` : '';
   if (cap === undefined) return out;
-  const hardCap = area === 'Ropes' ? 3 : cap;
-  if (group.length > hardCap) {
+  if (area === 'Ropes') {
+    // Ropes goes by people, not by bunks: neighbours in one village, with no more campers than the ropes course takes
+    const line = ropesLine(r, group);
+    const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
+    if (!line) out.push({ rule: 'H13', message: `${names} share Ropes${at}, but bunks at Ropes together must be next to each other in one village.` });
+    if (campers > ROPES_MAX_CAMPERS) out.push({ rule: 'H14', message: `${names} are ${campers} campers at Ropes${at}, and the most is ${ROPES_MAX_CAMPERS}.` });
+    const order = line ?? [...group];
+    for (let i = 1; i < order.length && !VISIT.free.includes(area); i++) {
+      const oa = ordinal(order[i - 1]);
+      const ob = ordinal(order[i]);
+      if (oa !== null && ob !== null && Math.abs(oa - ob) > VISIT.slackNow) {
+        out.push({ rule: 'H5', message: `${r.names[order[i - 1]]} (time ${oa}) and ${r.names[order[i]]} (time ${ob}) share ${area}${at}.` });
+      }
+    }
+    return out;
+  }
+  if (group.length > cap) {
     out.push({ rule: 'H14', message: `${names} are ${group.length} at ${area}${at}, and the most is ${cap}.` });
     return out;
   }
@@ -107,9 +122,6 @@ export function slotGroupProblems(
     sameVisit = chain;
   } else if (group.length === 2) {
     if (matched.length === 0) bad('they are not allowed to be together');
-  } else if (area === 'Ropes') {
-    if (!isConsecutiveTrio(r, group)) bad('three at Ropes must be three in a row in one village');
-    else if (!relax.trio) bad('a group of three at Ropes is only a last resort');
   } else if (area === 'A&C') {
     if (!isSameAgeGroup(r, group)) bad('three at A&C must all be the same age');
     sameVisit = [[group[0], group[1]], [group[1], group[2]]];
@@ -130,11 +142,10 @@ export function slotGroupProblems(
  * The number of problems slotGroupProblems would report, without building the messages. The fill search calls this
  * many thousands of times. `ordinal` returns 0 when a bunk has no ordinal there.
  */
-export function groupBreaks(r: Roster, area: string, group: readonly number[], ordinal: (bunk: number) => number, relax: Relax): number {
+export function groupBreaks(r: Roster, area: string, group: readonly number[], ordinal: (bunk: number) => number, _relax?: Relax): number {
   if (group.length <= 1) return 0;
   const cap = SLOT_CAP[area];
   if (cap === undefined) return 0;
-  if (group.length > (area === 'Ropes' ? 3 : cap)) return 1;
   const free = VISIT.free.includes(area);
   const differ = (a: number, b: number): number => {
     if (free) return 0;
@@ -142,6 +153,16 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
     const ob = ordinal(b);
     return oa > 0 && ob > 0 && Math.abs(oa - ob) > VISIT.slackNow ? 1 : 0;
   };
+  if (area === 'Ropes') {
+    const line = ropesLine(r, group);
+    let campers = 0;
+    for (const b of group) campers += r.campers[b];
+    const order = line ?? group;
+    let n = (line ? 0 : 1) + (campers > ROPES_MAX_CAMPERS ? 1 : 0);
+    for (let i = 1; i < order.length; i++) n += differ(order[i - 1], order[i]);
+    return n;
+  }
+  if (group.length > cap) return 1;
   const chain = (): number => {
     let n = 0;
     for (let i = 1; i < group.length; i++) n += differ(group[i - 1], group[i]);
@@ -162,6 +183,15 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
     }
   }
   if (group.length === 2) return unequal + (matched === 0 ? 1 : 0);
-  // three at Ropes
-  return unequal + (isConsecutiveTrio(r, group) && relax.trio ? 0 : 1);
+  return unequal + 1; // three or more, anywhere a group of three has no rule of its own
+}
+
+/**
+ * The bunks at Ropes together, in the order they stand in their village's list, when they are one unbroken line of
+ * neighbours who may share. Null when they are not (two villages, a gap in the line, or neighbours too far apart in grade).
+ */
+export function ropesLine(r: Roster, group: readonly number[]): number[] | null {
+  const line = [...group].sort((x, y) => r.pos[x] - r.pos[y]);
+  for (let i = 1; i < line.length; i++) if (shareLevel(r, line[i - 1], line[i], 'Ropes') === 0) return null;
+  return line;
 }

@@ -120,19 +120,19 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
       <tr>
         <th scope="row">Ropes</th>
         <td>exactly {number('Ropes times a session', core.ropesPerSession, 0, 2, (n) => set({ ropesPerSession: n }))} a session</td>
-        <td colSpan={3} className="fixed">
-          Low ropes first, then high ropes. Two bunks at a time, a double period.
+        <td colSpan={3}>
+          At most {number('Ropes most campers at once', core.ropesMaxCampers, 5, 200, (n) => set({ ropesMaxCampers: n }))} campers at once{' '}
+          <Info text="Ropes goes by people, not by bunks: bunks that are next to each other in a village go together as long as their campers add up to no more than this. A bunk bigger than the number goes alone. Low ropes first, then high ropes, each a double period." />
         </td>
       </tr>
       <tr>
         <th scope="row">Hobbies</th>
         <td>
-          {number('Hobbies half-days a week', core.hobbyHalfDays, 0, 2, (n) => set({ hobbyHalfDays: n }))} half-days a week, and one more on a Sunday morning{' '}
-          {number('Hobbies Sunday chance in percent', core.hobbySundayPercent, 0, 100, (n) => set({ hobbySundayPercent: n }))}% of weeks{' '}
-          <Info text="A chance, not a count: each week after the first has this chance of a third hobbies half-day on Sunday morning." />
+          exactly {number('Hobbies sessions a week', core.hobbyHalfDays, 0, 3, (n) => set({ hobbyHalfDays: n }))} sessions a week{' '}
+          <Info text="A session is a half-day for the whole camp. 1 is Friday morning. 2 adds Wednesday afternoon or Tuesday morning. 3 adds Sunday morning, except in week 1, when the swim tests are then. The last week of a 4-week session has one, on Monday morning." />
         </td>
         <td colSpan={3} className="fixed">
-          The whole camp. Friday morning, and Wednesday afternoon or Tuesday morning.
+          The whole camp
         </td>
       </tr>
       <tr>

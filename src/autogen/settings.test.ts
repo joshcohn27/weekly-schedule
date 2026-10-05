@@ -406,10 +406,10 @@ describe('the main areas and the visit numbers', () => {
   it('start as the numbers the generator has always used', () => {
     expect(coreOf(defaultSettings())).toEqual({
       hobbyHalfDays: 2,
-      hobbySundayPercent: 20,
       shabbatPrep: true,
       shabbatPrepExtra: true,
       ropesPerSession: 2,
+      ropesMaxCampers: 30,
       poolPerWeek: 1,
       poolLessons: 2,
       poolMaxCampers: 80,
@@ -458,6 +458,15 @@ describe('the main areas and the visit numbers', () => {
     applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 0 }));
     expect(calendarFor(2)).toEqual([]);
     expect(calendarFor(4)).toEqual([]);
+    // the number is exact, with no chance in it: two means two every week, and three adds Sunday morning after week 1
+    applySettings();
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) expect(planCalendar({ weekIndex: 3, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toHaveLength(2);
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 3 }));
+    for (const seed of [1, 2, 3, 4]) {
+      expect(planCalendar({ weekIndex: 3, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toContainEqual([0, 0]);
+      expect(planCalendar({ weekIndex: 3, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toHaveLength(3);
+      expect(planCalendar({ weekIndex: 1, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toHaveLength(2); // the swim tests are on that Sunday
+    }
     applySettings();
     expect([CALENDAR.hobbyHalfDays, CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([2, true, 3, 2, 2, 80]);
     expect(POOL_TARGETS.O).toEqual({ perWeek: 1 });
@@ -568,8 +577,8 @@ describe('the main areas and the visit numbers', () => {
       'Pool lessons alone',
       'Pool most campers at once',
       'Ropes times a session',
-      'Hobbies half-days a week',
-      'Hobbies Sunday chance in percent',
+      'Hobbies sessions a week',
+      'Ropes most campers at once',
       'Shabbat Prep on Friday afternoon',
       'Shabbat Prep extra period',
       'Athletics at most a week',
