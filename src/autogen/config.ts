@@ -123,9 +123,9 @@ export const SLOT_CAP: Record<string, number> = {
   Music: 2,
   Teva: 2,
   Dance: 2,
-  Yoga: 1,
+  Yoga: 2, // two bunks only when they are small enough together: CAMPER_CAP
   Ceramics: 1,
-  Judaics: 1,
+  Judaics: 2, // two bunks of one village
   'Israel Education': 2,
   'TW UH': 2,
   Ropes: 8, // not the limit at Ropes: that is ROPES_MAX_CAMPERS, a number of campers
@@ -137,12 +137,16 @@ export const DAY_CAP: Record<string, number> = {
   Music: 2,
   Teva: 2,
   Dance: 2,
-  Yoga: 1,
+  Yoga: 2,
   Ceramics: 1,
-  Judaics: 1,
+  Judaics: 2,
   'Israel Education': 2,
   'TW UH': 2,
 };
+/** Areas that go by campers: bunks share a period there only when they have no more campers between them than this. It is a setting. */
+export const CAMPER_CAP: Record<string, number> = { Yoga: 22 };
+/** Areas where only bunks of one village are together. */
+export const ONE_VILLAGE_AREAS = ['TW UH', 'Judaics'];
 /** H17: these areas are never a double period. A block of them is always one period. */
 export const SINGLE_PERIOD_AREAS = ['Athletics', 'A&C'];
 /** H15: most blocks of this area one bunk may have in a week. */
@@ -288,6 +292,39 @@ export const FILL_REST_STEPS = 8;
 export const FILL_NOISE = 0.25;
 
 /**
+ * When true, each bunk has Athletics only on every other day and A&C only on the days between. When false the search is
+ * free to put them on any days that keep the rules (never twice in a day, never two days in a row).
+ */
+export let FIXED_ATHLETICS_DAYS = false;
+export const setFixedAthleticsDays = (on: boolean): void => {
+  FIXED_ATHLETICS_DAYS = on;
+};
+
+/**
+ * Waterfront and league take a whole village out of a period, which nothing else can do. Where a half-day or a period is
+ * still open after the week's own blocks are down, a village takes one more, as long as each of its bunks keeps this many
+ * empty periods beyond what is planned for it.
+ */
+export let EXTRA_BLOCK_KEEP = 4;
+export const setExtraBlockKeep = (n: number): void => {
+  EXTRA_BLOCK_KEEP = n;
+};
+
+/**
+ * Before the fill, a bunk left with more empty periods than Athletics and A&C can take (plus this many for a filler) takes
+ * visits it still owes from later weeks. An area is not topped up past this share of the bunk-periods it has in the week.
+ */
+export let TOP_UP_SLACK = 2;
+export let TOP_UP_MAX_LOAD = 0.6;
+/** And it takes them once it has this many more left over than this week's fair share of what the rest of the session will leave. */
+export let TOP_UP_FAIR_SLACK = 1;
+export function setTopUp(slack: number, load: number, fair = TOP_UP_FAIR_SLACK): void {
+  TOP_UP_SLACK = slack;
+  TOP_UP_MAX_LOAD = load;
+  TOP_UP_FAIR_SLACK = fair;
+}
+
+/**
  * Building around periods someone filled in by hand (other than trips) can make a target unreachable, so each limit
  * on shortfalls and on the Athletics and A&C gap is this much looser for such a week.
  */
@@ -339,11 +376,40 @@ export function setWeekly(n: Weekly): void {
  * them be one visit apart in the last week of a session, when there is the least room to line them up. `slackNow` is what
  * applies to the week in hand: the generator and the rule checker set it before they look at a week.
  */
-export const VISIT: { free: string[]; lastWeekSlack: boolean; slackNow: number } = { free: ['Athletics', 'TW UH'], lastWeekSlack: false, slackNow: 0 };
-/** Set the visit slack for the week in hand. */
-export const setVisitWeek = (lastWeekOfSession: boolean): void => {
+export const VISIT: { free: string[]; lastWeekSlack: boolean; slackNow: number; freeNow: string[] } = { free: ['Athletics', 'TW UH'], lastWeekSlack: false, slackNow: 0, freeNow: [] };
+/** In week 4 of a 4-week session, bunks at these areas together need not be on the same visit: there is the least room to line them up. */
+export const VISIT_FREE_IN_WEEK_FOUR = ['A&C'];
+/**
+ * Week 4 of a 4-week session is four days long and has the least room, so a few limits are looser in that week only: this
+ * many bunks of a village a day at Athletics and at A&C, and one more Time with UH than a session usually allows.
+ */
+export const WEEK_FOUR_DAY_CAP: Record<string, number> = { Athletics: 3, 'A&C': 3 };
+export const WEEK_FOUR_UH_BONUS = 1;
+/** The Time with UH bonus for the week in hand, and whether that week is week 4 of 4. */
+export let UH_BONUS_NOW = 0;
+export let WEEK_FOUR_NOW = false;
+/** DAY_CAP as the settings left it, so the week 4 numbers can be put on and taken off again. */
+const DAY_CAP_SET: Record<string, number> = { ...DAY_CAP };
+/** Call after the settings have changed DAY_CAP. */
+export function rememberDayCaps(): void {
+  for (const key of Object.keys(DAY_CAP_SET)) delete DAY_CAP_SET[key];
+  Object.assign(DAY_CAP_SET, DAY_CAP);
+  WEEK_FOUR_NOW = false;
+  UH_BONUS_NOW = 0;
+}
+/** Set the rules for the week in hand: the generator and the rule checker call it before they look at a week. */
+export const setVisitWeek = (lastWeekOfSession: boolean, weekFourOfFour = false): void => {
   VISIT.slackNow = lastWeekOfSession && VISIT.lastWeekSlack ? 1 : 0;
+  VISIT.freeNow = weekFourOfFour ? VISIT_FREE_IN_WEEK_FOUR : [];
+  WEEK_FOUR_NOW = weekFourOfFour;
+  UH_BONUS_NOW = weekFourOfFour ? WEEK_FOUR_UH_BONUS : 0;
+  for (const [area, cap] of Object.entries(WEEK_FOUR_DAY_CAP)) {
+    if (DAY_CAP_SET[area] === undefined) continue;
+    DAY_CAP[area] = weekFourOfFour ? Math.max(DAY_CAP_SET[area], cap) : DAY_CAP_SET[area];
+  }
 };
+/** Is this an area where bunks together need not be on the same visit, in the week in hand? */
+export const visitFree = (area: string): boolean => VISIT.free.includes(area) || VISIT.freeNow.includes(area);
 /** How strongly league is drawn to the set of days it is aiming for. */
 export const NEXT_DAY_WEIGHT = 3;
 /** Sets of three days with none next to each other, for a village's three league periods (0 is Sunday). */
@@ -353,6 +419,14 @@ export const LEAGUE_DAY_PATTERNS = [
   [0, 3, 5],
   [1, 3, 5],
 ];
+/** Pairs of days that are not next to each other, for a village with two league periods a week. */
+export const LEAGUE_DAY_PAIRS: number[][] = [];
+for (let a = 0; a < 6; a++) for (let b = a + 2; b < 6; b++) LEAGUE_DAY_PAIRS.push([a, b]);
+/** League goes on the set of days with the most empty periods; this much chance is mixed in so the weeks do not all look alike. */
+export let LEAGUE_DAY_NOISE = 6;
+export const setLeagueDayNoise = (n: number): void => {
+  LEAGUE_DAY_NOISE = n;
+};
 /** Time with UH fills periods nothing else can, and the last weeks need it most: before the last week a bunk is kept this many under its limit. */
 export const UH_HELD_BACK = 1;
 /** A bunk away on trips for at least this many periods of a week is squeezed onto few days, and may use what was held back. */

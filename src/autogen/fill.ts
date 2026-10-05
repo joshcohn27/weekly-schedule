@@ -6,6 +6,7 @@ import {
   FILL_POLISH_STEPS,
   FILL_REST_STEPS,
   FILL_STALL_STEPS,
+  FIXED_ATHLETICS_DAYS,
   FLEXIBLE_VILLAGES,
   GAP_MAX_MT,
   GAP_MAX_OCS,
@@ -15,15 +16,21 @@ import {
   SESSION_FILLER_MAX,
   SHABBAT_PREP_STAFF,
   SLOT_CAP,
+  MIN_WEEK_CAPACITY,
+  TOP_UP_FAIR_SLACK,
+  TOP_UP_MAX_LOAD,
+  TOP_UP_SLACK,
   TRIP_LABELS,
+  UH_BONUS_NOW,
   UH_HELD_BACK,
+  WEEK_FOUR_NOW,
   UH_MAX_PER_SESSION,
   UH_RELEASE_TRIP_PERIODS,
   WEEK_BLOCK_MAX,
   WEIGHTS,
 } from './config';
 import { SLOTS, dayOf } from './history';
-import { TOKEN_AREAS, TOKEN_LABEL, inWeekCount, sessionTargetOf, type Plan } from './planner';
+import { TOKEN_AREAS, TOKEN_LABEL, expectedSpare, inWeekCount, leftoverRoom, remainingWeeks, sessionTargetOf, type Plan } from './planner';
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
 import { groupBreaks, isFixedMohawkAthletics, sharedArea } from './share';
@@ -96,6 +103,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
     }
   }
 
+  topUp(c, tok, free, total);
   fitToVillageDays(c, tok, free);
 
   const search = new FillSearch(c, free);
@@ -106,6 +114,45 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
   // it this week and it is not held against the week.
   for (let b = 0; b < n; b++) if ((tok[b].Music ?? 0) > 0 && search.musicIsOptional && !c.grid[b].includes('Music')) c.excused.push(b);
   return clean;
+}
+
+/**
+ * The periods a bunk has left once its planned blocks are down can only be Athletics or A&C (and now and then a filler),
+ * and a week only holds so many of those: one of each a day for the bunk, and DAY_CAP bunks a day for its village. The
+ * week's draw is made before anything is placed, so a bunk can come out with far more left over than that. Such a bunk
+ * takes a visit it still owes from a later week now: the area with the most room left in this week.
+ */
+function topUp(c: Ctx, tok: Record<string, number>[], free: number[][], total: (b: number, area: string) => number): void {
+  const areas = TOKEN_AREAS.filter((a) => a !== 'Music');
+  const periods = ALL_SLOTS.filter((s) => fillable(c, s) && c.grid.some((row, b) => row[s] === '' || free[b].includes(s))).length;
+  const planned = (area: string): number => tok.reduce((sum, t) => sum + (t[area] ?? 0), 0);
+  for (const b of shuffle(c.rng, Array.from({ length: c.roster.n }, (_, i) => i))) {
+    const v = c.roster.village[b];
+    const members = c.roster.byVillage[v];
+    const days = new Set(free[b].map(dayOf)).size;
+    const share = Math.min(1, (DAY_CAP.Athletics + DAY_CAP['A&C']) / (2 * members.length));
+    const room = Math.floor(share * Math.min(WEEK_BLOCK_MAX.Athletics + WEEK_BLOCK_MAX['A&C'], 2 * days, 2 * Math.ceil(days / 2) + 2 * Math.floor(days / 2))) + TOP_UP_SLACK;
+    const mine = (): number => Object.values(tok[b]).reduce((a, x) => a + x, 0);
+    // this week's fair share of everything the bunk will have left over in the weeks still to come
+    const later = remainingWeeks(c).filter((w) => w !== c.weekIndex);
+    const owed = areas.reduce((sum, a) => sum + Math.max(0, sessionTargetOf(v, c.sessionWeeks, a) - total(b, a)), 0);
+    const leftoverAll = free[b].length - (tok[b].Music ?? 0) + later.reduce((sum, w) => sum + Math.max(0, expectedSpare(c, b, w)), 0) - owed;
+    const rooms = later.reduce((sum, w) => sum + (expectedSpare(c, b, w) >= MIN_WEEK_CAPACITY ? leftoverRoom(c, b, w) : 0), 0);
+    const now = leftoverRoom(c, b, c.weekIndex);
+    const fair = later.length === 0 ? Infinity : Math.ceil((Math.max(0, leftoverAll) * now) / Math.max(0.01, now + rooms)) + TOP_UP_FAIR_SLACK;
+    const limit = Math.min(room, fair);
+    while (free[b].length - mine() > limit) {
+      const options = areas
+        .filter((a) => sessionTargetOf(v, c.sessionWeeks, a) - total(b, a) - (tok[b][a] ?? 0) > 0)
+        // an area goes on days that are not next to each other, and a village only sends so many bunks to it in a day
+        .filter((a) => (tok[b][a] ?? 0) < Math.ceil(days / 2) && members.reduce((sum, x) => sum + (tok[x][a] ?? 0), 0) < (DAY_CAP[a] ?? Infinity) * days)
+        .map((a) => ({ a, load: (planned(a) + 1) / ((SLOT_CAP[a] ?? 1) * periods) + (tok[b][a] ?? 0) + c.rng() * 0.05 }))
+        .filter((o) => o.load - (tok[b][o.a] ?? 0) <= TOP_UP_MAX_LOAD);
+      if (options.length === 0) break;
+      const pick = options.reduce((x, y) => (y.load < x.load ? y : x)).a;
+      tok[b][pick] = (tok[b][pick] ?? 0) + 1;
+    }
+  }
 }
 
 /**
@@ -205,7 +252,7 @@ class FillSearch {
     // the last one is kept for the week that needs it most: the last week, or a week the bunk is away on a trip for half a day or more
     this.uhLimit = c.grid.map((row) => {
       const away = row.filter((l) => TRIP_LABELS.includes(l)).length >= UH_RELEASE_TRIP_PERIODS;
-      return UH_MAX_PER_SESSION - (c.weekIndex >= c.sessionWeeks || away ? 0 : UH_HELD_BACK);
+      return UH_MAX_PER_SESSION + UH_BONUS_NOW - (c.weekIndex >= c.sessionWeeks || away ? 0 : UH_HELD_BACK);
     });
     this.allowedGap = c.roster.village.map((v) => (FLEXIBLE_VILLAGES.includes(v) ? GAP_MAX_MT : GAP_MAX_OCS) + slack + c.stretch);
     const other = (b: number, area: string): number => (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0);
@@ -256,7 +303,10 @@ class FillSearch {
         const day = dayOf(s);
         const own = (day + this.athleticsDays[b]) % 2 === 0 ? 'Athletics' : 'A&C';
         const clear = (label: string, area: string): boolean => !has(row, day, area) && !has(row, day - 1, area) && !has(row, day + 1, area) && row.every((l) => l !== label || area === 'Music');
-        row[s] = !has(row, day, own) ? own : clear('Time with UH', 'TW UH') ? 'Time with UH' : !this.prep[s] && clear('Music', 'Music') ? 'Music' : own;
+        const other = own === 'Athletics' ? 'A&C' : 'Athletics';
+        const fits = (area: string): boolean => !has(row, day, area) && !has(row, day - 1, area) && !has(row, day + 1, area) && row.filter((l) => l === area).length < (WEEK_BLOCK_MAX[area] ?? 3);
+        if (FIXED_ATHLETICS_DAYS) row[s] = !has(row, day, own) ? own : clear('Time with UH', 'TW UH') ? 'Time with UH' : !this.prep[s] && clear('Music', 'Music') ? 'Music' : own;
+        else row[s] = fits(own) ? own : fits(other) ? other : clear('Time with UH', 'TW UH') ? 'Time with UH' : !this.prep[s] && clear('Music', 'Music') ? 'Music' : own;
       }
     }
     for (let b = 0; b < this.n; b++) this.refresh(b);
@@ -387,7 +437,7 @@ class FillSearch {
           }
         }
         // Athletics on the bunk's Athletics days and A&C on the others
-        if (!locked[s] && ((area === 'A&C' && athleticsToday) || (area === 'Athletics' && !athleticsToday && !(fixedAthletics && s === 3)))) cost += HARD;
+        if (FIXED_ATHLETICS_DAYS && !locked[s] && ((area === 'A&C' && athleticsToday) || (area === 'Athletics' && !athleticsToday && !(fixedAthletics && s === 3)))) cost += HARD;
         const filler = this.fillers.indexOf(area);
         if (filler >= 0) {
           fillers[filler]++;
@@ -409,7 +459,8 @@ class FillSearch {
       }
     }
     // a village that gives up some of its Music for A&C does not get the Music back as a filler
-    const musicMax = MUSIC_LIGHT_VILLAGES.includes(c.roster.village[b]) ? (this.musicPlanned[b] ? 1 : 0) : WEEK_BLOCK_MAX.Music;
+    // (in week 4 of 4 it may: one Music to fill a period)
+    const musicMax = MUSIC_LIGHT_VILLAGES.includes(c.roster.village[b]) ? Math.max(this.musicPlanned[b] ? 1 : 0, WEEK_FOUR_NOW ? 1 : 0) : WEEK_BLOCK_MAX.Music;
     cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']) + Math.min(music, Math.max(0, musicAll - musicMax)));
     // Mohawk and Tusc have few periods left over, and those should not all go to Athletics and Time with UH
     if (this.flexible[b] && ac === 0 && (athWeek > 0 || uh > 0)) cost += WEIGHTS.noAcWeek;

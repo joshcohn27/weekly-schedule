@@ -37,8 +37,8 @@ describe('settings', () => {
   it('start as the numbers the generator has always used', () => {
     const s = defaultSettings();
     expect(Object.keys(s.areas)).toEqual(SETTING_AREAS);
-    expect(s.areas.Judaics).toEqual({ min: 2, max: 3, atOnce: 1, villagePerDay: 1 });
-    expect(s.areas.Yoga).toEqual({ min: 2, max: 3, atOnce: 1, villagePerDay: 1 });
+    expect(s.areas.Judaics).toEqual({ min: 2, max: 3, atOnce: 2, villagePerDay: 2 });
+    expect(s.areas.Yoga).toEqual({ min: 2, max: 3, atOnce: 2, villagePerDay: 2 });
     expect(s.areas['Israel Education']).toEqual({ min: 2, max: 2, atOnce: 2, villagePerDay: 2 });
     expect(s.areas.Teva).toEqual({ min: 3, max: 3, atOnce: 2, villagePerDay: 2 });
     expect(s.areas.Dance.villages).toEqual({ O: 3, S: 3, C: 2, T: 2, M: 1 });
@@ -74,7 +74,7 @@ describe('settings', () => {
   it('repairs whatever it is given: missing areas, text, numbers out of range, a maximum under the minimum', () => {
     expect(isDefaultSettings(normalizeSettings('nonsense'))).toBe(true);
     const s = normalizeSettings({ areas: { Yoga: { min: '4', max: 1, atOnce: 9, villagePerDay: 'x' }, Archery: { min: 2 }, Dance: { villages: { o: '5', '': 2 } } } });
-    expect(s.areas.Yoga).toEqual({ min: 4, max: 4, atOnce: 2, villagePerDay: 1 });
+    expect(s.areas.Yoga).toEqual({ min: 4, max: 4, atOnce: 2, villagePerDay: 2 });
     // an area that does not come with the app is taken as one that was added, with the defaults for what it leaves out
     expect(Object.keys(s.areas)).toEqual([...SETTING_AREAS, 'Archery']);
     expect(s.custom).toEqual(['Archery']);
@@ -147,14 +147,14 @@ describe('the arithmetic check on the settings', () => {
 
   it('flags an area that is asked for more visits than it has places', () => {
     // one bunk at a time, 22 bunks three times: 66 of the session's 74 periods, which did not generate when it was tried
-    const tight = checkSettings(withArea('Yoga', { min: 3, max: 3 }), weeks);
+    const tight = checkSettings(withArea('Ceramics', { min: 3, max: 3 }), weeks);
     expect(tight.map((p) => p.level)).toEqual(['unlikely']);
-    expect(tight[0].text).toContain('Yoga is set to 66 visits in the session out of 74 places');
+    expect(tight[0].text).toContain('Ceramics is set to 66 visits in the session out of 74 places');
     expect(tight[0].fix).toBe('Try at most 2 per bunk, or 2 bunks at once.');
-    const over = checkSettings(withArea('Yoga', { min: 4, max: 4 }), weeks);
+    const over = checkSettings(withArea('Ceramics', { min: 4, max: 4 }), weeks);
     expect(over.some((p) => p.level === 'no' && p.text.includes('there are only 74 places'))).toBe(true);
     // two at a time has the room
-    expect(checkSettings(withArea('Yoga', { min: 3, max: 3, atOnce: 2, villagePerDay: 2 }), weeks)).toEqual([]);
+    expect(checkSettings(withArea('Ceramics', { min: 3, max: 3, atOnce: 2, villagePerDay: 2 }), weeks)).toEqual([]);
   });
 
   it('flags a village that cannot send enough bunks in a day', () => {
@@ -165,7 +165,7 @@ describe('the arithmetic check on the settings', () => {
   });
 
   it('shows on the page what is wrong and what to try', () => {
-    const s = withArea('Yoga', { min: 3, max: 3 });
+    const s = withArea('Ceramics', { min: 3, max: 3 });
     const html = renderToStaticMarkup(createElement(SettingsView, { settings: s, villages: ['O'], onChange: noop, onReset: noop, problems: checkSettings(s, weeks) }));
     expect(html).toContain('Unlikely to work.');
     expect(html).toContain('Try at most 2 per bunk, or 2 bunks at once.');

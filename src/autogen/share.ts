@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { ROPES_MAX_CAMPERS, SLOT_CAP, VILLAGE_LEVEL_LABELS, VISIT } from './config';
+import { CAMPER_CAP, ROPES_MAX_CAMPERS, SLOT_CAP, VILLAGE_LEVEL_LABELS, VISIT, visitFree } from './config';
 import { isSameAgeGroup, shareLevel, type Roster } from './roster';
 
 /**
@@ -91,7 +91,7 @@ export function slotGroupProblems(
     if (!line) out.push({ rule: 'H13', message: `${names} share Ropes${at}, but bunks at Ropes together must be next to each other in one village.` });
     if (campers > ROPES_MAX_CAMPERS) out.push({ rule: 'H14', message: `${names} are ${campers} campers at Ropes${at}, and the most is ${ROPES_MAX_CAMPERS}.` });
     const order = line ?? [...group];
-    for (let i = 1; i < order.length && !VISIT.free.includes(area); i++) {
+    for (let i = 1; i < order.length && !visitFree(area); i++) {
       const oa = ordinal(order[i - 1]);
       const ob = ordinal(order[i]);
       if (oa !== null && ob !== null && Math.abs(oa - ob) > VISIT.slackNow) {
@@ -104,6 +104,9 @@ export function slotGroupProblems(
     out.push({ rule: 'H14', message: `${names} are ${group.length} at ${area}${at}, and the most is ${cap}.` });
     return out;
   }
+  const camperCap = CAMPER_CAP[area];
+  const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
+  if (camperCap !== undefined && campers > camperCap) out.push({ rule: 'H14', message: `${names} are ${campers} campers at ${area}${at}, and the most is ${camperCap}.` });
   const matched: [number, number][] = [];
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) if (shareLevel(r, group[i], group[j], area) > 0) matched.push([group[i], group[j]]);
@@ -120,6 +123,10 @@ export function slotGroupProblems(
     // two bunks of one village may have Time with UH together
     if (r.village[group[0]] !== r.village[group[1]]) bad('only bunks of one village have Time with UH together');
     sameVisit = chain;
+  } else if (area === 'Judaics') {
+    // two bunks of one village may have Judaics together, on the same visit
+    if (r.village[group[0]] !== r.village[group[1]]) bad('only bunks of one village have Judaics together');
+    sameVisit = chain;
   } else if (group.length === 2) {
     if (matched.length === 0) bad('they are not allowed to be together');
   } else if (area === 'A&C') {
@@ -127,7 +134,7 @@ export function slotGroupProblems(
     sameVisit = [[group[0], group[1]], [group[1], group[2]]];
   }
   // the same visit is asked of every area except the ones the settings leave free (Athletics and Time with UH, to start with)
-  if (VISIT.free.includes(area)) sameVisit = [];
+  if (visitFree(area)) sameVisit = [];
   for (const [a, b] of sameVisit) {
     const oa = ordinal(a);
     const ob = ordinal(b);
@@ -146,7 +153,7 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
   if (group.length <= 1) return 0;
   const cap = SLOT_CAP[area];
   if (cap === undefined) return 0;
-  const free = VISIT.free.includes(area);
+  const free = visitFree(area);
   const differ = (a: number, b: number): number => {
     if (free) return 0;
     const oa = ordinal(a);
@@ -169,9 +176,16 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
     return n;
   };
   if (area === 'Athletics') return chain();
-  if (area === 'TW UH') return (r.village[group[0]] === r.village[group[1]] ? 0 : 1) + chain();
+  if (area === 'TW UH' || area === 'Judaics') return (r.village[group[0]] === r.village[group[1]] ? 0 : 1) + chain();
+  const camperCap = CAMPER_CAP[area];
+  let over = 0;
+  if (camperCap !== undefined) {
+    let campers = 0;
+    for (const b of group) campers += r.campers[b];
+    if (campers > camperCap) over = 1;
+  }
   if (area === 'A&C' && group.length === 3) {
-    return (isSameAgeGroup(r, group) ? 0 : 1) + differ(group[0], group[1]) + differ(group[1], group[2]);
+    return over + (isSameAgeGroup(r, group) ? 0 : 1) + differ(group[0], group[1]) + differ(group[1], group[2]);
   }
   let matched = 0;
   let unequal = 0;
@@ -182,8 +196,8 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
       unequal += differ(group[i], group[j]);
     }
   }
-  if (group.length === 2) return unequal + (matched === 0 ? 1 : 0);
-  return unequal + 1; // three or more, anywhere a group of three has no rule of its own
+  if (group.length === 2) return over + unequal + (matched === 0 ? 1 : 0);
+  return over + unequal + 1; // three or more, anywhere a group of three has no rule of its own
 }
 
 /**

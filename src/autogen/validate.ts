@@ -10,6 +10,8 @@ import {
   POOL_MAX_PER_WEEK,
   SESSION_HARD_MAX,
   setVisitWeek,
+  UH_BONUS_NOW,
+  WEEK_FOUR_UH_BONUS,
   SHABBAT_PREP_STAFF,
   SHABBAT_ROTATION,
   SINGLE_PERIOD_AREAS,
@@ -67,7 +69,7 @@ export interface ValidationInput {
 /** Check a week that is already in hand (roster and history built) against the hard rules H1 to H19. */
 export function validateGrid(input: ValidationInput): Violation[] {
   const { weekIndex, sessionWeeks, roster, hist, grid } = input;
-  setVisitWeek(weekIndex >= sessionWeeks);
+  setVisitWeek(weekIndex >= sessionWeeks, sessionWeeks === 4 && weekIndex === 4);
   const n = roster.n;
   const locked = (b: number, s: number): boolean => !!input.locked?.[b]?.[s];
   const lockedAny = (b: number, start: number, len: number): boolean => {
@@ -175,9 +177,13 @@ export function validateGrid(input: ValidationInput): Violation[] {
   // H15: Time with UH at most so many times a session
   for (let b = 0; b < n; b++) {
     const mine = blocks[b].filter((k) => k.area === 'TW UH');
-    const total = (hist[b].earlier['TW UH'] ?? 0) + (hist[b].later['TW UH'] ?? 0) + mine.length;
-    if (total > UH_MAX_PER_SESSION && mine.some((k) => !lockedAny(b, k.start, k.len))) {
-      add('H15', `${roster.names[b]} has Time with UH ${total} times in the session, and the most is ${UH_MAX_PER_SESSION}.`, b);
+    const soFar = (hist[b].earlier['TW UH'] ?? 0) + mine.length;
+    const total = soFar + (hist[b].later['TW UH'] ?? 0);
+    // week 4 of 4 may hold one more; an earlier week is judged on what the bunk has had by then, and on the session's most with it
+    const most = UH_MAX_PER_SESSION + UH_BONUS_NOW;
+    const over = UH_BONUS_NOW > 0 ? total > most : soFar > UH_MAX_PER_SESSION || total > UH_MAX_PER_SESSION + (sessionWeeks === 4 ? WEEK_FOUR_UH_BONUS : 0);
+    if (over && mine.some((k) => !lockedAny(b, k.start, k.len))) {
+      add('H15', `${roster.names[b]} has Time with UH ${total} times in the session, and the most is ${most}.`, b);
     }
   }
 

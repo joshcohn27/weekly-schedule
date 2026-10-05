@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ACTIVITIES } from '../config';
 import { emptySchedule, newBunk, sampleSchedule } from '../sample';
 import type { WeeksState } from '../types';
+import { CAMPER_CAP } from './config';
 import { blocksOf, buildHistory, villageWeeksWithLabel } from './history';
 import { mulberry32, shuffle, weightedSample } from './rng';
 import { buildRoster, isSameAgeGroup, parseAge, shareLevel } from './roster';
@@ -181,8 +182,19 @@ describe('who may share a period and an area', () => {
     expect(problems('A&C', ['O2', 'O3', 'C2', 'C3'])).toEqual(['H14']);
   });
 
-  it('one bunk at a time at Judaics, Yoga and Ceramics; two similar bunks at Israel; two of one village at Time with UH', () => {
-    for (const area of ['Judaics', 'Yoga', 'Ceramics']) expect(problems(area, ['C2', 'C3']), area).toEqual(['H14']);
+  it('one bunk at a time at Ceramics; two of one village at Judaics; two small bunks at Yoga; two similar bunks at Israel; two of one village at Time with UH', () => {
+    expect(problems('Ceramics', ['C2', 'C3'])).toEqual(['H14']);
+    // Judaics: two bunks of one village, on the same visit
+    expect(problems('Judaics', ['C2', 'C3'])).toEqual([]);
+    expect(problems('Judaics', ['C2', 'C3'], [1, 2])).toEqual(['H5']);
+    expect(problems('Judaics', ['O1', 'C1'])).toEqual(['H13']);
+    expect(problems('Judaics', ['C1', 'C2', 'C3'])).toEqual(['H14']);
+    // Yoga goes by campers: every bunk in this roster has 12, and the most together is 22
+    expect(problems('Yoga', ['C2', 'C3'])).toEqual(['H14']);
+    CAMPER_CAP.Yoga = 24;
+    expect(problems('Yoga', ['C2', 'C3'])).toEqual([]);
+    expect(problems('Yoga', ['C1', 'C2', 'C3'])).toEqual(['H14']);
+    CAMPER_CAP.Yoga = 22;
     expect(problems('Israel Education', ['C2', 'C3'])).toEqual([]);
     expect(problems('Israel Education', ['O1', 'C1'])).toEqual([]); // the same age across O and C
     expect(problems('Israel Education', ['O1', 'O4'])).toEqual(['H13']);

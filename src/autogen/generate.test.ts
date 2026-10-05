@@ -82,12 +82,12 @@ describe('session totals', () => {
     }
   });
 
-  it('never gives a bunk more than three Judaics, two Israel, or three Time with UH', () => {
+  it('never gives a bunk more than three Judaics, two Israel, or four Time with UH (the fourth only in week 4)', () => {
     for (const run of sessions) {
       for (const b of weekOf(run, 1).bunks) {
         expect(sessionBlocks(run.weeks, b.name, 'Judaics')).toBeLessThanOrEqual(3);
         expect(sessionBlocks(run.weeks, b.name, 'Israel Education')).toBeLessThanOrEqual(2);
-        expect(sessionBlocks(run.weeks, b.name, 'TW UH')).toBeLessThanOrEqual(3);
+        expect(sessionBlocks(run.weeks, b.name, 'TW UH')).toBeLessThanOrEqual(4);
       }
     }
   });

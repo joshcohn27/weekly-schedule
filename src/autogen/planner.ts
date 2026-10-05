@@ -141,7 +141,7 @@ const capacityWeight = (c: Ctx, b: number, week: number): number => {
 };
 
 /** This week, plus every later week of the session that is not already built. */
-function remainingWeeks(c: Ctx): number[] {
+export function remainingWeeks(c: Ctx): number[] {
   const out: number[] = [];
   for (let w = c.weekIndex; w <= c.sessionWeeks; w++) if (w === c.weekIndex || !isBuiltWeek(c.weeks.weeks[w - 1], BUILT_WEEK_MAX_EMPTY)) out.push(w);
   return out.length ? out : [c.weekIndex];
@@ -194,7 +194,7 @@ function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => 
  * for the bunk and DAY_CAP bunks a day for its village, so it goes by the days the bunk has open, not by its empty periods.
  * A week squeezed onto a few days by a trip and Shabbat Prep has very little, and needs its rare areas saved for it.
  */
-function leftoverRoom(c: Ctx, b: number, week: number): number {
+export function leftoverRoom(c: Ctx, b: number, week: number): number {
   const v = c.roster.village[b];
   const last = c.sessionWeeks === 4 && week === 4;
   const now = week === c.weekIndex;

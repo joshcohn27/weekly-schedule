@@ -237,7 +237,7 @@ describe('validateWeek', () => {
 
   it('H14 and H15: slot caps, village day caps and the weekly Athletics and A&C limit', () => {
     const judaics = sampleSchedule();
-    put(judaics, ['O1', 'S1'], [S(1, 0)], 'Judaics');
+    put(judaics, ['O1', 'O2', 'O3'], [S(1, 0)], 'Judaics'); // two of one village at the most
     expect(has(state(judaics), 1, 'H14')).toBe(true);
     const both = sampleSchedule();
     put(both, ['O1'], [S(1, 0)], 'Judaics');
@@ -252,8 +252,8 @@ describe('validateWeek', () => {
     expect(has(state(three), 1, 'H14')).toBe(false);
     expect(has(state(three), 1, 'H13')).toBe(false);
     const day = sampleSchedule();
-    put(day, ['O1'], [S(1, 0)], 'Yoga');
-    put(day, ['O2'], [S(1, 2)], 'Yoga'); // two O bunks at Yoga in one day, and the most is 1
+    put(day, ['O1'], [S(1, 0)], 'Ceramics');
+    put(day, ['O2'], [S(1, 2)], 'Ceramics'); // two O bunks at Ceramics in one day, and the most is 1
     expect(has(state(day), 1, 'H15')).toBe(true);
     const uh = sampleSchedule();
     for (const d of [0, 1, 2, 3]) put(uh, ['O1'], [S(d, 0)], 'Time with UH');

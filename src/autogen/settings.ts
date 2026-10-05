@@ -16,6 +16,7 @@ import {
   ROPES_MAX_CAMPERS,
   VISIT,
   WEEK_BLOCK_MAX,
+  rememberDayCaps,
   SHABBAT_PREP_EXTRA_MAX,
   setPool,
   setRopesMax,
@@ -475,6 +476,7 @@ export function applySettings(settings?: Settings | null): void {
     DAY_CAP[area] = core[key].villagePerDay;
     if (key !== 'uh') WEEK_BLOCK_MAX[area] = core[key].maxPerWeek;
   }
+  rememberDayCaps();
   const visits = visitsOf(s);
   VISIT.free = [...visits.free];
   VISIT.lastWeekSlack = visits.lastWeekSlack;

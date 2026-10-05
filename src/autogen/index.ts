@@ -3,7 +3,7 @@ import { placeCalendar, placeShabbatExtras, planCalendar } from './calendar';
 import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, setVisitWeek, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, halfSlots, isFilledWeek, type BunkHistory } from './history';
-import { placeExtraPool, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
+import { placeExtraPool, placeExtraVillageBlocks, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_AREAS, TOKEN_LABEL, planWeek, sessionTargetOf } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
@@ -132,7 +132,7 @@ class WeekSearch {
 
   private runRound(round: number): Found {
     const { opts, roster, hist, start, locked, lastWeek, sessionWeeks, stretch } = this;
-    setVisitWeek(opts.weekIndex >= sessionWeeks);
+    setVisitWeek(opts.weekIndex >= sessionWeeks, sessionWeeks === 4 && opts.weekIndex === 4);
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
       { weekIndex: opts.weekIndex, sessionWeeks, lastWeek, taken: (day, half) => start.some((row) => halfSlots(day, half).some((s) => row[s] !== '')) },
@@ -173,6 +173,7 @@ class WeekSearch {
       placeRopes(c, plan);
       placePool(c, plan);
       placeExtraPool(c, plan);
+      placeExtraVillageBlocks(c, plan);
       fillFlexible(c, plan);
       relabelRopes(c);
 
