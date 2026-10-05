@@ -8,6 +8,7 @@ import {
   POOL_TARGETS,
   POOL_MAX_CAMPERS,
   POOL_MAX_PER_WEEK,
+  ROPES_START_HIGH,
   SESSION_HARD_MAX,
   setVisitWeek,
   UH_BONUS_NOW,
@@ -199,7 +200,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
       if (lockedAny(b, k.start, k.len)) continue;
       if (k.len !== 2 || periodOf(k.start) % 2 !== 0) add('H6', `${roster.names[b]} has ropes that are not a double period on ${where(k.start)}.`, b, k.start);
       const ord = ordinalAt(grid[b], hist[b].earlier, k.start) ?? 1;
-      const expected = ord === 1 ? 'Low Ropes' : 'High Ropes';
+      const expected = ord === 1 && !ROPES_START_HIGH.includes(roster.village[b]) ? 'Low Ropes' : 'High Ropes';
       if (k.label !== expected) add('H6', `${roster.names[b]}'s time ${ord} at ropes should be ${expected}.`, b, k.start);
     }
     if (total > 2) add('H6', `${roster.names[b]} has ${total} ropes blocks in the session.`, b);

@@ -51,6 +51,9 @@ export interface SessionTemplate {
   events: CalendarEvent[];
   /** The bunks the session starts with: name, grades, campers. */
   roster: [string, string, string][];
+  /** A village's own number of times for an area in this session (area, then village letter), and the villages that start ropes on High. */
+  villageTargets?: Record<string, Record<string, number>>;
+  ropesStartHigh?: string[];
   /** Where this session's numbers differ from the app's own: times a session for an area, or for each village (Dance). */
   numbers?: Record<string, { min?: number; max?: number; villages?: Record<string, number> }>;
 }
@@ -143,6 +146,9 @@ export const SESSION_2: SessionTemplate = {
   ],
   // a shorter session: Yoga once (twice at the most) and Dance one fewer for everybody
   numbers: { Yoga: { min: 1, max: 2 }, Dance: { min: 1, villages: { O: 2, S: 2, C: 1, T: 1, M: 1 } } },
+  // Tusc is the same campers as Session 1: Ceramics once is plenty, and one more ropes, High (three in the summer)
+  villageTargets: { Ceramics: { T: 1 }, Ropes: { T: 1 } },
+  ropesStartHigh: ['T'],
   // 4 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL for week 1
   roster: [
     ['TC1', '3rd', '11'], ['TC2', '3rd', '11'], ['TC3', '3rd', '12'], ['TC4', '3rd', '12'],

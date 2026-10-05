@@ -18,6 +18,7 @@ import {
   POOL_TARGETS,
   POOL_TARGET_OTHER,
   SESSION_TARGETS,
+  VILLAGE_TARGETS,
   SHABBAT_ROTATION,
   TRI_AWAY_PERIODS,
   TRIP_LABELS,
@@ -68,7 +69,7 @@ export function sessionTargetOf(v: string, sessionWeeks: number, area: string): 
     if (t?.perWeek !== undefined) return t.perWeek * sessionWeeks;
     return Math.min(t?.perSession ?? POOL_TARGET_OTHER.perSession, sessionWeeks);
   }
-  return SESSION_TARGETS[area] ?? 0;
+  return VILLAGE_TARGETS[area]?.[v] ?? SESSION_TARGETS[area] ?? 0;
 }
 
 export const inWeekCount = (c: Ctx, b: number, area: string): number => blocksOf(c.grid[b]).filter((k) => k.area === area).length;
@@ -277,10 +278,10 @@ export function planWeek(c: Ctx): Plan {
   };
 
   // Ropes go in groups (bunks next to each other in a village, up to the camper limit), so a group draws its week once and every member follows.
-  const ropeNeed = Array.from({ length: n }, (_, b) => b).filter((b) => counted(c, inWeek, b, 'Ropes') < SESSION_TARGETS.Ropes);
+  const ropeNeed = Array.from({ length: n }, (_, b) => b).filter((b) => counted(c, inWeek, b, 'Ropes') < sessionTargetOf(c.roster.village[b], c.sessionWeeks, 'Ropes'));
   const groups = ropeGroups(c.roster, ropeNeed, (b) => counted(c, inWeek, b, 'Ropes'), () => 0);
   const leaders = new Set(groups.map((g) => g[0]));
-  draw('Ropes', 'Ropes', (b) => (leaders.has(b) ? SESSION_TARGETS.Ropes : counted(c, inWeek, b, 'Ropes')), () => 1);
+  draw('Ropes', 'Ropes', (b) => (leaders.has(b) ? sessionTargetOf(c.roster.village[b], c.sessionWeeks, 'Ropes') : counted(c, inWeek, b, 'Ropes')), () => 1);
   // One group at ropes a half-day in the whole camp: a week only has so many half-days, and fewer when the calendar is
   // in it. The groups beyond what this week can hold go another week (the ones that cannot wait keep their place).
   let halfDays = 0;
@@ -318,12 +319,12 @@ export function planWeek(c: Ctx): Plan {
   mins.Music = plan.Music.slice();
 
   const danceTarget = (b: number) => DANCE_TARGETS[c.roster.village[b]] ?? DANCE_TARGETS['*'];
-  const rareTarget = (b: number, area: string): number => (area === 'Dance' ? danceTarget(b) : (SESSION_TARGETS[area] ?? 0));
+  const rareTarget = (b: number, area: string): number => (area === 'Dance' ? danceTarget(b) : sessionTargetOf(c.roster.village[b], c.sessionWeeks, area));
   const RARE = TOKEN_AREAS.filter((a) => a !== 'Music');
   const nowShare = shareForThisWeek(c, (b) => RARE.reduce((sum, a) => sum + Math.max(0, rareTarget(b, a) - counted(c, inWeek, b, a)), 0));
 
   // every area with a plain per-session number, the ones added on the Settings tab among them
-  for (const area of TOKEN_AREAS) if (!OWN_PLAN.includes(area)) draw(area, area, () => SESSION_TARGETS[area] ?? 0, () => null, nowShare);
+  for (const area of TOKEN_AREAS) if (!OWN_PLAN.includes(area)) draw(area, area, (b) => sessionTargetOf(c.roster.village[b], c.sessionWeeks, area), () => null, nowShare);
   draw('Dance', 'Dance', danceTarget, (b) => capOf(danceTarget(b)), nowShare);
 
   // Time with the Unit Head: the youngest and oldest bunks go first (week 1, or week 2 at the latest).

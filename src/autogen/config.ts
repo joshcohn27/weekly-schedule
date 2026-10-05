@@ -23,6 +23,14 @@ export const SESSION_TARGETS: Record<string, number> = {
   'TW UH': 1,
 };
 /**
+ * A village that has its own number for an area in this session, in place of the one above: area, then village letter.
+ * (Tusc in Session 2: Ceramics once and ropes once, because it had its fill in Session 1.) Such a village gets no extra
+ * visit as a filler either. The settings overwrite it in place.
+ */
+export const VILLAGE_TARGETS: Record<string, Record<string, number>> = {};
+/** Villages whose first ropes of this session is High Ropes: they did Low Ropes in the session before. */
+export const ROPES_START_HIGH: string[] = [];
+/**
  * Areas a bunk may have once more than its target, to fill a period that would otherwise be Athletics or A&C: the most
  * per session. They are one bunk at a time, so asking every bunk for a third would use up nearly every period they have.
  */
@@ -347,6 +355,11 @@ export const setExtraBlockKeep = (n: number): void => {
  */
 export let TOP_UP_SLACK = 2;
 export let TOP_UP_MAX_LOAD = 0.5;
+/** Give neighbours in a village the same number of visits to an area each week, so they stay on the same visit and can go together. */
+export let BUDDY_PLANNING = true;
+export const setBuddyPlanning = (on: boolean): void => {
+  BUDDY_PLANNING = on;
+};
 /** No more than this share of an area's places in a week is planned: who may share and which days are open take the rest. */
 export const AREA_WEEK_SHARE = 0.7;
 /** And it takes them once it has this many more left over than this week's fair share of what the rest of the session will leave. */
@@ -501,6 +514,8 @@ export const WEIGHTS = {
   gapWide: 25,
   /** A Yoga, Ceramics or Judaics beyond what was planned for the week: there to fill a period, not a target. */
   fillerExtra: 4,
+  /** Each A&C a bunk is ahead of or behind its neighbour in the village: level, they can keep going together. */
+  buddyApart: 20,
   /** A Mohawk or Tusc bunk whose leftover periods this week hold no A&C at all. */
   noAcWeek: 30,
   /** Mohawk and Tusc: each block their A&C is not at least one ahead of their Athletics, so the little they have left over leans to A&C. */

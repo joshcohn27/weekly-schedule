@@ -163,8 +163,13 @@ found is handed over with the periods that break a rule emptied and marked yello
 (`src/autogen/tidy.ts`). That is what happens with a roster or settings that are too tight to fit, for example six
 bunks in every village. It never shows warnings; the browser console has the details.
 
-**Six bunks in a village.** The Settings tab then offers suggested settings (4 bunks at once at Athletics, 3 bunks of a
-village a day at Athletics and A&C, 2 at once at Ceramics). They are never applied unasked.
+**Six bunks in a village.** The biggest Session 1 camp is 5 Onondaga, 6 Cayuga, 6 Seneca, 6 Mohawk and 4 Tusc (27
+bunks). The usual numbers do not fit that many, so the Auto generate dialog then offers the settings for big villages,
+ticked: 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day at every area, and any two bunks of a
+village within a grade may share (not only neighbours in the list). The Settings tab has the same as a button. Measured
+in a browser with them: 8 whole sessions of 27 bunks, every one complete, 5 to 29 seconds each. Three things in the
+generator make it fit: pool groups are matched to periods all at once, neighbours in a village are given the same
+areas each week so they stay on the same visit and can go together, and they are nudged to stay level at A&C.
 
 **Stop** keeps the weeks that are already done and leaves the rest as they were.
 

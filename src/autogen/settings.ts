@@ -15,6 +15,8 @@ import {
   POOL_TARGETS,
   ROPES_MAX_CAMPERS,
   BY_CAMPERS_DAY_CAP,
+  ROPES_START_HIGH,
+  VILLAGE_TARGETS,
   BY_CAMPERS_SLOT_CAP,
   CAMPER_CAP,
   VISIT,
@@ -59,6 +61,10 @@ export interface Settings {
   core?: CoreSettings;
   /** Visit numbers, when they are not the default. */
   visits?: VisitSettings;
+  /** A village's own number of times a session for an area (or 'Ropes'), in place of the area's: area, then village letter. */
+  villageTargets?: Record<string, Record<string, number>>;
+  /** Villages whose first ropes of this session is High Ropes. */
+  ropesStartHigh?: string[];
   /** The session calendar (trips, village days, Mass Program, ...) when it is not the template for the session's length. */
   calendar?: CalendarEvent[];
   /** Which set of defaults these settings were saved under. Settings from before SETTINGS_VERSION are brought up to date when read. */
@@ -389,6 +395,20 @@ export function normalizeSettings(raw: unknown): Settings {
   if (visits) out.visits = visits;
   const calendar = normalizeCalendar((raw as { calendar?: unknown }).calendar);
   if (calendar) out.calendar = calendar;
+  const byVillage = (raw as { villageTargets?: unknown }).villageTargets;
+  if (byVillage && typeof byVillage === 'object') {
+    const kept: Record<string, Record<string, number>> = {};
+    for (const [area, villages] of Object.entries(byVillage as Record<string, unknown>)) {
+      if (!villages || typeof villages !== 'object') continue;
+      for (const [v, n] of Object.entries(villages as Record<string, unknown>)) {
+        const letter = v.trim().charAt(0).toUpperCase();
+        if (letter && Number.isFinite(Number(n))) (kept[area] ??= {})[letter] = Math.max(0, Math.min(12, Math.round(Number(n))));
+      }
+    }
+    if (Object.keys(kept).length) out.villageTargets = kept;
+  }
+  const high = (raw as { ropesStartHigh?: unknown }).ropesStartHigh;
+  if (Array.isArray(high) && high.length) out.ropesStartHigh = [...new Set(high.map((v) => String(v).trim().charAt(0).toUpperCase()).filter(Boolean))].sort();
   for (const area of SETTING_AREAS) {
     const g = given[area];
     if (!g || typeof g !== 'object') continue;
@@ -506,6 +526,10 @@ export function applySettings(settings?: Settings | null): void {
   }
   rememberDayCaps();
   SESSION_CALENDAR.events = s.calendar ?? null;
+  for (const key of Object.keys(VILLAGE_TARGETS)) delete VILLAGE_TARGETS[key];
+  Object.assign(VILLAGE_TARGETS, JSON.parse(JSON.stringify(s.villageTargets ?? {})));
+  ROPES_START_HIGH.length = 0;
+  ROPES_START_HIGH.push(...(s.ropesStartHigh ?? []));
   const visits = visitsOf(s);
   VISIT.free = [...visits.free];
   VISIT.lastWeekSlack = visits.lastWeekSlack;
@@ -526,7 +550,35 @@ export function templateSettings(template: SessionTemplate): Settings {
     a.max = Math.max(a.min, n.max ?? Math.min(a.max, a.min));
     if (n.villages && a.villages) a.villages = { ...n.villages };
   }
-  return normalizeSettings(s);
+  return normalizeSettings({ ...s, villageTargets: template.villageTargets, ropesStartHigh: template.ropesStartHigh });
+}
+
+/** Does some village have six bunks or more? The usual numbers then leave too few places. */
+export const bigVillageIn = (names: readonly string[]): string | undefined => {
+  const count: Record<string, number> = {};
+  for (const name of names) {
+    const v = name.trim().charAt(0).toUpperCase();
+    if (v && !/^TC\s*\d*$/i.test(name.trim())) count[v] = (count[v] ?? 0) + 1;
+  }
+  return Object.keys(count).find((v) => count[v] >= 6);
+};
+/** Are the settings for big villages in use? */
+export function usesBigVillageSettings(s: Settings): boolean {
+  const core = coreOf(s);
+  return core.athletics.atOnce >= 4 && core.athletics.villagePerDay >= 3 && core.ac.villagePerDay >= 3 && s.areas.Ceramics.atOnce >= 2 && sharingOf(s).within === 'village' && settingAreas(s).every((a) => s.areas[a].villagePerDay >= 3);
+}
+/**
+ * The settings a camp with six bunks in a village needs (measured: with 27 bunks the usual numbers did not come out, and
+ * these did): 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day everywhere, and any two bunks of a
+ * village within a grade may share, not only the ones next to each other. Offered, never applied unasked.
+ */
+export function withBigVillageSettings(s: Settings): Settings {
+  const core = coreOf(s);
+  const areas: Record<string, AreaSettings> = {};
+  for (const a of Object.keys(s.areas)) areas[a] = { ...s.areas[a], villagePerDay: Math.max(3, s.areas[a].villagePerDay), ...(a === 'Ceramics' ? { atOnce: 2 } : {}) };
+  const shared = (n: SharedNumbers, atOnce = n.atOnce): SharedNumbers => ({ ...n, atOnce, villagePerDay: Math.max(3, n.villagePerDay) });
+  const next = withCore({ ...s, areas }, { ...core, athletics: shared(core.athletics, 4), ac: shared(core.ac), music: shared(core.music), uh: shared(core.uh) });
+  return withSharing(next, { ...sharingOf(next), within: 'village' });
 }
 
 /** Are these the default settings? */

@@ -14,7 +14,7 @@ import { BUILT_WEEK_MAX_EMPTY } from './autogen/config';
 import { isBuiltWeek } from './autogen/history';
 import { startRun } from './autogen/background';
 import { checkSettings } from './autogen/feasibility';
-import { applySettings, isDefaultSettings, normalizeSettings, templateSettings, type Settings } from './autogen/settings';
+import { applySettings, bigVillageIn, isDefaultSettings, normalizeSettings, templateSettings, usesBigVillageSettings, withBigVillageSettings, type Settings } from './autogen/settings';
 import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
 import { APP_VERSION, SUPPORT_LINK } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
@@ -264,6 +264,9 @@ export default function App() {
       if (handedOver.size > 0) setAuto({ weeks: indexes.filter((i) => handedOver.has(i)), seed, before });
     };
     setRun({ indexes, weekNumbers: indexes.map((i) => i + 1), states: indexes.map(() => 'waiting'), tries: 0, startedAt: Date.now() });
+    // a camp with six bunks in a village is switched to the settings that fit it, when the dialog was left saying so
+    const using = plan.useBigVillageSettings ? withBigVillageSettings(settings) : settings;
+    if (plan.useBigVillageSettings) setSettings(using);
     const started = startRun(
       {
         weeks: before,
@@ -274,7 +277,7 @@ export default function App() {
         keepTrips: plan.keepTrips,
         useOtherWeeks: plan.useOtherWeeks,
         seed,
-        settings,
+        settings: using,
         // the session calendar goes down first: opening day, trips, village day, Mass Program or Color War, Taste of CSL
         calendar: true,
       },
@@ -440,6 +443,7 @@ export default function App() {
             weeks={weekInfo.slice(0, template.weeks)}
             sessionWeeks={template.weeks}
             sessionName={`${template.name}, ${datesOf(template)}`}
+            bigVillage={usesBigVillageSettings(settings) ? undefined : bigVillageIn(schedule.bunks.map((b) => b.name))}
             onCancel={() => setAutoOpen(false)}
             onGenerate={runAutoGenerate}
           />
