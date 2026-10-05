@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { SLOT_CAP, VILLAGE_LEVEL_LABELS } from './config';
+import { SLOT_CAP, VILLAGE_LEVEL_LABELS, VISIT } from './config';
 import { isConsecutiveTrio, isSameAgeGroup, shareLevel, type Roster } from './roster';
 
 /**
@@ -81,12 +81,14 @@ export function slotGroupProblems(
   // who must be on the same ordinal: bunks that may share, and all three of a group of three at A&C
   let sameVisit = matched;
 
+  // each bunk with the next: when everyone must be on the same visit, that is enough to say so
+  const chain: [number, number][] = group.slice(1).map((b, i) => [group[i], b]);
   if (area === 'Athletics') {
-    sameVisit = []; // any two or three bunks may be at Athletics together, on any visit
+    sameVisit = chain; // any bunks may be at Athletics together
   } else if (area === 'TW UH') {
-    // two bunks of one village may have Time with UH together, on any visit
+    // two bunks of one village may have Time with UH together
     if (r.village[group[0]] !== r.village[group[1]]) bad('only bunks of one village have Time with UH together');
-    sameVisit = [];
+    sameVisit = chain;
   } else if (group.length === 2) {
     if (matched.length === 0) bad('they are not allowed to be together');
   } else if (area === 'Ropes') {
@@ -96,10 +98,12 @@ export function slotGroupProblems(
     if (!isSameAgeGroup(r, group)) bad('three at A&C must all be the same age');
     sameVisit = [[group[0], group[1]], [group[1], group[2]]];
   }
+  // the same visit is asked of every area except the ones the settings leave free (Athletics and Time with UH, to start with)
+  if (VISIT.free.includes(area)) sameVisit = [];
   for (const [a, b] of sameVisit) {
     const oa = ordinal(a);
     const ob = ordinal(b);
-    if (oa !== null && ob !== null && oa !== ob) {
+    if (oa !== null && ob !== null && Math.abs(oa - ob) > VISIT.slackNow) {
       out.push({ rule: 'H5', message: `${r.names[a]} (time ${oa}) and ${r.names[b]} (time ${ob}) share ${area}${at}.` });
     }
   }
@@ -115,13 +119,20 @@ export function groupBreaks(r: Roster, area: string, group: readonly number[], o
   const cap = SLOT_CAP[area];
   if (cap === undefined) return 0;
   if (group.length > (area === 'Ropes' ? 3 : cap)) return 1;
-  if (area === 'Athletics') return 0;
-  if (area === 'TW UH') return r.village[group[0]] === r.village[group[1]] ? 0 : 1;
+  const free = VISIT.free.includes(area);
   const differ = (a: number, b: number): number => {
+    if (free) return 0;
     const oa = ordinal(a);
     const ob = ordinal(b);
-    return oa > 0 && ob > 0 && oa !== ob ? 1 : 0;
+    return oa > 0 && ob > 0 && Math.abs(oa - ob) > VISIT.slackNow ? 1 : 0;
   };
+  const chain = (): number => {
+    let n = 0;
+    for (let i = 1; i < group.length; i++) n += differ(group[i - 1], group[i]);
+    return n;
+  };
+  if (area === 'Athletics') return chain();
+  if (area === 'TW UH') return (r.village[group[0]] === r.village[group[1]] ? 0 : 1) + chain();
   if (area === 'A&C' && group.length === 3) {
     return (isSameAgeGroup(r, group) ? 0 : 1) + differ(group[0], group[1]) + differ(group[1], group[2]);
   }

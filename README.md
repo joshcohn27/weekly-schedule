@@ -106,8 +106,9 @@ Waterfront within one block between villages).
   again). A week that is already filled in starts as Lock. A week with no bunks takes the bunks of the week on screen.
 - **For one week that already has activities:** keep what is there and build around it, or replace it.
 - **When replacing, keep Bike Trip and Tiyul where they are.** On by default.
-- **Stay consistent with the weeks that are not being generated.** On by default, so locked weeks count toward totals
-  and visit numbers. Untick it to start fresh, as if those weeks were not there.
+- **Count what the other weeks already have.** On by default: a bunk that already had Yoga twice in a week you are
+  keeping is not given a third, and its visit numbers carry on from there. Unticked, the weeks you are not generating
+  are ignored, as if this were the only schedule.
 - **Session 1 (4 weeks, Mohawk plays MNL) or Session 2 (3 weeks, Mohawk plays MAL).**
 
 Day details (RH & LOD, birthdays, EVP, notes) are never touched.
@@ -145,6 +146,15 @@ Whatever periods these areas do not use become Athletics, A&C or Time with UH. S
 those, and lowering one means more. Lowering is the risky direction: Athletics and A&C can only take so much (two
 bunks of a village a day each, on alternating days), and with too little else to do no schedule exists. With Yoga
 cut to 1 and no third Ceramics, for example, a run tried for its full ten minutes and did not find a good session.
+
+**Every program area has its numbers there.** The main areas have a table of their own: Waterfront and league (times
+a week), the pool (how many swims a week at most), Athletics and A&C (the most a week, bunks at once, bunks of one
+village in a day), Music (times a week and the most) and Time with UH (at least and at most a session). "A week" is
+the average over the session; a short week gets fewer. The defaults are what the generator has always used.
+
+**Same visit number.** Each area that bunks may share has a box for whether they must be on the same visit. It starts
+ticked everywhere except Athletics and Time with UH. One more switch lets bunks be one visit apart in the last week of
+the session, and it starts off.
 
 **Adding a program area** (archery, martial arts: whatever was hired for). Type its name in the last row of the
 table, choose its numbers and press Add. It becomes an activity you can pick on the Build tab, a column on the

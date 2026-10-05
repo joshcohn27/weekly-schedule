@@ -1,5 +1,19 @@
 import { isBuiltInName, setCustomAreas } from '../config';
-import { DANCE_TARGETS, DAY_CAP, RARE_AREAS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SHARING, SLOT_CAP, type Sharing } from './config';
+import {
+  DANCE_TARGETS,
+  DAY_CAP,
+  RARE_AREAS,
+  SESSION_FILLER_MAX,
+  SESSION_HARD_MAX,
+  SESSION_TARGETS,
+  SHARING,
+  SLOT_CAP,
+  VISIT,
+  WEEK_BLOCK_MAX,
+  setWeekly,
+  weekly,
+  type Sharing,
+} from './config';
 import { pairKey } from './roster';
 import { BUILT_IN_TOKEN_AREAS, TOKEN_AREAS, TOKEN_LABEL } from './planner';
 import { resetSharedAreas } from './share';
@@ -25,6 +39,145 @@ export interface Settings {
   custom?: string[];
   /** Who may share a period, when it is not the default. */
   sharing?: Sharing;
+  /** The numbers for Waterfront, league, the pool, Athletics, A&C, Music and Time with UH, when they are not the defaults. */
+  core?: CoreSettings;
+  /** Visit numbers, when they are not the default. */
+  visits?: VisitSettings;
+}
+
+/** An area that bunks may share: how many at once, how many of one village in a day, and (Athletics, A&C) how many times a bunk may have it in a week. */
+export interface SharedNumbers {
+  atOnce: number;
+  villagePerDay: number;
+  maxPerWeek: number;
+}
+
+/**
+ * The areas that are not counted per session like the rarer ones. Waterfront and league are a number of times a week (a
+ * short week gets fewer). Music is given `musicPerWeek` times a week and may fill a period up to `music.maxPerWeek`.
+ * Time with UH is given `uhMin` times a session and may fill a period up to `uhMax`. The pool is once a week, with a second
+ * swim allowed up to `poolMaxPerWeek`; who swims together is not a setting.
+ */
+export interface CoreSettings {
+  waterfrontPerWeek: number;
+  leaguePerWeek: number;
+  poolMaxPerWeek: number;
+  musicPerWeek: number;
+  uhMin: number;
+  uhMax: number;
+  athletics: SharedNumbers;
+  ac: SharedNumbers;
+  music: SharedNumbers;
+  /** Time with UH has no weekly limit of its own: `maxPerWeek` is not used. */
+  uh: SharedNumbers;
+}
+
+/** Visit numbers: the areas where bunks that share need NOT be on the same visit, and whether the last week may be one visit apart. */
+export interface VisitSettings {
+  free: string[];
+  lastWeekSlack: boolean;
+}
+
+/** The ranges the core numbers are kept inside. */
+const CORE_LIMITS = {
+  waterfrontPerWeek: [0, 3],
+  leaguePerWeek: [0, 3],
+  poolMaxPerWeek: [1, 2],
+  musicPerWeek: [0, 1],
+  uhMin: [0, 3],
+  uhMax: [0, 6],
+} as const;
+/** [bunks at once: least, most], then the most times a week, for each shared area. */
+const SHARED_LIMITS: Record<'athletics' | 'ac' | 'music' | 'uh', { atOnce: [number, number]; maxPerWeek: [number, number] }> = {
+  athletics: { atOnce: [1, 4], maxPerWeek: [0, 3] },
+  ac: { atOnce: [1, 3], maxPerWeek: [0, 3] },
+  music: { atOnce: [1, 2], maxPerWeek: [1, 2] },
+  uh: { atOnce: [1, 2], maxPerWeek: [0, 0] },
+};
+/** The program area each shared entry stands for. */
+const SHARED_AREA_OF = { athletics: 'Athletics', ac: 'A&C', music: 'Music', uh: 'TW UH' } as const;
+
+function readCore(): CoreSettings {
+  const w = weekly();
+  const shared = (key: keyof typeof SHARED_AREA_OF): SharedNumbers => {
+    const area = SHARED_AREA_OF[key];
+    return { atOnce: SLOT_CAP[area], villagePerDay: DAY_CAP[area], maxPerWeek: WEEK_BLOCK_MAX[area] ?? 0 };
+  };
+  return {
+    waterfrontPerWeek: w.waterfront,
+    leaguePerWeek: w.league,
+    poolMaxPerWeek: w.poolMax,
+    musicPerWeek: w.music,
+    uhMin: SESSION_TARGETS['TW UH'],
+    uhMax: w.uhMax,
+    athletics: shared('athletics'),
+    ac: shared('ac'),
+    music: shared('music'),
+    uh: shared('uh'),
+  };
+}
+const STARTING_CORE: CoreSettings = readCore();
+const STARTING_VISITS: VisitSettings = { free: [...VISIT.free], lastWeekSlack: VISIT.lastWeekSlack };
+export const defaultCore = (): CoreSettings => JSON.parse(JSON.stringify(STARTING_CORE)) as CoreSettings;
+export const defaultVisits = (): VisitSettings => JSON.parse(JSON.stringify(STARTING_VISITS)) as VisitSettings;
+export const coreOf = (s: Settings): CoreSettings => s.core ?? defaultCore();
+export const visitsOf = (s: Settings): VisitSettings => s.visits ?? defaultVisits();
+
+const wholeIn = (v: unknown, [least, most]: readonly [number, number], fallback: number): number => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+  return Number.isFinite(n) ? Math.min(most, Math.max(least, Math.round(n))) : fallback;
+};
+
+/** Accepts whatever was saved or uploaded and returns valid core numbers. Null when they come out as the defaults. */
+export function normalizeCore(raw: unknown): CoreSettings | null {
+  const out = defaultCore();
+  const g = raw as Partial<CoreSettings> | null;
+  if (!g || typeof g !== 'object') return null;
+  for (const key of Object.keys(CORE_LIMITS) as (keyof typeof CORE_LIMITS)[]) out[key] = wholeIn(g[key], CORE_LIMITS[key], out[key]);
+  out.uhMax = Math.max(out.uhMin, out.uhMax);
+  for (const key of Object.keys(SHARED_LIMITS) as (keyof typeof SHARED_LIMITS)[]) {
+    const given = g[key];
+    if (!given || typeof given !== 'object') continue;
+    out[key] = {
+      atOnce: wholeIn(given.atOnce, SHARED_LIMITS[key].atOnce, out[key].atOnce),
+      villagePerDay: wholeIn(given.villagePerDay, [1, 6], out[key].villagePerDay),
+      maxPerWeek: wholeIn(given.maxPerWeek, SHARED_LIMITS[key].maxPerWeek, out[key].maxPerWeek),
+    };
+  }
+  out.music.maxPerWeek = Math.max(out.music.maxPerWeek, out.musicPerWeek);
+  return JSON.stringify(out) === JSON.stringify(STARTING_CORE) ? null : out;
+}
+
+/** Accepts whatever was saved or uploaded and returns valid visit settings. Null when they come out as the default. */
+export function normalizeVisits(raw: unknown): VisitSettings | null {
+  const g = raw as Partial<VisitSettings> | null;
+  if (!g || typeof g !== 'object') return null;
+  const out: VisitSettings = {
+    free: Array.isArray(g.free) ? [...new Set(g.free.map(String))].sort() : defaultVisits().free,
+    lastWeekSlack: typeof g.lastWeekSlack === 'boolean' ? g.lastWeekSlack : false,
+  };
+  const same = JSON.stringify({ ...out, free: [...out.free].sort() }) === JSON.stringify({ ...STARTING_VISITS, free: [...STARTING_VISITS.free].sort() });
+  return same ? null : out;
+}
+
+/** These settings with the core numbers, or the visit settings, changed. What comes out as the default is not kept. */
+export function withCore(s: Settings, core: CoreSettings): Settings {
+  const { core: _old, ...rest } = s;
+  const next = normalizeCore(core);
+  return next ? { ...rest, core: next } : rest;
+}
+export function withVisits(s: Settings, visits: VisitSettings): Settings {
+  const { visits: _old, ...rest } = s;
+  const next = normalizeVisits(visits);
+  return next ? { ...rest, visits: next } : rest;
+}
+/** Must bunks that share this area be on the same visit number? */
+export const sameVisitIn = (s: Settings, area: string): boolean => !visitsOf(s).free.includes(area);
+/** These settings with the same-visit rule switched on or off for one area. */
+export function withSameVisit(s: Settings, area: string, required: boolean): Settings {
+  const v = visitsOf(s);
+  const free = v.free.filter((a) => a !== area);
+  return withVisits(s, { ...v, free: required ? free : [...free, area] });
 }
 
 /** The sharing the app starts with, read once before anything changes it. */
@@ -130,6 +283,10 @@ export function normalizeSettings(raw: unknown): Settings {
   }
   const sharing = normalizeSharing((raw as { sharing?: unknown }).sharing);
   if (sharing) out.sharing = sharing;
+  const core = normalizeCore((raw as { core?: unknown }).core);
+  if (core) out.core = core;
+  const visits = normalizeVisits((raw as { visits?: unknown }).visits);
+  if (visits) out.visits = visits;
   for (const area of SETTING_AREAS) {
     const g = given[area];
     if (!g || typeof g !== 'object') continue;
@@ -218,6 +375,19 @@ export function applySettings(settings?: Settings | null): void {
   }
   replace(SESSION_FILLER_MAX, filler);
   replace(SESSION_HARD_MAX, hardMax);
+  // Waterfront, league, the pool, Music, Time with UH, Athletics and A&C
+  const core = coreOf(s);
+  setWeekly({ waterfront: core.waterfrontPerWeek, league: core.leaguePerWeek, music: core.musicPerWeek, poolMax: core.poolMaxPerWeek, uhMax: core.uhMax });
+  SESSION_TARGETS['TW UH'] = core.uhMin;
+  for (const key of Object.keys(SHARED_AREA_OF) as (keyof typeof SHARED_AREA_OF)[]) {
+    const area = SHARED_AREA_OF[key];
+    SLOT_CAP[area] = core[key].atOnce;
+    DAY_CAP[area] = core[key].villagePerDay;
+    if (key !== 'uh') WEEK_BLOCK_MAX[area] = core[key].maxPerWeek;
+  }
+  const visits = visitsOf(s);
+  VISIT.free = [...visits.free];
+  VISIT.lastWeekSlack = visits.lastWeekSlack;
   const sharing = sharingOf(s);
   SHARING.within = sharing.within;
   SHARING.across = sharing.across;

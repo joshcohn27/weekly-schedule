@@ -1,6 +1,6 @@
 import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, planCalendar } from './calendar';
-import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, type SessionWeeks } from './config';
+import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, setVisitWeek, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, halfSlots, isFilledWeek, type BunkHistory } from './history';
 import { placeExtraPool, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
@@ -131,6 +131,7 @@ class WeekSearch {
 
   private runRound(round: number): Found {
     const { opts, roster, hist, start, locked, lastWeek, sessionWeeks, stretch } = this;
+    setVisitWeek(opts.weekIndex >= sessionWeeks);
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
       { weekIndex: opts.weekIndex, sessionWeeks, lastWeek, taken: (day, half) => start.some((row) => halfSlots(day, half).some((s) => row[s] !== '')) },

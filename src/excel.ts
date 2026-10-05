@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { defaultSettings, normalizeSettings, settingAreas, sharingOf, type Settings } from './autogen/settings';
+import { coreOf, defaultCore, defaultSettings, normalizeSettings, settingAreas, sharingOf, visitsOf, type CoreSettings, type Settings } from './autogen/settings';
 import { DAYS, PERIODS_PER_DAY, SLOT_COUNT } from './config';
 import { specialistRows, specialistSchedules, specialistSheetName } from './specialist';
 import { normalize } from './storage';
@@ -105,7 +105,7 @@ export function parseSettingsSheet(wb: XLSX.WorkBook): Settings | null {
     }
     areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}) };
   }
-  return normalizeSettings({ areas, sharing: parseSharingSheet(wb) });
+  return normalizeSettings({ areas, sharing: parseSharingSheet(wb), ...parseMainSheet(wb) });
 }
 
 const SHARING_SHEET = 'Sharing';
@@ -139,12 +139,63 @@ function parseSharingSheet(wb: XLSX.WorkBook): unknown {
   return { within: keyOf(WITHIN_TEXT, rows[1]?.[1]), across: rows[2]?.[1] !== 'never mix', grades: keyOf(GRADES_TEXT, rows[3]?.[1]), pairs };
 }
 
-/** One week's workbook: its own tab (re-imported on upload), a read-only Tracking tab, and the Settings and Sharing tabs. */
+const MAIN_SHEET = 'Main areas';
+const ANY_VISIT = 'Any visit number will do at';
+const LAST_WEEK = 'One visit apart in the last week';
+type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
+const SHARED_NAMES: [SharedKey, string][] = [
+  ['athletics', 'Athletics'],
+  ['ac', 'A&C'],
+  ['music', 'Music'],
+  ['uh', 'Time with UH'],
+];
+/** Every number on the Main areas tab: its label, and how to read it from and write it to the settings. */
+const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: CoreSettings, n: unknown) => void }[] = [
+  { label: 'Waterfront, times a week', get: (c) => c.waterfrontPerWeek, set: (c, n) => (c.waterfrontPerWeek = n as number) },
+  { label: 'League, times a week', get: (c) => c.leaguePerWeek, set: (c, n) => (c.leaguePerWeek = n as number) },
+  { label: 'Pool, at most a week', get: (c) => c.poolMaxPerWeek, set: (c, n) => (c.poolMaxPerWeek = n as number) },
+  { label: 'Music, times a week', get: (c) => c.musicPerWeek, set: (c, n) => (c.musicPerWeek = n as number) },
+  { label: 'Time with UH, at least a session', get: (c) => c.uhMin, set: (c, n) => (c.uhMin = n as number) },
+  { label: 'Time with UH, at most a session', get: (c) => c.uhMax, set: (c, n) => (c.uhMax = n as number) },
+  ...SHARED_NAMES.flatMap(([key, name]) => [
+    ...(key === 'uh' ? [] : [{ label: `${name}, at most a week`, get: (c: CoreSettings) => c[key].maxPerWeek, set: (c: CoreSettings, n: unknown) => (c[key].maxPerWeek = n as number) }]),
+    { label: `${name}, bunks at once`, get: (c: CoreSettings) => c[key].atOnce, set: (c: CoreSettings, n: unknown) => (c[key].atOnce = n as number) },
+    { label: `${name}, bunks of one village in a day`, get: (c: CoreSettings) => c[key].villagePerDay, set: (c: CoreSettings, n: unknown) => (c[key].villagePerDay = n as number) },
+  ]),
+];
+
+/** The Main areas tab: the numbers for Waterfront, league, the pool, Athletics, A&C, Music and Time with UH, and the visit rules. */
+function buildMainSheet(settings: Settings): XLSX.WorkSheet {
+  const core = coreOf(settings);
+  const visits = visitsOf(settings);
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['Setting', 'Value'],
+    ...MAIN_ROWS.map((r) => [r.label, r.get(core)]),
+    [ANY_VISIT, visits.free.join(', ')],
+    [LAST_WEEK, visits.lastWeekSlack ? 'yes' : 'no'],
+  ]);
+  sheet['!cols'] = [{ wch: 46 }, { wch: 28 }];
+  return sheet;
+}
+
+function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown } {
+  const sheet = wb.Sheets[MAIN_SHEET];
+  if (!sheet) return {};
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  const value = new Map(rows.map((r) => [String(r[0] ?? ''), r[1]]));
+  const core = defaultCore();
+  for (const row of MAIN_ROWS) if (value.has(row.label)) row.set(core, value.get(row.label));
+  const free = String(value.get(ANY_VISIT) ?? '').split(',').map((a) => a.trim()).filter(Boolean);
+  return { core, visits: value.has(ANY_VISIT) ? { free, lastWeekSlack: value.get(LAST_WEEK) === 'yes' } : undefined };
+}
+
+/** One week's workbook: its own tab (re-imported on upload), a read-only Tracking tab, and the Settings, Main areas and Sharing tabs. */
 export function buildWeekWorkbook(schedule: Schedule, weekNumber: number, settings: Settings = defaultSettings()): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, buildWeekSheet(schedule), weekSheetName(weekNumber));
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeTracking(schedule.bunks)), 'Tracking');
   XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildMainSheet(settings), MAIN_SHEET);
   XLSX.utils.book_append_sheet(wb, buildSharingSheet(settings), SHARING_SHEET);
   return wb;
 }
@@ -162,6 +213,7 @@ export function buildAllWeeksWorkbook(weeks: (Schedule | null)[], settings: Sett
 
   XLSX.utils.book_append_sheet(wb, trackingSheetFromResult(computeSessionTracking(loadedWeeks)), 'Whole Session Tracking');
   XLSX.utils.book_append_sheet(wb, buildSettingsSheet(settings), SETTINGS_SHEET);
+  XLSX.utils.book_append_sheet(wb, buildMainSheet(settings), MAIN_SHEET);
   XLSX.utils.book_append_sheet(wb, buildSharingSheet(settings), SHARING_SHEET);
   return wb;
 }

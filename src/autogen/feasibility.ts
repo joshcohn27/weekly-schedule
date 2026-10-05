@@ -1,7 +1,7 @@
 import { villageOf } from '../autofill';
 import type { Schedule } from '../types';
-import { DAY_CAP, LEAGUE_MIN_PER_WEEK, LEAGUE_PER_WEEK, MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, TIYUL_WEEKS, TRIP_LABELS, UH_MAX_PER_SESSION, WATERFRONT_PER_WEEK, WEEK_BLOCK_MAX, type SessionWeeks } from './config';
-import { settingAreas, type Settings } from './settings';
+import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, TIYUL_WEEKS, TRIP_LABELS, type SessionWeeks } from './config';
+import { coreOf, settingAreas, type Settings } from './settings';
 
 /**
  * Arithmetic on the settings, before anything is generated: can a schedule exist, and if not, what to change.
@@ -95,24 +95,26 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
     if (v === 'T') return four ? 14 : 2; // the mini bike trip, and the three-day one in a 4-week session
     return TIYUL_WEEKS[sessionWeeks][v] ? (v === 'S' || v === 'M' ? 4 : 2) : 0;
   };
-  const flexible = areas.reduce((sum, a) => sum + (settings.areas[a].villages ? 0 : settings.areas[a].max - settings.areas[a].min), 0) + (UH_MAX_PER_SESSION - 1);
+  // the numbers come from the settings being looked at, which need not be the ones in force
+  const core = coreOf(settings);
+  const flexible = areas.reduce((sum, a) => sum + (settings.areas[a].villages ? 0 : settings.areas[a].max - settings.areas[a].min), 0) + (core.uhMax - core.uhMin);
   const flexibleNames = areas.filter((a) => !settings.areas[a].villages).map(nameOf);
   let worst: { v: string; over: number; leftover: number; room: number; level: 'no' | 'unlikely' } | null = null;
   for (const v of villages) {
     const n = membersOf(v);
     const normalWeeks = four ? 3 : sessionWeeks;
-    const leagueWeeks = normalWeeks * LEAGUE_PER_WEEK + (four ? LEAGUE_MIN_PER_WEEK : 0);
-    const league = v === 'T' ? normalWeeks * (LEAGUE_PER_WEEK + 1) : v === 'M' ? leagueWeeks * 2 : leagueWeeks;
-    const waterfront = normalWeeks * WATERFRONT_PER_WEEK * 2 + (four ? 2 : 0);
-    const music = MUSIC_LIGHT_VILLAGES.includes(v) ? MUSIC_LIGHT_PER_SESSION : sessionWeeks;
-    const fixed = 3 /* Shabbat Prep */ + 1 /* the first Sunday */ + tripPeriods(v) + waterfront + league + sessionWeeks /* pool */ + music + 4 /* ropes */ + 1 /* Time with UH */;
+    const leagueWeeks = normalWeeks * core.leaguePerWeek + (four ? Math.min(2, core.leaguePerWeek) : 0);
+    const league = v === 'T' ? normalWeeks * (core.leaguePerWeek + 1) : v === 'M' ? leagueWeeks * 2 : leagueWeeks;
+    const waterfront = normalWeeks * core.waterfrontPerWeek * 2 + (four ? Math.min(1, core.waterfrontPerWeek) * 2 : 0);
+    const music = core.musicPerWeek === 0 ? 0 : MUSIC_LIGHT_VILLAGES.includes(v) ? MUSIC_LIGHT_PER_SESSION : sessionWeeks;
+    const fixed = 3 /* Shabbat Prep */ + 1 /* the first Sunday */ + tripPeriods(v) + waterfront + league + sessionWeeks /* pool */ + music + 4 /* ropes */ + core.uhMin /* Time with UH */;
     const planned = areas.reduce((sum, a) => sum + timesFor(a, v), 0);
     const leftover = periods - fixed - planned - flexible;
     // Athletics and A&C: a village sends DAY_CAP bunks a day to each, and a bunk has each on every other day at most
-    const perDay = Math.min(1, (DAY_CAP.Athletics + DAY_CAP['A&C']) / n);
-    const perWeekMost = WEEK_BLOCK_MAX.Athletics + WEEK_BLOCK_MAX['A&C'];
+    const perDay = Math.min(1, (core.athletics.villagePerDay + core.ac.villagePerDay) / n);
+    const perWeekMost = core.athletics.maxPerWeek + core.ac.maxPerWeek;
     const room = normalWeeks * Math.min(perWeekMost, perDay * DAYS_NORMAL) + (four ? Math.min(DAYS_LAST, perDay * DAYS_LAST) : 0);
-    const secondMusic = MUSIC_LIGHT_VILLAGES.includes(v) ? 0 : sessionWeeks;
+    const secondMusic = MUSIC_LIGHT_VILLAGES.includes(v) ? 0 : sessionWeeks * Math.max(0, core.music.maxPerWeek - core.musicPerWeek);
     const level = leftover > room + secondMusic ? 'no' : leftover > room * COMFORTABLE ? 'unlikely' : null;
     if (!level) continue;
     const over = Math.ceil(leftover - room * COMFORTABLE);
@@ -125,7 +127,7 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
         worst.level === 'no'
           ? `A schedule is not possible with these settings: each village ${worst.v} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill, and they can hold about ${worst.room}.`
           : `A schedule is unlikely with these settings: each village ${worst.v} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill. They can hold about ${worst.room}, and it stops generating well before that.`,
-      fix: `Try giving each bunk about ${worst.over} more ${worst.over === 1 ? 'visit' : 'visits'} a session: raise "at least" or "at most" on ${flexibleNames.join(', ')}, or Dance for village ${worst.v}.`,
+      fix: `Try giving each bunk about ${worst.over} more ${worst.over === 1 ? 'visit' : 'visits'} a session: raise "at least" or "at most" on ${flexibleNames.join(', ')}, or Dance for village ${worst.v}; or more Waterfront or league a week.`,
     });
   }
   return out;

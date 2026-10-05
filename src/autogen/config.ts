@@ -47,9 +47,11 @@ export const POOL_TARGETS: Record<string, { perWeek?: number; perSession?: numbe
 export const POOL_TARGET_OTHER = { perSession: 4 };
 /** A bunk with a session total may end this many swims short and still be fine. */
 export const POOL_SHORT_OK = 1;
-export const WATERFRONT_PER_WEEK = 2;
-export const LEAGUE_PER_WEEK = 3; // M: 3 double periods
-export const MUSIC_PER_WEEK = 1;
+// The six numbers below and LEAGUE_MIN_PER_WEEK are settings too. They are plain numbers, so they are changed through
+// setWeekly(), and every file that imports them sees the new value.
+export let WATERFRONT_PER_WEEK = 2;
+export let LEAGUE_PER_WEEK = 3; // M: 3 double periods
+export let MUSIC_PER_WEEK = 1;
 /**
  * Villages with so little room that the weekly Music crowds out A&C. Their bunks have Music in two of the first three weeks
  * (each bunk skips a different week, so the village is never all at Music or all without) and the periods go to A&C instead.
@@ -134,7 +136,7 @@ export const POOL_MAX_CAMPERS = 80;
 /** A village takes a second swim in a week only when each of its bunks has at least this many periods to spare beyond what is planned. */
 export const EXTRA_POOL_MIN_SPARE = 2;
 /** Most times a bunk swims in one week. */
-export const POOL_MAX_PER_WEEK = 2;
+export let POOL_MAX_PER_WEEK = 2;
 /** An O or C bunk's first this many regular Pool blocks are lessons, one bunk alone. The Swim Test is not a lesson. */
 export const POOL_LESSONS = 2;
 
@@ -159,7 +161,7 @@ export const UH_EARLY_MARGIN = 0.5;
 /** Villages that are over-subscribed by design: they may end a rare area one block short, and Athletics/A&C two apart, with a warning. */
 export const FLEXIBLE_VILLAGES = ['M', 'T'];
 /** Time with UH is planned once a session; a bunk may get it up to this many times when its periods cannot be filled otherwise. */
-export const UH_MAX_PER_SESSION = 3;
+export let UH_MAX_PER_SESSION = 3;
 /** Tusc away on a trip for at least this many periods of a week has no triathlon training that week (the three-day bike trip). */
 export const TRI_AWAY_PERIODS = 8;
 /** A bunk away on trips for at least this many periods of a week is not expected to get its weekly Music. */
@@ -240,7 +242,36 @@ export const WATERFRONT_HALF_DAY_OFF = false;
  * exempt, and Friday into Sunday does not count. League is three times a week where three days that are not next to each
  * other can be found; a week too short for that (the last week of a 4-week session has four days) has this many.
  */
-export const LEAGUE_MIN_PER_WEEK = 2;
+export let LEAGUE_MIN_PER_WEEK = 2;
+
+/** The numbers above that the Settings tab can change, as they stand. */
+export interface Weekly {
+  waterfront: number;
+  league: number;
+  music: number;
+  poolMax: number;
+  uhMax: number;
+}
+export const weekly = (): Weekly => ({ waterfront: WATERFRONT_PER_WEEK, league: LEAGUE_PER_WEEK, music: MUSIC_PER_WEEK, poolMax: POOL_MAX_PER_WEEK, uhMax: UH_MAX_PER_SESSION });
+export function setWeekly(n: Weekly): void {
+  WATERFRONT_PER_WEEK = n.waterfront;
+  LEAGUE_PER_WEEK = n.league;
+  LEAGUE_MIN_PER_WEEK = Math.min(2, n.league); // a short week has one fewer, and never more than the setting
+  MUSIC_PER_WEEK = n.music;
+  POOL_MAX_PER_WEEK = n.poolMax;
+  UH_MAX_PER_SESSION = n.uhMax;
+}
+
+/**
+ * Visit numbers. Bunks that share a period are on the same visit, except in the areas listed in `free`. `lastWeekSlack` lets
+ * them be one visit apart in the last week of a session, when there is the least room to line them up. `slackNow` is what
+ * applies to the week in hand: the generator and the rule checker set it before they look at a week.
+ */
+export const VISIT: { free: string[]; lastWeekSlack: boolean; slackNow: number } = { free: ['Athletics', 'TW UH'], lastWeekSlack: false, slackNow: 0 };
+/** Set the visit slack for the week in hand. */
+export const setVisitWeek = (lastWeekOfSession: boolean): void => {
+  VISIT.slackNow = lastWeekOfSession && VISIT.lastWeekSlack ? 1 : 0;
+};
 /** How strongly league is drawn to the set of days it is aiming for. */
 export const NEXT_DAY_WEIGHT = 3;
 /** Sets of three days with none next to each other, for a village's three league periods (0 is Sunday). */

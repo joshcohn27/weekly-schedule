@@ -2,7 +2,8 @@ import type { SettingsProblem } from '../autogen/feasibility';
 import type { Bunk } from '../types';
 import SharingSettings from './SharingSettings';
 import { useState } from 'react';
-import { NEW_AREA, addArea, isDefaultSettings, removeArea, settingAreas, whyNotAdd, type AreaSettings, type Settings } from '../autogen/settings';
+import { NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
+import CoreSettings from './CoreSettings';
 
 interface Props {
   settings: Settings;
@@ -94,6 +95,8 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
           ))}
         </ul>
       )}
+      <CoreSettings settings={settings} onChange={onChange} disabled={disabled} />
+      <h3>The rarer areas, and any you add</h3>
       <div className="scroll">
         <table border={1} className="settings">
           <thead>
@@ -102,6 +105,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
               <th colSpan={2}>Times per bunk per session</th>
               <th rowSpan={2}>Bunks at once</th>
               <th rowSpan={2}>Bunks of one village in a day</th>
+              <th rowSpan={2}>Same visit number</th>
             </tr>
             <tr>
               <th>At least</th>
@@ -145,6 +149,15 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                     </select>
                   </td>
                   <td>{number(area, 'bunks of one village in a day', a.villagePerDay, 1, 6, (n) => set(area, { villagePerDay: n }))}</td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`${nameOf(area)} same visit number`}
+                      checked={sameVisitIn(settings, area)}
+                      disabled={disabled}
+                      onChange={(e) => onChange(withSameVisit(settings, area, e.target.checked))}
+                    />
+                  </td>
                 </tr>
               );
             })}
@@ -172,7 +185,9 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                 </select>
               </td>
               <td>
-                {draftNumber('bunks of one village in a day', draft.villagePerDay, 1, 6, (n) => setDraft({ ...draft, villagePerDay: n }))}{' '}
+                {draftNumber('bunks of one village in a day', draft.villagePerDay, 1, 6, (n) => setDraft({ ...draft, villagePerDay: n }))}
+              </td>
+              <td>
                 <button type="button" onClick={add} disabled={disabled || name.trim() === '' || blocked !== null}>
                   Add
                 </button>

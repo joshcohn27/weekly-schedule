@@ -164,7 +164,8 @@ describe('Auto generate UI', () => {
     expect(html).toContain('Just Week 2');
     expect(html).toContain('The whole session, week by week');
     expect(html).toContain('keep Bike Trip and Tiyul where they are');
-    expect(html).toContain('Stay consistent with');
+    expect(html).toContain('Count what the other');
+    expect(html).toContain('will not be given a third');
   });
 
   it('asks what to do with existing activities only when there are some', () => {

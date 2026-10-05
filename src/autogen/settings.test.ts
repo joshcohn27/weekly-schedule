@@ -10,13 +10,13 @@ import { sampleSchedule } from '../sample';
 import { computeTracking } from '../tracking';
 import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
-import { DANCE_TARGETS, DAY_CAP, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, type Sharing } from './config';
+import { DANCE_TARGETS, DAY_CAP, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, setVisitWeek, weekly, type Sharing } from './config';
 import { checkSettings } from './feasibility';
 import { generateRun } from './session';
-import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, type Settings } from './settings';
+import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, coreOf, defaultCore, defaultVisits, sameVisitIn, visitsOf, withCore, withSameVisit, withVisits, type Settings } from './settings';
 import { TOKEN_AREAS } from './planner';
 import { buildRoster, isSameAgeGroup, pairKey, shareLevel, sharingLevel } from './roster';
-import { slotGroupProblems } from './share';
+import { groupBreaks, slotGroupProblems } from './share';
 import { sessionBlocks, weekWithTrips } from './testUtil';
 import { validateWeek } from './validate';
 
@@ -93,7 +93,7 @@ describe('settings', () => {
     changed.areas.Dance.villages = { O: 2, C: 2, S: 2, M: 2, T: 2 };
     for (const wb of [buildWeekWorkbook(sampleSchedule(), 2, changed), buildAllWeeksWorkbook([sampleSchedule(), null], changed)]) {
       const reread = XLSX.read(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), { type: 'array' });
-      expect(reread.SheetNames.slice(-2)).toEqual(['Settings', 'Sharing']);
+      expect(reread.SheetNames.slice(-3)).toEqual(['Settings', 'Main areas', 'Sharing']);
       expect(parseSettingsSheet(reread)).toEqual(changed);
       expect(parseUploadedWorkbook(reread)).toHaveLength(1);
     }
@@ -383,6 +383,146 @@ describe('who may share a period', () => {
       });
     });
     expect(together).toEqual([]);
+    const weeks: WeeksState = { current: 0, weeks: run?.weeks ?? [] };
+    for (let w = 1; w <= 4; w++) expect(validateWeek(weeks, w, 4)).toEqual([]);
+  }, 900_000);
+});
+
+describe('the main areas and the visit numbers', () => {
+  const roster = buildRoster(sampleSchedule().bunks);
+  const at = (name: string): number => roster.names.indexOf(name);
+  /** The problems two bunks on these visits have sharing a period in this area. */
+  const sharing = (area: string, x: string, y: string, visits: [number, number]): string[] =>
+    slotGroupProblems(roster, area, [at(x), at(y)], (b) => (b === at(x) ? visits[0] : visits[1])).map((p) => p.rule);
+  const breaks = (area: string, x: string, y: string, visits: [number, number]): number =>
+    groupBreaks(roster, area, [at(x), at(y)], (b) => (b === at(x) ? visits[0] : visits[1]), { trio: true });
+
+  it('start as the numbers the generator has always used', () => {
+    expect(coreOf(defaultSettings())).toEqual({
+      waterfrontPerWeek: 2,
+      leaguePerWeek: 3,
+      poolMaxPerWeek: 2,
+      musicPerWeek: 1,
+      uhMin: 1,
+      uhMax: 3,
+      athletics: { atOnce: 3, villagePerDay: 2, maxPerWeek: 3 },
+      ac: { atOnce: 3, villagePerDay: 2, maxPerWeek: 3 },
+      music: { atOnce: 2, villagePerDay: 2, maxPerWeek: 2 },
+      uh: { atOnce: 2, villagePerDay: 2, maxPerWeek: 0 },
+    });
+    expect(visitsOf(defaultSettings())).toEqual({ free: ['Athletics', 'TW UH'], lastWeekSlack: false });
+    expect(sameVisitIn(defaultSettings(), 'A&C')).toBe(true);
+    expect(sameVisitIn(defaultSettings(), 'Athletics')).toBe(false);
+  });
+
+  it('reach the numbers the generator reads, are kept inside their ranges, and go back to the defaults', () => {
+    const core = { ...defaultCore(), waterfrontPerWeek: 1, leaguePerWeek: 2, poolMaxPerWeek: 1, musicPerWeek: 0, uhMin: 2, uhMax: 1, athletics: { atOnce: 9, villagePerDay: 3, maxPerWeek: 2 } };
+    const s = withCore(defaultSettings(), core);
+    expect(s.core?.uhMax).toBe(2); // never under the least
+    expect(s.core?.athletics.atOnce).toBe(4); // the most Athletics takes
+    applySettings(s);
+    expect(weekly()).toEqual({ waterfront: 1, league: 2, music: 0, poolMax: 1, uhMax: 2 });
+    expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH']]).toEqual([4, 3, 2, 2]);
+    applySettings();
+    expect(weekly()).toEqual({ waterfront: 2, league: 3, music: 1, poolMax: 2, uhMax: 3 });
+    expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH']]).toEqual([3, 2, 3, 1]);
+    expect(withCore(defaultSettings(), defaultCore()).core).toBeUndefined();
+    expect(isDefaultSettings(withCore(defaultSettings(), defaultCore()))).toBe(true);
+  });
+
+  it('asks for the same visit number only where the settings say so, and the search counts it the same way', () => {
+    // Music asks for it to start with; Athletics does not
+    expect(sharing('Music', 'O1', 'O2', [1, 2])).toEqual(['H5']);
+    expect(breaks('Music', 'O1', 'O2', [1, 2])).toBe(1);
+    expect(sharing('Athletics', 'O1', 'S1', [1, 3])).toEqual([]);
+    expect(breaks('Athletics', 'O1', 'S1', [1, 3])).toBe(0);
+    const s = withSameVisit(withSameVisit(defaultSettings(), 'Music', false), 'Athletics', true);
+    expect(visitsOf(s).free).toEqual(['Music', 'TW UH']);
+    applySettings(s);
+    expect(sharing('Music', 'O1', 'O2', [1, 2])).toEqual([]);
+    expect(breaks('Music', 'O1', 'O2', [1, 2])).toBe(0);
+    expect(sharing('Athletics', 'O1', 'S1', [1, 3])).toEqual(['H5']);
+    expect(breaks('Athletics', 'O1', 'S1', [1, 3])).toBe(1);
+    expect(sharing('Athletics', 'O1', 'S1', [2, 2])).toEqual([]);
+    // putting it back to what it was leaves nothing to save
+    expect(withSameVisit(withSameVisit(s, 'Music', true), 'Athletics', false).visits).toBeUndefined();
+  });
+
+  it('lets bunks be one visit apart in the last week only when that is switched on, and never two', () => {
+    applySettings(withVisits(defaultSettings(), { ...defaultVisits(), lastWeekSlack: true }));
+    setVisitWeek(false); // an earlier week
+    expect(sharing('A&C', 'O1', 'O2', [3, 4])).toEqual(['H5']);
+    setVisitWeek(true); // the last week of the session
+    expect(sharing('A&C', 'O1', 'O2', [3, 4])).toEqual([]);
+    expect(breaks('A&C', 'O1', 'O2', [3, 4])).toBe(0);
+    expect(sharing('A&C', 'O1', 'O2', [2, 4])).toEqual(['H5']);
+    expect(breaks('A&C', 'O1', 'O2', [2, 4])).toBe(1);
+    applySettings(); // switched off again: the last week is as strict as any other
+    setVisitWeek(true);
+    expect(sharing('A&C', 'O1', 'O2', [3, 4])).toEqual(['H5']);
+    setVisitWeek(false);
+  });
+
+  it('go into the Excel file on the Main areas tab and come back', () => {
+    const s = withVisits(withCore(defaultSettings(), { ...defaultCore(), waterfrontPerWeek: 1, uhMax: 4, ac: { atOnce: 2, villagePerDay: 3, maxPerWeek: 2 } }), { free: ['Music'], lastWeekSlack: true });
+    const wb = XLSX.read(XLSX.write(buildWeekWorkbook(sampleSchedule(), 1, s), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
+    expect(wb.SheetNames).toContain('Main areas');
+    expect(parseSettingsSheet(wb)).toEqual(s);
+  });
+
+  it('shows on the page: a row for each main area with its own numbers, the same-visit boxes and the last-week switch', () => {
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop }));
+    for (const label of [
+      'Waterfront times a week',
+      'League times a week',
+      'Pool at most a week',
+      'Athletics at most a week',
+      'A&amp;C at most a week',
+      'Music times a week',
+      'Music at most a week',
+      'Time with UH at least a session',
+      'Time with UH at most a session',
+      'Athletics bunks at once',
+      'A&amp;C bunks of one village in a day',
+      'One visit apart in the last week',
+    ]) {
+      expect(html, label).toContain(`aria-label="${label}"`);
+    }
+    const ticked = (label: string): boolean => new RegExp(`<input[^>]*aria-label="${label}"[^>]*checked|<input[^>]*checked[^>]*aria-label="${label}"`).test(html);
+    expect(ticked('A&amp;C same visit number')).toBe(true);
+    expect(ticked('Yoga same visit number')).toBe(true);
+    expect(ticked('Athletics same visit number')).toBe(false);
+    expect(ticked('Time with UH same visit number')).toBe(false);
+    expect(ticked('One visit apart in the last week')).toBe(false);
+  });
+
+  it('is told by the arithmetic check when a main number leaves too much for Athletics and A&C', () => {
+    const weeks = [sampleSchedule(), null, null, null];
+    // Waterfront once a week instead of twice: two more periods a week for every bunk. It did not generate when it was tried.
+    const less = checkSettings(withCore(defaultSettings(), { ...defaultCore(), waterfrontPerWeek: 1 }), weeks);
+    expect(less.map((p) => p.level)).toEqual(['unlikely']);
+    expect(less[0].fix).toContain('or more Waterfront or league a week');
+    expect(checkSettings(withCore(defaultSettings(), { ...defaultCore(), leaguePerWeek: 1 }), weeks).length).toBeGreaterThan(0);
+    // more room for Athletics and A&C is never a problem
+    const room = { ...defaultCore(), athletics: { atOnce: 4, villagePerDay: 3, maxPerWeek: 3 }, ac: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 } };
+    expect(checkSettings(withCore(defaultSettings(), room), weeks)).toEqual([]);
+  });
+
+  it('generates a session with the main numbers changed, and every rule kept', async () => {
+    // three bunks of a village a day at Athletics and at A&C, any visit at Music, a visit apart in the last week
+    const core = { ...defaultCore(), athletics: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 }, ac: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 } };
+    const settings = withVisits(withCore(defaultSettings(), core), { free: ['Athletics', 'Music', 'TW UH'], lastWeekSlack: true });
+    const run = await generateRun({
+      weeks: [1, 2, 3, 4].map((w) => weekWithTrips(sampleSchedule(), w)),
+      steps: [0, 1, 2, 3].map((index) => ({ index, mode: 'fill-empty' as const })),
+      roster: sampleSchedule().bunks,
+      sessionWeeks: 4,
+      keepTrips: true,
+      useOtherWeeks: true,
+      seed: 51,
+      settings,
+    });
+    expect(run?.good).toBe(true);
     const weeks: WeeksState = { current: 0, weeks: run?.weeks ?? [] };
     for (let w = 1; w <= 4; w++) expect(validateWeek(weeks, w, 4)).toEqual([]);
   }, 900_000);

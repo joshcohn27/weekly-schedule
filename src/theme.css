@@ -159,6 +159,9 @@ table.specialist .visit + .visit {
   break-inside: avoid;
 }
 /* the Settings tab */
+main h3 {
+  margin: 18px 0 6px;
+}
 .settings-ok {
   color: var(--forest);
   font-weight: bold;
@@ -203,6 +206,10 @@ table.settings input[type='number'] {
 }
 table.settings select {
   width: auto;
+}
+table.settings td.fixed {
+  color: #6b7a6b;
+  font-size: 12px;
 }
 table.settings td.by-village label {
   display: inline-block;

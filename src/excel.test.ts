@@ -77,7 +77,7 @@ describe('all-weeks download round trip', () => {
     week3.bunks.push(newBunk('X1'));
     const wb = buildAllWeeksWorkbook([week1, null, week3, null]);
 
-    expect(wb.SheetNames).toEqual(['Week 1', 'Week 3', 'Whole Session Tracking', 'Settings', 'Sharing']);
+    expect(wb.SheetNames).toEqual(['Week 1', 'Week 3', 'Whole Session Tracking', 'Settings', 'Main areas', 'Sharing']);
 
     const uploads = parseUploadedWorkbook(wb);
     expect(uploads.map((u) => u.weekNumber)).toEqual([1, 3]);

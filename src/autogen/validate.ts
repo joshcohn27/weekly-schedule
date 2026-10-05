@@ -6,6 +6,7 @@ import {
   POOL_MAX_CAMPERS,
   POOL_MAX_PER_WEEK,
   SESSION_HARD_MAX,
+  setVisitWeek,
   SHABBAT_ROTATION,
   SINGLE_PERIOD_AREAS,
   TRIP_LABELS,
@@ -63,6 +64,7 @@ export interface ValidationInput {
 /** Check a week that is already in hand (roster and history built) against the hard rules H1 to H16. */
 export function validateGrid(input: ValidationInput): Violation[] {
   const { weeks, weekIndex, sessionWeeks, roster, hist, grid } = input;
+  setVisitWeek(weekIndex >= sessionWeeks);
   const n = roster.n;
   const locked = (b: number, s: number): boolean => !!input.locked?.[b]?.[s];
   const lockedAny = (b: number, start: number, len: number): boolean => {
