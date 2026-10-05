@@ -28,7 +28,8 @@ The build output is the `dist/` folder from `npm run build`.
 **Contact support** at the foot of every page (and in the how-to, and beside any settings problem) opens an email to
 joshcohn27@gmail.com. The address is `SUPPORT_EMAIL` in `src/config.ts`.
 
-The **?** next to the title opens a plain how-to for the whole page: the tabs, building a week step by step, changing
+The how-to opens by itself the very first time the page is opened in a browser, and not again after that. The **?**
+next to the title opens it any time. It is a plain how-to for the whole page: the tabs, building a week step by step, changing
 things by hand, the rules that are always kept, the settings, and saving and printing. It is written for someone who
 has not seen the page before.
 

@@ -19,7 +19,7 @@ import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } 
 import { SUPPORT_LINK, WEEK_COUNT } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
-import { defaultWeeksState, loadWeeks, saveWeeks } from './storage';
+import { defaultWeeksState, isFirstVisit, loadWeeks, markHelpSeen, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
 // import type { DayInfo } from './types';
 
@@ -43,7 +43,11 @@ export default function App() {
   const [view, setView] = useState<View>('build');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [autoOpen, setAutoOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
+  // the how-to opens by itself the very first time the page is opened in this browser, and only then
+  const [helpOpen, setHelpOpen] = useState(isFirstVisit);
+  useEffect(() => {
+    if (helpOpen) markHelpSeen();
+  }, [helpOpen]);
   /** What the last Auto generate did, kept in memory only so it can be undone. */
   const [auto, setAuto] = useState<{ weeks: number[]; seed: number; before: (Schedule | null)[] } | null>(null);
   /** The Auto generate run that is going on in the background, or null when idle. `indexes` are its 0-based weeks. */

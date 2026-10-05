@@ -71,6 +71,29 @@ export function saveWeeks(state: WeeksState): void {
   }
 }
 
+const HELP_SEEN_KEY = 'weekly-schedule-help-seen';
+
+/**
+ * Should the how-to open by itself? Only the very first time the page is opened in this browser. Where nothing can be
+ * remembered (storage blocked, or no browser at all) it stays closed, so it never opens on every visit.
+ */
+export function isFirstVisit(): boolean {
+  try {
+    return localStorage.getItem(HELP_SEEN_KEY) === null;
+  } catch {
+    return false;
+  }
+}
+
+/** Remember that the how-to has been shown, so it does not open by itself again. */
+export function markHelpSeen(): void {
+  try {
+    localStorage.setItem(HELP_SEEN_KEY, '1');
+  } catch {
+    // storage full or blocked: nothing to remember it in
+  }
+}
+
 export function defaultWeeksState(): WeeksState {
   return { weeks: [sampleSchedule(), null, null, null], current: 0 };
 }

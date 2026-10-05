@@ -8,7 +8,7 @@ import BuildGrid from './components/BuildGrid';
 import HelpPanel from './components/HelpPanel';
 import ScheduleView from './components/ScheduleView';
 import TrackingView from './components/TrackingView';
-import { normalize, normalizeWeeksState } from './storage';
+import { isFirstVisit, markHelpSeen, normalize, normalizeWeeksState } from './storage';
 import { newBunk, sampleSchedule } from './sample';
 
 const noop = () => {};
@@ -159,6 +159,31 @@ describe('Auto generate UI', () => {
     // a way to reach a person, in the how-to and at the foot of every page
     expect(html).toContain('href="mailto:joshcohn27@gmail.com');
     expect(renderToStaticMarkup(<App />)).toMatch(/<footer>.*href="mailto:joshcohn27@gmail\.com[^"]*"[^>]*>Contact support<\/a>.*<\/footer>/s);
+  });
+
+  it('opens the how-to by itself on the very first visit to the page in a browser, and never again', () => {
+    const opened = (): boolean => renderToStaticMarkup(<App />).includes('id="help-title"');
+    // no browser storage at all (as here in node): it stays closed rather than opening every time
+    expect(isFirstVisit()).toBe(false);
+    expect(opened()).toBe(false);
+    const store = new Map<string, string>();
+    const fake = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) };
+    (globalThis as { localStorage?: unknown }).localStorage = fake;
+    try {
+      expect(isFirstVisit()).toBe(true);
+      expect(opened()).toBe(true); // the first time: the how-to is on the page
+      markHelpSeen();
+      expect(isFirstVisit()).toBe(false);
+      expect(opened()).toBe(false); // every time after: only the ? is there
+      expect(renderToStaticMarkup(<App />)).toContain('aria-label="How to use this page"');
+      // a browser that refuses storage does not throw, and does not nag
+      fake.getItem = () => {
+        throw new Error('blocked');
+      };
+      expect(isFirstVisit()).toBe(false);
+    } finally {
+      delete (globalThis as { localStorage?: unknown }).localStorage;
+    }
   });
 
   it('offers one week or the whole session, and the two options', () => {
