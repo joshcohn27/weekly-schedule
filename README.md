@@ -202,6 +202,8 @@ How much:
   league, not Waterfront, not the pool, nothing. (Trips are exempt, and Friday into Sunday does not count.) To keep
   that, each bunk has its Athletics on every other day and its A&C on the days between; bunks next to each other in
   a village have the same days, so they can still share A&C.
+- **No Waterfront until the swim test is done.** In week 1 no village is at Waterfront on Sunday morning, or before
+  its own swim test.
 - At most 3 Athletics periods and 3 A&C periods per bunk per week, a second Music in a week only to fill a period, and
   no area twice in one day.
 - At most 2 bunks of one village at Athletics, A&C, Music, Teva, Dance, Israel or Time with UH in one day, and 1 at

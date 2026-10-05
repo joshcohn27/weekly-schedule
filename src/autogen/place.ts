@@ -5,6 +5,7 @@ import { blocksOf, halfSlots, slotAt } from './history';
 import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
+import { beforeSwimTest } from './share';
 import {
   ALL_SLOTS,
   areaOnDay,
@@ -147,6 +148,7 @@ export function placeWaterfront(c: Ctx, plan: Plan): void {
     if (villageAreaOnDay(c, v, day, 'Waterfront') || !villageFree(c, v, slots)) return false;
     if (slots.some((s) => slotHas(c, s, 'Waterfront'))) return false; // one village at Waterfront per half-day
     if (idx(c, v).some((b) => backToBack(c, b, slots, 'Waterfront')) || villageOnNextDay(c, v, day, 'Waterfront')) return false;
+    if (beforeSwimTest(c.weekIndex, c.grid[idx(c, v)[0]], slots[0])) return false; // no Waterfront until the swim test is done
     return leagueDaysLeft(c, v, slots) >= pendingLeagueBlocks(c, v);
   };
 

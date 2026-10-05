@@ -41,6 +41,17 @@ export function sharedArea(label: string): string | null {
   return out;
 }
 
+/**
+ * Nobody goes to Waterfront before the swim test. In week 1 that means not on Sunday morning, and not before the bunk's own
+ * Swim Test when it has one that week. Would Waterfront starting in this slot be too early?
+ */
+export function beforeSwimTest(weekIndex: number, row: readonly string[], slot: number): boolean {
+  if (weekIndex !== 1) return false;
+  if (slot < 2) return true; // Sunday morning
+  const test = row.indexOf('Swim Test');
+  return test >= 0 && slot < test;
+}
+
 /** Mohawk's Sunday period 4 Athletics in week 1 is a fixed village-level calendar block, so it is outside the sharing rules. */
 export const isFixedMohawkAthletics = (weekIndex: number, village: string, slot: number, label: string): boolean =>
   weekIndex === 1 && slot === 3 && village === 'M' && label === 'Athletics';

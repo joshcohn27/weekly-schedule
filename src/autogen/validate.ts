@@ -29,7 +29,7 @@ import {
   type BunkHistory,
 } from './history';
 import { buildRoster, isRun, shareLevel, type Roster } from './roster';
-import { OPEN, isFixedMohawkAthletics, sharedArea, slotGroupProblems } from './share';
+import { OPEN, beforeSwimTest, isFixedMohawkAthletics, sharedArea, slotGroupProblems } from './share';
 
 export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16' | 'H17' | 'H18';
 
@@ -123,6 +123,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     for (const k of blocks[b]) {
       if (k.label !== 'Waterfront' || lockedAny(b, k.start, k.len)) continue;
       if (k.len !== 2 || periodOf(k.start) % 2 !== 0) add('H4', `${roster.names[b]} has a misaligned Waterfront on ${where(k.start)}.`, b, k.start);
+      if (beforeSwimTest(weekIndex, grid[b], k.start)) add('H4', `${roster.names[b]} has Waterfront on ${where(k.start)}, before the swim test.`, b, k.start);
     }
   }
   for (let day = 0; day < 6; day++) {

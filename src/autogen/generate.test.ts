@@ -170,6 +170,19 @@ describe('the fixed calendar', () => {
     }
   });
 
+  it('week 1: no Waterfront until the swim test is done, so never on Sunday morning and never before the village swims', () => {
+    for (const run of sessions) {
+      const w = weekOf(run, 1);
+      for (const b of w.bunks) {
+        const first = row(w, b.name).indexOf('Waterfront');
+        if (first < 0) continue;
+        expect(first, `${b.name} Sunday morning`).toBeGreaterThanOrEqual(2);
+        const test = row(w, b.name).indexOf('Swim Test');
+        if (test >= 0) expect(first, `${b.name} before its swim test`).toBeGreaterThan(test);
+      }
+    }
+  });
+
   it('never uses Swim Test after week 1, and never Tusc Biking, All-Camp Event or Village Day', () => {
     for (const run of sessions) {
       run.weeks.weeks.forEach((w, i) => {

@@ -71,6 +71,25 @@ describe('validateWeek', () => {
     expect(has(state(ok), 1, 'H4')).toBe(false);
   });
 
+  it('H4: no Waterfront before the swim test in week 1', () => {
+    const early = (w: WeeksState, week = 1): string[] => validateWeek(w, week, 4).filter((v) => v.message.includes('before the swim test')).map((v) => v.bunk ?? '');
+    // Sunday morning is too early for anyone, with or without a swim test
+    const morning = sampleSchedule();
+    put(morning, village(morning, 'M'), [S(0, 0), S(0, 1)], 'Waterfront');
+    expect(early(state(morning))).toEqual(village(morning, 'M'));
+    // Sunday afternoon is fine once the village's own swim test is behind it, and not before
+    const after = sampleSchedule();
+    put(after, village(after, 'O'), [S(0, 1)], 'Swim Test');
+    put(after, village(after, 'O'), [S(0, 2), S(0, 3)], 'Waterfront');
+    expect(early(state(after))).toEqual([]);
+    const before = sampleSchedule();
+    put(before, village(before, 'O'), [S(1, 0)], 'Swim Test'); // a test on Monday morning
+    put(before, village(before, 'O'), [S(0, 2), S(0, 3)], 'Waterfront');
+    expect(early(state(before))).toEqual(village(before, 'O'));
+    // it is a week 1 rule: the same Sunday morning in week 2 is fine
+    expect(early(state(sampleSchedule(), morning), 2)).toEqual([]);
+  });
+
   it('H5: two related bunks in the same area at the same slot must be on the same ordinal', () => {
     const week1 = sampleSchedule();
     put(week1, ['C1'], [S(0, 0)], 'A&C'); // C1 has done A&C once

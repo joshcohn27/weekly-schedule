@@ -3,7 +3,7 @@ import type { Bunk } from '../types';
 import SharingSettings from './SharingSettings';
 import { useState } from 'react';
 import { NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
-import CoreSettings from './CoreSettings';
+import CoreRows, { LastWeekSwitch } from './CoreSettings';
 
 interface Props {
   settings: Settings;
@@ -28,6 +28,7 @@ export const FIXED_RULES = [
   'No area is in period 4 and again in period 1 the next day.',
   'No bunk has the same kind of period two days in a row.',
   'No area twice in one day for a bunk.',
+  'No Waterfront until the swim test is done: in week 1, never on Sunday morning and never before the village has swum.',
   'Athletics and A&C stay within two of each other for each bunk over the session.',
   'The pool: one group at a time, lessons alone for O and C, O and C never together, Tusc always together, at most 80 campers unless it is a whole village.',
 ];
@@ -95,24 +96,19 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
           ))}
         </ul>
       )}
-      <CoreSettings settings={settings} onChange={onChange} disabled={disabled} />
-      <h3>The rarer areas, and any you add</h3>
       <div className="scroll">
         <table border={1} className="settings">
           <thead>
             <tr>
-              <th rowSpan={2}>Program area</th>
-              <th colSpan={2}>Times per bunk per session</th>
-              <th rowSpan={2}>Bunks at once</th>
-              <th rowSpan={2}>Bunks of one village in a day</th>
-              <th rowSpan={2}>Same visit number</th>
-            </tr>
-            <tr>
-              <th>At least</th>
-              <th>At most</th>
+              <th>Program area</th>
+              <th>How often, for each bunk</th>
+              <th>Bunks at once</th>
+              <th>Bunks of one village in a day</th>
+              <th>Same visit number</th>
             </tr>
           </thead>
           <tbody>
+            <CoreRows settings={settings} onChange={onChange} disabled={disabled} />
             {settingAreas(settings).map((area) => {
               const a = settings.areas[area];
               return (
@@ -129,18 +125,19 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                     )}
                   </th>
                   {a.villages ? (
-                    <td colSpan={2} className="by-village">
+                    <td className="by-village">
                       {villages.map((v) => (
                         <label key={v}>
                           {v} {number(area, `times for village ${v}`, a.villages?.[v] ?? a.min, 0, 12, (n) => set(area, { villages: { ...a.villages, [v]: n } }))}
                         </label>
-                      ))}
+                      ))}{' '}
+                      a session
                     </td>
                   ) : (
-                    <>
-                      <td>{number(area, 'at least', a.min, 0, 12, (n) => set(area, { min: n, max: Math.max(n, a.max) }))}</td>
-                      <td>{number(area, 'at most', a.max, 0, 12, (n) => set(area, { max: n, min: Math.min(n, a.min) }))}</td>
-                    </>
+                    <td>
+                      {number(area, 'at least', a.min, 0, 12, (n) => set(area, { min: n, max: Math.max(n, a.max) }))} a session, at most{' '}
+                      {number(area, 'at most', a.max, 0, 12, (n) => set(area, { max: n, min: Math.min(n, a.min) }))}
+                    </td>
                   )}
                   <td>
                     <select aria-label={`${nameOf(area)} bunks at once`} value={a.atOnce} disabled={disabled} onChange={(e) => set(area, { atOnce: Number(e.target.value) })}>
@@ -176,8 +173,10 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                   }}
                 />
               </th>
-              <td>{draftNumber('at least', draft.min, 0, 12, (n) => setDraft({ ...draft, min: n, max: Math.max(n, draft.max) }))}</td>
-              <td>{draftNumber('at most', draft.max, 0, 12, (n) => setDraft({ ...draft, max: n, min: Math.min(n, draft.min) }))}</td>
+              <td>
+                {draftNumber('at least', draft.min, 0, 12, (n) => setDraft({ ...draft, min: n, max: Math.max(n, draft.max) }))} a session, at most{' '}
+                {draftNumber('at most', draft.max, 0, 12, (n) => setDraft({ ...draft, max: n, min: Math.min(n, draft.min) }))}
+              </td>
               <td>
                 <select aria-label="New program area bunks at once" value={draft.atOnce} disabled={disabled} onChange={(e) => setDraft({ ...draft, atOnce: Number(e.target.value) })}>
                   <option value={1}>1</option>
@@ -203,11 +202,15 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
         gives it to every bunk as single periods. To stop using an area that comes with the app, set both of its numbers to 0.
       </p>
       <p className="hint">
-        "At least" is what every bunk is given. When "at most" is higher, the extra visit is only used to fill a period that would
-        otherwise be Athletics or A&C, so it shows up in crowded weeks and not for everyone. Dance is set village by village. Whatever
-        periods these areas do not use become Athletics, A&C or Time with UH, so raising a number means less of those, and lowering one
-        means more.
+        The first number is what every bunk is given. "At most" is how far the area may go to fill a period that would otherwise be
+        Athletics or A&C, so the extra shows up in crowded weeks and not for everyone. "A week" is the average over the session: a
+        short week, or one with a trip in it, gets fewer. Dance is set village by village. Athletics and A&C are whatever periods the
+        other areas leave, up to their weekly number, so raising another area means less of them and lowering one means more.
       </p>
+      <p className="hint">
+        "Same visit number" ticked means bunks that share a period there must be on the same visit; unticked, any visit will do.
+      </p>
+      <LastWeekSwitch settings={settings} onChange={onChange} disabled={disabled} />
       <SharingSettings settings={settings} bunks={bunks} onChange={onChange} disabled={disabled} />
       <p>
         <button type="button" onClick={onReset} disabled={disabled || isDefaultSettings(settings)}>
