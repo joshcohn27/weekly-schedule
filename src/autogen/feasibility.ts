@@ -1,6 +1,6 @@
 import { villageOf } from '../autofill';
 import type { Schedule } from '../types';
-import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, TIYUL_WEEKS, TRIP_LABELS, type SessionWeeks } from './config';
+import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, TIYUL_WEEKS, TRIP_LABELS, hobbyWeeks, type SessionWeeks } from './config';
 import { coreOf, settingAreas, type Settings } from './settings';
 
 /**
@@ -39,11 +39,9 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
   if (roster.length === 0) return [];
   const out: SettingsProblem[] = [];
   const four = sessionWeeks === 4;
-  // hobbies take two periods for each half-day; the last week of a 4-week session has its own Monday morning of them
-  const hobbies = coreOf(settings).hobbyHalfDays;
-  const normalWeek = 24 - 2 * hobbies;
-  const lastWeek = 16 - (hobbies > 0 ? 2 : 0);
-  const periods = four ? normalWeek * 3 + lastWeek : normalWeek * sessionWeeks;
+  // hobbies take two periods for each session
+  const hobbies = hobbyWeeks(coreOf(settings).hobbySessions, sessionWeeks).reduce((a, b) => a + b, 0);
+  const periods = (four ? 24 * 3 + 16 : 24 * sessionWeeks) - 2 * hobbies; // the last week of a 4-week session has no Friday and a set Thursday
   const days = four ? DAYS_NORMAL * 3 + DAYS_LAST : DAYS_NORMAL * sessionWeeks;
   const villages = [...new Set(roster.map((b) => villageOf(b.name)))].filter(Boolean);
   const membersOf = (v: string): number => roster.filter((b) => villageOf(b.name) === v).length;

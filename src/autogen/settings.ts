@@ -67,8 +67,8 @@ export interface SharedNumbers {
  * swim allowed up to `poolMaxPerWeek`; who swims together is not a setting.
  */
 export interface CoreSettings {
-  /** Hobby sessions a week, exactly: 1 is Friday morning, 2 adds one midweek, 3 adds Sunday morning (not in week 1), 0 is none. */
-  hobbyHalfDays: number;
+  /** Hobby sessions in the whole session, exactly. A session is a half-day for the whole camp; hobbyWeeks() shares them out over the weeks. */
+  hobbySessions: number;
   /** Shabbat Prep on the Friday afternoon of a village's turn, and one more period earlier that week. */
   shabbatPrep: boolean;
   shabbatPrepExtra: boolean;
@@ -102,7 +102,7 @@ export interface VisitSettings {
 
 /** The ranges the core numbers are kept inside. */
 const CORE_LIMITS = {
-  hobbyHalfDays: [0, 3],
+  hobbySessions: [0, 9],
   ropesPerSession: [0, 2],
   ropesMaxCampers: [5, 200],
   poolPerWeek: [0, 1],
@@ -132,7 +132,7 @@ function readCore(): CoreSettings {
     return { atOnce: SLOT_CAP[area], villagePerDay: DAY_CAP[area], maxPerWeek: WEEK_BLOCK_MAX[area] ?? 0 };
   };
   return {
-    hobbyHalfDays: CALENDAR.hobbyHalfDays,
+    hobbySessions: CALENDAR.hobbySessions,
     shabbatPrep: CALENDAR.shabbatPrep,
     shabbatPrepExtra: CALENDAR.shabbatPrepExtra,
     ropesPerSession: SESSION_TARGETS.Ropes,
@@ -434,7 +434,7 @@ export function applySettings(settings?: Settings | null): void {
   SESSION_TARGETS['TW UH'] = core.uhMin;
   SESSION_TARGETS.Ropes = core.ropesPerSession;
   setRopesMax(core.ropesMaxCampers);
-  CALENDAR.hobbyHalfDays = core.hobbyHalfDays;
+  CALENDAR.hobbySessions = core.hobbySessions;
   CALENDAR.shabbatPrep = core.shabbatPrep;
   CALENDAR.shabbatPrepExtra = core.shabbatPrepExtra;
   setPool(core.poolLessons, core.poolMaxCampers);

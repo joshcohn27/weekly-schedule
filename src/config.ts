@@ -2,6 +2,12 @@ export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Fr
 export const PERIODS_PER_DAY = 4;
 export const SLOT_COUNT = DAYS.length * PERIODS_PER_DAY; // 24
 export const WEEK_COUNT = 4;
+/**
+ * The version shown at the foot of every page. Change it here (and in package.json) when a new one goes out.
+ * The first number is the app itself, the second goes up when a feature is added (2 is Auto generate), and the third
+ * goes up for a fix.
+ */
+export const APP_VERSION = '1.2.2';
 /** Where the Contact support links go. */
 export const SUPPORT_EMAIL = 'joshcohn27@gmail.com';
 export const SUPPORT_LINK = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Weekly Period Schedule Builder')}`;

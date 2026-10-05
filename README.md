@@ -26,7 +26,9 @@ The build output is the `dist/` folder from `npm run build`.
 ## Using it
 
 **Contact support** at the foot of every page (and in the how-to, and beside any settings problem) opens an email to
-joshcohn27@gmail.com. The address is `SUPPORT_EMAIL` in `src/config.ts`.
+joshcohn27@gmail.com. The address is `SUPPORT_EMAIL` in `src/config.ts`. The version number shown beside it
+(1.2.2) is `APP_VERSION` in the same file: the first number is the app itself, the second goes up when a feature is
+added (2 is Auto generate), and the third goes up for a fix.
 
 The how-to opens by itself the very first time the page is opened in a browser, and not again after that. The **?**
 next to the title opens it any time. It is a plain how-to for the whole page: the tabs, building a week step by step, changing
@@ -155,9 +157,11 @@ cut to 1 and no third Ceramics, for example, a run tried for its full time and d
 
 **Every program area is in the one table**, and the defaults are what the generator has always used:
 
-- **Hobbies:** exactly how many sessions a week. A session is a half-day for the whole camp. 1 is Friday morning, 2
-  adds Wednesday afternoon or Tuesday morning, 3 adds Sunday morning (not in week 1, when the swim tests are then),
-  0 is none. There is no chance in it: the number is what every week gets.
+- **Hobbies:** exactly how many hobby sessions the **whole session** has (a session is a half-day for the whole
+  camp). They are shared out over the weeks: every week gets its Friday morning first (the last week of a 4-week
+  session gets Monday morning, and that is all it can have), then a midweek one each week (Wednesday afternoon or
+  Tuesday morning), then Sunday mornings from week 2 on. So 4 is one a week, 7 is what a 4-week session has always
+  had, and 9 is the most that fits (8 in a 3-week session). There is no chance in it.
 - **Waterfront:** about how many times a week. **League:** about how many times a week, set village by village
   (Mohawk's are double periods; for Tusc the number is triathlon sessions).
 - **Pool:** swims a week and the most a week, how many of an O or C bunk's first swims are lessons alone, and the most

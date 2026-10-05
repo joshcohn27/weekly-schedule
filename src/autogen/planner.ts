@@ -1,6 +1,7 @@
 import {
   BUILT_WEEK_MAX_EMPTY,
   CALENDAR,
+  hobbiesInWeek,
   shabbatPrepPeriods,
   DAY_CAP,
   LATER_WEEK_ROOM_BONUS,
@@ -116,9 +117,9 @@ export function expectedSpare(c: Ctx, b: number, week: number): number {
     return free - upkeep;
   }
   let free = 24;
-  const hobbies = CALENDAR.hobbyHalfDays;
+  const hobbies = hobbiesInWeek(week, c.sessionWeeks);
   if (last) free -= 8 + (hobbies > 0 ? 2 : 0); // Friday, Thursday and Monday hobbies
-  else free -= 2 * (week === 1 ? Math.min(hobbies, 2) : hobbies); // hobbies (the third session is Sunday morning, which week 1 does not have)
+  else free -= 2 * hobbies; // two periods for each hobby session this week
   if (week === 1) free -= 1; // Sunday swim test, or Mohawk's Athletics
   if (v === 'T') free -= triathlonPeriods(c, b, week); // triathlon: one double and two singles
   else free -= v === 'M' ? leagueFor(v) * 2 : leagueFor(v);
@@ -205,7 +206,7 @@ function leftoverRoom(c: Ctx, b: number, week: number): number {
     for (let p = 0; p < 4; p++) {
       if (row && row[day * 4 + p] !== '') continue;
       // a week that is not in hand yet: Friday morning is hobbies and, on the village's turn, the afternoon is Shabbat Prep
-      const hobby = CALENDAR.hobbyHalfDays > 0;
+      const hobby = hobbiesInWeek(week, c.sessionWeeks) > 0;
       if (!now && ((day === 5 && ((hobby && p < 2) || (prep && CALENDAR.shabbatPrep))) || (hobby && last && day === 1 && p < 2))) continue;
       free++;
     }

@@ -1,5 +1,6 @@
 import {
   CALENDAR,
+  hobbiesInWeek,
   HOBBY_WED_PM_PROBABILITY,
   SHABBAT_ROTATION,
   TRIP_LABELS,
@@ -40,9 +41,10 @@ export function planCalendar(
   rng: Rng,
 ): CalendarPlan {
   let hobbies: [number, number][];
-  if (CALENDAR.hobbyHalfDays === 0) hobbies = []; // no hobbies at all
+  const sessions = hobbiesInWeek(input.weekIndex, input.sessionWeeks); // this week's share of the session's hobby sessions
+  if (sessions === 0) hobbies = []; // none this week
   else if (input.lastWeek) hobbies = [[1, 0]]; // Monday morning only
-  else if (CALENDAR.hobbyHalfDays === 1) hobbies = [[5, 0]]; // Friday morning only
+  else if (sessions === 1) hobbies = [[5, 0]]; // Friday morning only
   else {
     hobbies = [[5, 0]]; // Friday morning always
     // Wednesday afternoon, or Tuesday morning. When a village is away for one of them the other is used, so nobody misses hobbies.
@@ -51,7 +53,7 @@ export function planCalendar(
     const drawWed = chance(rng, HOBBY_WED_PM_PROBABILITY);
     hobbies.push((wedTaken !== tueTaken ? tueTaken : drawWed) ? [3, 1] : [2, 0]);
     // a third session is Sunday morning: never in week 1 (the swim tests are then), and not when someone is away for it
-    if (CALENDAR.hobbyHalfDays >= 3 && input.weekIndex > 1 && !input.taken?.(0, 0)) hobbies.push([0, 0]);
+    if (sessions >= 3 && input.weekIndex > 1 && !input.taken?.(0, 0)) hobbies.push([0, 0]);
   }
 
   return { hobbies, swimOrder: shuffle(rng, [0, 1, 2, 3]) };

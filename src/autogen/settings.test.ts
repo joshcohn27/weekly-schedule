@@ -12,7 +12,7 @@ import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
 import { planCalendar } from './calendar';
 import { blocksOf } from './history';
-import { CALENDAR, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
+import { CALENDAR, hobbyMost, hobbyWeeks, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
 import { mulberry32 } from './rng';
 import { checkSettings } from './feasibility';
 import { generateRun } from './session';
@@ -405,7 +405,7 @@ describe('the main areas and the visit numbers', () => {
 
   it('start as the numbers the generator has always used', () => {
     expect(coreOf(defaultSettings())).toEqual({
-      hobbyHalfDays: 2,
+      hobbySessions: 7,
       shabbatPrep: true,
       shabbatPrepExtra: true,
       ropesPerSession: 2,
@@ -449,28 +449,50 @@ describe('the main areas and the visit numbers', () => {
     const calendarFor = (week: number) => planCalendar({ weekIndex: week, sessionWeeks: 4, lastWeek: week === 4 }, mulberry32(7)).hobbies;
     expect(calendarFor(2).some(([d, h]) => d === 5 && h === 0)).toBe(true); // Friday morning
     expect(calendarFor(2).length).toBeGreaterThanOrEqual(2);
-    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 1, shabbatPrep: false, ropesPerSession: 1, poolPerWeek: 0, poolLessons: 0, poolMaxCampers: 120 }));
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 4, shabbatPrep: false, ropesPerSession: 1, poolPerWeek: 0, poolLessons: 0, poolMaxCampers: 120 }));
     expect(calendarFor(2)).toEqual([[5, 0]]); // Friday morning only
     expect(calendarFor(4)).toEqual([[1, 0]]); // the last week keeps its Monday morning
     expect([CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([false, 0, 1, 0, 120]);
     expect(POOL_TARGETS.O).toEqual({ perWeek: 0 });
     expect(POOL_TARGETS.S).toEqual({ perSession: 0 });
-    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 0 }));
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 0 }));
     expect(calendarFor(2)).toEqual([]);
     expect(calendarFor(4)).toEqual([]);
     // the number is exact, with no chance in it: two means two every week, and three adds Sunday morning after week 1
     applySettings();
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) expect(planCalendar({ weekIndex: 3, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toHaveLength(2);
-    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 3 }));
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 9 }));
     for (const seed of [1, 2, 3, 4]) {
       expect(planCalendar({ weekIndex: 3, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toContainEqual([0, 0]);
       expect(planCalendar({ weekIndex: 3, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toHaveLength(3);
       expect(planCalendar({ weekIndex: 1, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toHaveLength(2); // the swim tests are on that Sunday
     }
     applySettings();
-    expect([CALENDAR.hobbyHalfDays, CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([2, true, 3, 2, 2, 80]);
+    expect([CALENDAR.hobbySessions, CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([7, true, 3, 2, 2, 80]);
     expect(POOL_TARGETS.O).toEqual({ perWeek: 1 });
     expect(POOL_TARGETS.S).toEqual({ perSession: 4 });
+  });
+
+  it('shares an exact number of hobby sessions for the whole session out over its weeks', () => {
+    // a 4-week session: Fridays first (Monday in the last week), then midweek, then Sundays from week 2
+    expect(hobbyWeeks(0, 4)).toEqual([0, 0, 0, 0]);
+    expect(hobbyWeeks(1, 4)).toEqual([1, 0, 0, 0]);
+    expect(hobbyWeeks(4, 4)).toEqual([1, 1, 1, 1]); // one a week
+    expect(hobbyWeeks(5, 4)).toEqual([2, 1, 1, 1]);
+    expect(hobbyWeeks(7, 4)).toEqual([2, 2, 2, 1]); // what it has always been
+    expect(hobbyWeeks(8, 4)).toEqual([2, 3, 2, 1]); // week 1 has no Sunday session: the swim tests are then
+    expect(hobbyWeeks(9, 4)).toEqual([2, 3, 3, 1]);
+    expect(hobbyWeeks(20, 4)).toEqual([2, 3, 3, 1]); // nine is all there is room for
+    expect([hobbyMost(4), hobbyMost(3)]).toEqual([9, 8]);
+    expect(hobbyWeeks(6, 3)).toEqual([2, 2, 2]);
+    expect(hobbyWeeks(7, 3)).toEqual([2, 3, 2]);
+    // whatever the number, the sessions a run puts on the calendar add up to it exactly
+    for (const total of [0, 3, 6, 7, 9]) {
+      applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: total }));
+      const placed = [1, 2, 3, 4].reduce((sum, week) => sum + planCalendar({ weekIndex: week, sessionWeeks: 4, lastWeek: week === 4 }, mulberry32(week)).hobbies.length, 0);
+      expect(placed, `asked for ${total}`).toBe(total);
+    }
+    applySettings();
   });
 
   it('checks a week by the settings in force: fewer hobbies, no Shabbat Prep, no weekly swim', () => {
@@ -484,7 +506,7 @@ describe('the main areas and the visit numbers', () => {
       swim: messages.some((m) => m.includes('swims 0 times this week')),
     });
     expect(missed(rulesOf(week, 2))).toEqual({ hobbies: true, prep: true, swim: true });
-    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbyHalfDays: 1, shabbatPrep: false, poolPerWeek: 0 }));
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), hobbySessions: 4, shabbatPrep: false, poolPerWeek: 0 }));
     expect(missed(rulesOf(week, 2))).toEqual({ hobbies: false, prep: false, swim: false });
   });
 
@@ -577,7 +599,7 @@ describe('the main areas and the visit numbers', () => {
       'Pool lessons alone',
       'Pool most campers at once',
       'Ropes times a session',
-      'Hobbies sessions a week',
+      'Hobbies sessions in the whole session',
       'Ropes most campers at once',
       'Shabbat Prep on Friday afternoon',
       'Shabbat Prep extra period',

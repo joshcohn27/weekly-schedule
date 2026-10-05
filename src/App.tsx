@@ -16,7 +16,7 @@ import { startRun } from './autogen/background';
 import { checkSettings } from './autogen/feasibility';
 import { applySettings, isDefaultSettings, normalizeSettings, type Settings } from './autogen/settings';
 import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
-import { SUPPORT_LINK, WEEK_COUNT } from './config';
+import { APP_VERSION, SUPPORT_LINK, WEEK_COUNT } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
 import { defaultWeeksState, isFirstVisit, loadWeeks, markHelpSeen, saveWeeks } from './storage';
@@ -444,7 +444,8 @@ export default function App() {
         </button>{' '}
         <a className="support" href={SUPPORT_LINK}>
           Contact support
-        </a>
+        </a>{' '}
+        <span className="version muted">Version {APP_VERSION}</span>
       </footer>
     </div>
   );

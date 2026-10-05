@@ -152,7 +152,7 @@ const SHARED_NAMES: [SharedKey, string][] = [
 ];
 /** Every number on the Main areas tab: its label, and how to read it from and write it to the settings. */
 const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: CoreSettings, n: unknown) => void }[] = [
-  { label: 'Hobbies, sessions a week', get: (c) => c.hobbyHalfDays, set: (c, n) => (c.hobbyHalfDays = n as number) },
+  { label: 'Hobbies, sessions in the whole session', get: (c) => c.hobbySessions, set: (c, n) => (c.hobbySessions = n as number) },
   { label: 'Shabbat Prep on Friday afternoon (1 yes, 0 no)', get: (c) => (c.shabbatPrep ? 1 : 0), set: (c, n) => (c.shabbatPrep = String(n) !== '0') },
   { label: 'Shabbat Prep, one more period earlier in the week (1 yes, 0 no)', get: (c) => (c.shabbatPrepExtra ? 1 : 0), set: (c, n) => (c.shabbatPrepExtra = String(n) !== '0') },
   { label: 'Ropes, times a session', get: (c) => c.ropesPerSession, set: (c, n) => (c.ropesPerSession = n as number) },

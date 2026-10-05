@@ -203,6 +203,9 @@ table.specialist .visit + .visit {
 footer a.support {
   margin-left: 12px;
 }
+footer .version {
+  margin-left: 12px;
+}
 /* the Settings tab */
 main h3 {
   margin: 18px 0 6px;

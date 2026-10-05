@@ -3,6 +3,7 @@ import type { WeeksState } from '../types';
 import {
   DAY_CAP,
   CALENDAR,
+  hobbiesInWeek,
   POOL_LESSONS,
   POOL_TARGETS,
   POOL_MAX_CAMPERS,
@@ -305,7 +306,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
     for (let b = 0; b < n; b++) {
       const isT = roster.village[b] === 'T';
       const want = (day: number, half: number): string => {
-        if (day === 1 && half === 0) return CALENDAR.hobbyHalfDays > 0 ? 'AM Hobbies' : '';
+        if (day === 1 && half === 0) return hobbiesInWeek(weekIndex, sessionWeeks) > 0 ? 'AM Hobbies' : '';
         if (day === 4 && half === 0) return 'Hobby Culmination';
         if (day === 4 && half === 1) return isT ? 'Banquet Prep' : 'Packing Time';
         return '';
@@ -324,11 +325,11 @@ export function validateGrid(input: ValidationInput): Violation[] {
         if (isHobby(l)) halves.add(`${dayOf(s)}${periodOf(s) < 2 ? 'A' : 'P'}`);
       });
     }
-    if (CALENDAR.hobbyHalfDays >= 1 && !halves.has('5A') && !locked(0, slotAt(5, 0))) add('H11', 'Friday morning hobbies are missing.', undefined, slotAt(5, 0));
+    if (hobbiesInWeek(weekIndex, sessionWeeks) >= 1 && !halves.has('5A') && !locked(0, slotAt(5, 0))) add('H11', 'Friday morning hobbies are missing.', undefined, slotAt(5, 0));
     const allowed = new Set(['5A', '3P', '2A', '0A']);
     for (const h of halves) if (!allowed.has(h)) add('H11', `Hobbies on an unexpected half-day (${h}).`, undefined, undefined);
     if (halves.has('3P') && halves.has('2A')) add('H11', 'Both Tuesday morning and Wednesday afternoon hobbies.', undefined, undefined);
-    if (CALENDAR.hobbyHalfDays >= 2 && !halves.has('3P') && !halves.has('2A') && !locked(0, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
+    if (hobbiesInWeek(weekIndex, sessionWeeks) >= 2 && !halves.has('3P') && !halves.has('2A') && !locked(0, slotAt(3, 2))) add('H11', 'The second weekly hobbies half-day is missing.', undefined, undefined);
   }
 
   // H17: nothing back to back. Athletics and A&C are single periods, and no area is in period 4 and again in period 1 the next day.

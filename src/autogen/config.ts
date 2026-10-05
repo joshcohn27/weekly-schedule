@@ -151,12 +151,31 @@ export function setPool(lessons: number, maxCampers: number): void {
 }
 
 /**
- * The parts of the fixed calendar that are settings. Hobbies: two half-days a week is Friday morning and one midweek, one is
- * Friday morning only, none is no hobbies, and three adds Sunday morning (not in week 1, which has the swim tests then). It is
- * an exact number, with no chance in it. Shabbat Prep: the Friday afternoon of a village's turn, and one more period earlier
- * that week.
+ * The parts of the fixed calendar that are settings. Hobbies: `hobbySessions` is exactly how many hobby sessions (half-days
+ * for the whole camp) the whole session has; hobbyWeeks() shares them out over the weeks. Shabbat Prep: the Friday afternoon
+ * of a village's turn, and one more period earlier that week.
  */
-export const CALENDAR = { hobbyHalfDays: 2, shabbatPrep: true, shabbatPrepExtra: true };
+export const CALENDAR = { hobbySessions: 7, shabbatPrep: true, shabbatPrepExtra: true };
+
+/**
+ * How many hobby sessions each week gets when the whole session has `total` of them: the answer for week 1 first.
+ * Every week gets its main one before any week gets a second (Friday morning; in the last week of a 4-week session,
+ * Monday morning, which is the only one that week can have). Then the midweek ones (Wednesday afternoon or Tuesday
+ * morning), week by week. Then Sunday mornings, from week 2 on: week 1 has the swim tests then. Seven is what a 4-week
+ * session has always had (two a week and one in the last), and nine is the most that fits; a 3-week session fits eight.
+ */
+export function hobbyWeeks(total: number, sessionWeeks: number): number[] {
+  const four = sessionWeeks === 4;
+  const normal = Array.from({ length: four ? 3 : sessionWeeks }, (_, i) => i + 1);
+  const order = [...normal, ...(four ? [4] : []), ...normal, ...normal.filter((w) => w > 1)];
+  const out = Array<number>(sessionWeeks).fill(0);
+  for (const week of order.slice(0, Math.max(0, total))) out[week - 1]++;
+  return out;
+}
+/** The most hobby sessions a session of this many weeks can hold. */
+export const hobbyMost = (sessionWeeks: number): number => hobbyWeeks(Infinity, sessionWeeks).reduce((a, b) => a + b, 0);
+/** How many hobby sessions this week gets, under the setting in force. */
+export const hobbiesInWeek = (weekIndex: number, sessionWeeks: number): number => hobbyWeeks(CALENDAR.hobbySessions, sessionWeeks)[weekIndex - 1] ?? 0;
 /** Periods Shabbat Prep takes in the week of a village's turn. */
 export const shabbatPrepPeriods = (): number => (CALENDAR.shabbatPrep ? 2 + (CALENDAR.shabbatPrepExtra ? 1 : 0) : 0);
 

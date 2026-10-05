@@ -128,8 +128,9 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
       <tr>
         <th scope="row">Hobbies</th>
         <td>
-          exactly {number('Hobbies sessions a week', core.hobbyHalfDays, 0, 3, (n) => set({ hobbyHalfDays: n }))} sessions a week{' '}
-          <Info text="A session is a half-day for the whole camp. 1 is Friday morning. 2 adds Wednesday afternoon or Tuesday morning. 3 adds Sunday morning, except in week 1, when the swim tests are then. The last week of a 4-week session has one, on Monday morning." />
+          exactly {number('Hobbies sessions in the whole session', core.hobbySessions, 0, 9, (n) => set({ hobbySessions: n }))} sessions in the whole
+          session{' '}
+          <Info text="A hobby session is a half-day for the whole camp. This is the total for the entire session, not a number a week. They are shared out like this: every week gets its Friday morning first (the last week of a 4-week session gets Monday morning instead, and that is all it can have); then a midweek one each week, Wednesday afternoon or Tuesday morning; then Sunday mornings from week 2 on. So 4 is one a week, 7 is two a week and one in the last week, and 9 is the most a 4-week session holds (8 for a 3-week one)." />
         </td>
         <td colSpan={3} className="fixed">
           The whole camp
