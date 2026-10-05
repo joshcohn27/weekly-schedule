@@ -243,12 +243,14 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
           Reset to the default settings
         </button>
       </p>
+      {/* Hidden for now: the list of rules that are always kept is not shown on this page.
       <h3>Always kept</h3>
       <ul>
         {FIXED_RULES.map((rule) => (
           <li key={rule}>{rule}</li>
         ))}
       </ul>
+      */}
     </section>
   );
 }

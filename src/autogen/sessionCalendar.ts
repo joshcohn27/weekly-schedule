@@ -1,4 +1,4 @@
-import { villageOf } from '../autofill';
+import { GUEST_VILLAGE, villageOf } from '../autofill';
 import { SLOT_COUNT } from '../config';
 import type { Schedule } from '../types';
 import { slotAt } from './history';
@@ -10,7 +10,7 @@ import { slotAt } from './history';
 export interface CalendarEvent {
   /** What the schedule says in those periods. */
   label: string;
-  /** 'camp' for every bunk, or a village letter. */
+  /** 'camp' for every bunk, a village (its letter, or "TC" for Taste of CSL), or one bunk by name. */
   who: string;
   /** Week of the session, 1 for the first. */
   week: number;
@@ -29,6 +29,7 @@ const MON = 1;
 const TUE = 2;
 const WED = 3;
 const THU = 4;
+const FRI = 5;
 
 /** The label a village's own day goes by: "O-Day" for village O. */
 export const villageDayLabel = (v: string): string => `${v}-Day`;
@@ -45,6 +46,8 @@ export interface SessionTemplate {
   opens: string;
   closes: string;
   events: CalendarEvent[];
+  /** The bunks the session starts with: name, grades, campers. */
+  roster: [string, string, string][];
 }
 
 /** The date of a day of a session: the Sunday of the week opening day falls in is day 0 of week 1. */
@@ -82,6 +85,13 @@ export const SESSION_1: SessionTemplate = {
     ...overnight('S', 4, MON),
     ...overnight('M', 4, TUE),
   ],
+  roster: [
+    ['O1', '4th', '11'], ['O2', '4th/5th', '12'], ['O3', '5th', '9'], ['O4', '5th/6th', '13'], ['O5', '6th', '10'],
+    ['C1', '4th', '12'], ['C2', '4th/5th', '8'], ['C3', '5th/6th', '13'], ['C4', '6th', '11'],
+    ['S1', '7th', '10'], ['S2', '7th/8th', '14'], ['S3', '8th', '12'], ['S4', '8th/9th', '9'], ['S5', '9th', '13'],
+    ['M1', '7th', '11'], ['M2', '7th/8th', '13'], ['M3', '8th/9th', '10'], ['M4', '9th', '12'],
+    ['T1', '10th', '14'], ['T2', '10th', '11'], ['T3', '10th', '13'], ['T4', '10th', '12'],
+  ],
 };
 
 /**
@@ -99,6 +109,20 @@ export const SESSION_2: SessionTemplate = {
     camp('No Periods', 1, SUN, ALL_DAY),
     camp('Opening Day', 1, MON, ALL_DAY),
     village('T', 'Trip', 1, TUE, ALL_DAY),
+    // Taste of CSL, week 1 only, exactly as in 2026: TC1 and TC2 do what "TC 1" did, TC3 and TC4 what "TC 2" did
+    village(GUEST_VILLAGE, 'Swim Test', 1, TUE, [0]),
+    village(GUEST_VILLAGE, 'Pool', 1, TUE, [1]),
+    ...['TC1', 'TC2'].flatMap((b) => [village(b, 'A&C', 1, TUE, [2]), village(b, 'Low Ropes', 1, TUE, [3])]),
+    ...['TC3', 'TC4'].flatMap((b) => [village(b, 'Low Ropes', 1, TUE, [2]), village(b, 'A&C', 1, TUE, [3])]),
+    village(GUEST_VILLAGE, 'Waterfront', 1, WED, AM),
+    village(GUEST_VILLAGE, 'PM Hobbies', 1, WED, PM),
+    village(GUEST_VILLAGE, 'Athletics', 1, THU, [0]),
+    village(GUEST_VILLAGE, 'Music', 1, THU, [1]),
+    village(GUEST_VILLAGE, 'Pool', 1, THU, [2]),
+    village(GUEST_VILLAGE, 'Teva', 1, THU, [3]),
+    village(GUEST_VILLAGE, 'AM Hobbies', 1, FRI, AM),
+    village(GUEST_VILLAGE, 'A&C', 1, FRI, [2]),
+    village(GUEST_VILLAGE, 'Dance', 1, FRI, [3]),
     village('O', 'Tiyul', 2, SUN, PM),
     village('C', 'Tiyul', 2, SUN, PM),
     ...overnight('S', 2, MON),
@@ -108,6 +132,15 @@ export const SESSION_2: SessionTemplate = {
     camp('Color War', 3, MON, ALL_DAY),
     camp('Color War', 3, TUE, ALL_DAY),
     camp('Tusc Triathlon', 3, THU, PM),
+  ],
+  // 4 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL for week 1
+  roster: [
+    ['TC1', '3rd', '11'], ['TC2', '3rd', '11'], ['TC3', '3rd', '12'], ['TC4', '3rd', '12'],
+    ['O1', '4th', '11'], ['O2', '4th/5th', '12'], ['O3', '5th/6th', '9'], ['O4', '6th', '13'],
+    ['C1', '4th', '12'], ['C2', '4th/5th', '8'], ['C3', '5th/6th', '13'], ['C4', '6th', '11'],
+    ['S1', '7th', '10'], ['S2', '7th/8th', '14'], ['S3', '8th', '12'], ['S4', '8th/9th', '9'], ['S5', '9th', '13'],
+    ['M1', '7th', '11'], ['M2', '7th/8th', '13'], ['M3', '8th', '10'], ['M4', '8th/9th', '12'], ['M5', '9th', '9'],
+    ['T1', '10th', '14'], ['T2', '10th', '11'], ['T3', '10th', '13'], ['T4', '10th', '12'],
   ],
 };
 
@@ -130,12 +163,12 @@ export function normalizeCalendar(raw: unknown): CalendarEvent[] | null {
     const periods = [...new Set((Array.isArray(e.periods) ? e.periods : []).filter((p) => Number.isInteger(p) && p >= 0 && p <= 3))].sort();
     if (!label || !who || !Number.isInteger(e.week) || (e.week as number) < 1 || (e.week as number) > 4) continue;
     if (!Number.isInteger(e.day) || (e.day as number) < 0 || (e.day as number) > 5 || periods.length === 0) continue;
-    out.push({ label, who: who === CAMP ? CAMP : who.charAt(0).toUpperCase(), week: e.week as number, day: e.day as number, periods });
+    out.push({ label, who: who === CAMP ? CAMP : who.length === 1 ? who.toUpperCase() : who, week: e.week as number, day: e.day as number, periods });
   }
   return out;
 }
 
-const applies = (e: CalendarEvent, bunkName: string): boolean => e.who === CAMP || villageOf(bunkName) === e.who;
+const applies = (e: CalendarEvent, bunkName: string): boolean => e.who === CAMP || villageOf(bunkName) === e.who || bunkName.trim() === e.who;
 const slotsOf = (e: CalendarEvent): number[] => e.periods.map((p) => slotAt(e.day, p));
 
 /**

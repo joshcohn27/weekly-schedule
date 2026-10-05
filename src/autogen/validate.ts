@@ -35,6 +35,7 @@ import {
 } from './history';
 import { buildRoster, isRun, shareLevel, type Roster } from './roster';
 import { isShortWeek, openPeriods } from './weekRoom';
+import { isGuest } from '../autofill';
 import { OPEN, beforeSwimTest, firstDayOf, isFixedMohawkAthletics, setFirstDay, sharedArea, slotGroupProblems } from './share';
 
 export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16' | 'H17' | 'H18' | 'H19';
@@ -392,7 +393,10 @@ export function validateGrid(input: ValidationInput): Violation[] {
 export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks: SessionWeeks, opts: ValidateOptions = {}): Violation[] {
   const schedule = weeks.weeks[weekIndex - 1];
   if (!isFilledWeek(schedule)) return [];
-  const roster = buildRoster(schedule.bunks);
+  // Taste of CSL bunks have a set week of their own and are not held to the rules
+  const keep = schedule.bunks.map((b) => !isGuest(b.name));
+  const bunks = schedule.bunks.filter((_, i) => keep[i]);
+  const roster = buildRoster(bunks);
   const hist = buildHistory(weeks, weekIndex, roster.names);
-  return validateGrid({ weeks, weekIndex, sessionWeeks, roster, hist, grid: schedule.bunks.map((b) => b.slots), locked: opts.locked });
+  return validateGrid({ weeks, weekIndex, sessionWeeks, roster, hist, grid: bunks.map((b) => b.slots), locked: opts.locked?.filter((_, i) => keep[i]) });
 }

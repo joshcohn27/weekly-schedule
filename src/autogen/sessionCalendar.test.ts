@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { areaOf } from '../config';
-import { sampleSchedule } from '../sample';
+import { isGuest, villageOf } from '../autofill';
+import { newBunk, sampleSchedule } from '../sample';
+import { generateRun } from './session';
+import { validateWeek } from './validate';
 import type { Schedule } from '../types';
 import { TRIP_LABELS } from './config';
 import { halfSlots, slotAt } from './history';
@@ -15,6 +18,8 @@ describe('the session calendar', () => {
   it('knows every label it uses, and the generator leaves them all alone', () => {
     for (const t of SESSION_TEMPLATES) {
       for (const e of t.events) {
+        expect(e.week).toBeLessThanOrEqual(t.weeks);
+        if (isGuest(e.who)) continue; // Taste of CSL has ordinary activities on its set week
         expect(TRIP_LABELS, e.label).toContain(e.label);
         expect(e.week).toBeLessThanOrEqual(t.weeks);
         expect(areaOf(e.label) === null || areaOf(e.label) === 'Trips', e.label).toBe(true);
@@ -60,6 +65,47 @@ describe('the session calendar', () => {
     for (const day of [1, 2]) expect(at(weeks, 3, 'M1', day, 0)).toBe('Color War');
     expect(at(weeks, 3, 'O1', 4, 2)).toBe('Tusc Triathlon');
   });
+
+  it('Taste of CSL: TC bunks are a village of their own with a set week 1, copied from 2026, and are left out of generating', async () => {
+    expect(isGuest('TC1')).toBe(true);
+    expect(isGuest(' tc 3')).toBe(true);
+    expect(isGuest('T1')).toBe(false);
+    expect(villageOf('TC2')).toBe('TC'); // not Tusc
+    expect(villageOf('T2')).toBe('T');
+    const first: Schedule = { ...sampleSchedule(), bunks: SESSION_2.roster.map(([name, grades, count]) => newBunk(name, grades, count)) };
+    const weeks = applyCalendar([first, null, null, null], SESSION_2.events);
+    const week = (name: string): string[] => (weeks[0] as Schedule).bunks.find((b) => b.name === name)!.slots;
+    // Sunday nothing, Monday opening day, then Tuesday to Friday as "TC 1" had it in 2026
+    expect(week('TC1')).toEqual([
+      ...Array(4).fill('No Periods'),
+      ...Array(4).fill('Opening Day'),
+      'Swim Test', 'Pool', 'A&C', 'Low Ropes',
+      'Waterfront', 'Waterfront', 'PM Hobbies', 'PM Hobbies',
+      'Athletics', 'Music', 'Pool', 'Teva',
+      'AM Hobbies', 'AM Hobbies', 'A&C', 'Dance',
+    ]);
+    expect(week('TC2')).toEqual(week('TC1'));
+    // TC3 and TC4 do what "TC 2" did: ropes and A&C the other way round on Tuesday
+    expect(week('TC3').slice(8, 12)).toEqual(['Swim Test', 'Pool', 'Low Ropes', 'A&C']);
+    expect(week('TC4')).toEqual(week('TC3'));
+    expect(week('T1').slice(8, 12)).toEqual(['Trip', 'Trip', 'Trip', 'Trip']); // Tusc is not Taste of CSL
+
+    // generating: the TC weeks come back untouched, nobody else is at the pool or the Waterfront with them, and they are
+    // only in week 1
+    const run = await generateRun({ weeks: [first, null, null, null], steps: [0, 1].map((index) => ({ index, mode: 'fill-empty' as const })), roster: first.bunks, sessionWeeks: 3, keepTrips: true, useOtherWeeks: true, seed: 12, calendar: true, maxTotalMs: 60_000 });
+    const made = run?.weeks[0] as Schedule;
+    const row = (name: string): string[] => made.bunks.find((b) => b.name === name)!.slots;
+    expect(row('TC1')).toEqual(week('TC1'));
+    expect(row('TC4')).toEqual(week('TC4'));
+    for (const b of made.bunks) {
+      if (isGuest(b.name)) continue;
+      for (const s of [8, 9, 18]) expect(['Pool', 'Swim Test', 'Tusc Triathlon Training'], `${b.name} ${s}`).not.toContain(b.slots[s]);
+      for (const s of [12, 13]) expect(b.slots[s], b.name).not.toBe('Waterfront');
+      expect(b.slots.slice(14, 16)).toEqual(['PM Hobbies', 'PM Hobbies']); // hobbies with Taste of CSL, Wednesday afternoon
+    }
+    expect((run?.weeks[1] as Schedule).bunks.some((b) => isGuest(b.name))).toBe(false);
+    expect(validateWeek({ current: 0, weeks: run?.weeks ?? [] }, 1, 3).filter((v) => v.bunk && isGuest(v.bunk))).toEqual([]);
+  }, 120_000);
 
   it('only fills empty periods, leaves a trip entered by hand on another day alone, and can be limited to some weeks', () => {
     const weeks = blankWeeks(4);

@@ -135,7 +135,9 @@ describe('settings', () => {
     expect(html).toContain('aria-label="Dance times for village M"');
     expect(html).not.toContain('aria-label="Dance at least"');
     expect(html).toMatch(/<button[^>]*disabled[^>]*>Reset to the default settings/); // nothing to reset yet
-    for (const rule of FIXED_RULES) expect(html).toContain(rule.replace(/&/g, '&amp;'));
+    // the rules that are always kept are not shown on this page for now
+    expect(html).not.toContain('Always kept');
+    expect(FIXED_RULES.length).toBeGreaterThan(0);
     // one table for every program area, the ones entered by hand among them
     expect((html.match(/<table/g) ?? []).length).toBe(1);
     for (const name of ['Hobbies', 'Waterfront', 'League', 'Pool', 'Ropes', 'Shabbat Prep', 'Trips', 'Athletics', 'A&amp;C', 'Music', 'Time with UH']) expect(html, name).toContain(`>${name}</th>`);

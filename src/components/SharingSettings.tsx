@@ -23,6 +23,9 @@ const SHOWN_FOR = 'Music';
  * is not affected by any of it.
  */
 export default function SharingSettings({ settings, bunks, onChange, disabled, open = false }: Props) {
+  // the pair the pointer is on: its two bunk names light up, and a faint band runs from each of them to the box
+  const [hover, setHover] = useState<[number, number] | null>(null);
+  const onLine = (i: number, j: number): boolean => !!hover && ((i === hover[0] && j < hover[1]) || (j === hover[1] && i < hover[0]));
   const [advanced, setAdvanced] = useState(open);
   const sharing = sharingOf(settings);
   const roster = useMemo(() => buildRoster(bunks), [bunks]);
@@ -87,12 +90,12 @@ export default function SharingSettings({ settings, bunks, onChange, disabled, o
             choices above.
           </p>
           <div className="scroll">
-            <table border={1} className="sharing-grid">
+            <table border={1} className="sharing-grid" onMouseLeave={() => setHover(null)}>
               <thead>
                 <tr>
                   <th />
                   {roster.names.map((n, j) => (
-                    <th key={j} data-village={roster.village[j]}>
+                    <th key={j} data-village={roster.village[j]} className={hover?.[1] === j ? 'pair-hover' : undefined}>
                       {n}
                     </th>
                   ))}
@@ -101,14 +104,18 @@ export default function SharingSettings({ settings, bunks, onChange, disabled, o
               <tbody>
                 {roster.names.map((name, i) => (
                   <tr key={i}>
-                    <th scope="row" data-village={roster.village[i]}>
+                    <th scope="row" data-village={roster.village[i]} className={hover?.[0] === i ? 'pair-hover' : undefined}>
                       {name}
                     </th>
                     {roster.names.map((other, j) =>
                       j <= i || !name || !other || name === other ? (
-                        <td key={j} className="none" />
+                        <td key={j} className={`none${onLine(i, j) ? ' pair-line' : ''}`} />
                       ) : (
-                        <td key={j} className={may(i, j) !== mayBasic(i, j) ? 'changed' : undefined}>
+                        <td
+                          key={j}
+                          className={[may(i, j) !== mayBasic(i, j) ? 'changed' : '', hover?.[0] === i && hover[1] === j ? 'pair-here' : onLine(i, j) ? 'pair-line' : ''].filter(Boolean).join(' ') || undefined}
+                          onMouseEnter={() => setHover([i, j])}
+                        >
                           <input
                             type="checkbox"
                             aria-label={`${name} with ${other}`}

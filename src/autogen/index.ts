@@ -1,3 +1,4 @@
+import { isGuest } from '../autofill';
 import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, placeShabbatExtras, planCalendar } from './calendar';
 import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, setVisitWeek, type SessionWeeks } from './config';
@@ -103,13 +104,16 @@ class WeekSearch {
   private readonly lastWeek: boolean;
   private readonly maxMs: number;
   private readonly stretch: number;
+  private readonly guests: string[][];
 
   constructor(private readonly opts: AutoGenOptions, defaultMaxMs: number) {
     this.maxMs = opts.maxMs ?? defaultMaxMs;
     this.sessionWeeks = opts.sessionWeeks ?? 4;
     const source = opts.weeks.weeks[opts.weekIndex - 1];
     this.source = isFilledWeek(source) ? source : null;
-    const bunks = this.source?.bunks ?? [];
+    // Taste of CSL bunks have a set week: they are left exactly as they are
+    const bunks = (this.source?.bunks ?? []).filter((b) => !isGuest(b.name));
+    this.guests = (this.source?.bunks ?? []).filter((b) => isGuest(b.name)).map((b) => b.slots);
     this.roster = buildRoster(bunks);
     this.hist = buildHistory(opts.weeks, opts.weekIndex, this.roster.names);
     // replacing clears the week; the trips that were entered by hand stay unless the user said otherwise
@@ -136,7 +140,14 @@ class WeekSearch {
     setFirstDay(opts.weekIndex === 1 ? firstDayOf(start) : 0);
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
-      { weekIndex: opts.weekIndex, sessionWeeks, lastWeek, taken: (day, half) => start.some((row) => halfSlots(day, half).some((s) => row[s] !== '')) },
+      {
+        weekIndex: opts.weekIndex,
+        sessionWeeks,
+        lastWeek,
+        taken: (day, half) => start.some((row) => halfSlots(day, half).some((s) => row[s] !== '')),
+        // hobbies somebody already has (a guest bunk's set week, or entered by hand) settle which half-day it is
+        has: (day, half) => [...start, ...this.guests].some((row) => halfSlots(day, half).every((s) => row[s] === (half === 0 ? 'AM Hobbies' : 'PM Hobbies'))),
+      },
       mulberry32(roundSeed ^ 0x51ed270b),
     );
 
@@ -164,6 +175,7 @@ class WeekSearch {
         dayMask: buildDayMasks(start),
         days: [0, 1, 2, 3, 4, 5].filter((d) => !(lastWeek && d === 5)),
         calendar,
+        guests: this.guests,
       };
       placeCalendar(c);
       const plan = planWeek(c);
@@ -224,7 +236,7 @@ class WeekSearch {
     const noted = (notes: string): string => (notes.includes(MOHAWK_SWIM_NOTE) ? notes : [notes.trim(), MOHAWK_SWIM_NOTE].filter(Boolean).join('. '));
     const days = opts.weekIndex === 1 && roster.byVillage.M ? source.days.map((d, i) => (i === firstDayOf(this.start) ? { ...d, notes: noted(d.notes) } : d)) : source.days;
     return {
-      schedule: { bunks: source.bunks.map((b, i) => ({ ...b, slots: chosen.grid[i] })), days },
+      schedule: { bunks: source.bunks.map((b) => (isGuest(b.name) ? b : { ...b, slots: chosen.grid[roster.names.indexOf(b.name.trim())] ?? b.slots })), days },
       warnings: [...new Set([...chosen.warnings, ...chosen.quality.hard, ...sessionWarnings(roster, hist, chosen.grid, opts.weekIndex, sessionWeeks)])],
       seed: opts.seed,
       quality: chosen.quality,

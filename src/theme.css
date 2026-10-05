@@ -223,6 +223,16 @@ table.sharing-grid td {
 table.sharing-grid td.none {
   background: #eef1ee;
 }
+table.sharing-grid th.pair-hover {
+  background: #ffe08a;
+  box-shadow: inset 0 0 0 2px #b8860b;
+}
+table.sharing-grid td.pair-line {
+  background: #fff8dc;
+}
+table.sharing-grid td.pair-here {
+  background: #ffe08a;
+}
 table.sharing-grid td.changed {
   box-shadow: inset 0 0 0 2px #c62828;
   background: #fff3a6;

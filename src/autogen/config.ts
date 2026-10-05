@@ -334,6 +334,8 @@ export const setFixedAthleticsDays = (on: boolean): void => {
  * empty periods beyond what is planned for it.
  */
 export let EXTRA_BLOCK_KEEP = 4;
+/** The same, in a week the calendar has cut short. */
+export const EXTRA_BLOCK_KEEP_SHORT = 2;
 export const setExtraBlockKeep = (n: number): void => {
   EXTRA_BLOCK_KEEP = n;
 };

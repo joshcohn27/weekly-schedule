@@ -247,8 +247,8 @@ export default function App() {
         useOtherWeeks: plan.useOtherWeeks,
         seed,
         settings,
-        // the session calendar goes down first (trips, village day, Mass Program). Session 2 does not generate with it yet.
-        calendar: plan.sessionWeeks === 4,
+        // the session calendar goes down first: opening day, trips, village day, Mass Program or Color War, Taste of CSL
+        calendar: true,
       },
       {
         // a step lower than the last one means that week is being redone: it and the ones after it are not done any more

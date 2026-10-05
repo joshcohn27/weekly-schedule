@@ -1,3 +1,4 @@
+import { isGuest } from '../autofill';
 import { emptySchedule, newBunk } from '../sample';
 import type { Bunk, Schedule } from '../types';
 import { APP_BACK_UP_AFTER, APP_MAX_MS, APP_TOTAL_MAX_MS, type SessionWeeks } from './config';
@@ -66,7 +67,8 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
   const generated = new Set(steps.map((s) => s.index));
   // what each week holds before it is generated: a week that is redone starts from this again
   const blank = opts.weeks.map((w, i) =>
-    generated.has(i) && !isFilledWeek(w) ? { ...emptySchedule(), bunks: opts.roster.map((b) => newBunk(b.name, b.grades, b.count)) } : w,
+    // a week with no bunks yet takes the roster; Taste of CSL is in camp for week 1 only
+    generated.has(i) && !isFilledWeek(w) ? { ...emptySchedule(), bunks: opts.roster.filter((b) => i === 0 || !isGuest(b.name)).map((b) => newBunk(b.name, b.grades, b.count)) } : w,
   );
   // the session calendar goes down first, on every week this run builds: trips, village days, Mass Program and the rest
   const input = opts.calendar ? applyCalendar(blank, calendarFor(opts.sessionWeeks), generated) : blank;

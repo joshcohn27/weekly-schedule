@@ -120,7 +120,8 @@ export function weekQuality(input: QualityInput): WeekQuality {
   const wf = roster.villages.map((v) => total(first(v), 'Waterfront'));
   const wfMax = Math.max(...wf);
   roster.villages.forEach((v, i) => {
-    if (!lastOfSession && count(first(v), 'Waterfront') === 0 && waterfrontWant(open(first(v))) > 0) major.push(`Village ${v} has no Waterfront this week.`);
+    // (one village a half-day: a week cut short may not have a half-day for everyone)
+    if (!lastOfSession && count(first(v), 'Waterfront') === 0 && waterfrontWant(open(first(v))) > 0 && !isShortWeek(open(first(v)), lastWeek)) major.push(`Village ${v} has no Waterfront this week.`);
     else if (wfMax - wf[i] > 1) minor.push(`Village ${v} is behind on Waterfront.`);
   });
 
@@ -141,6 +142,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
   // Shabbat Prep: the Friday double is a rule (checked above); the earlier single periods must be there too
   for (const v of CALENDAR.shabbatPrep && CALENDAR.shabbatPrepExtra > 0 ? (SHABBAT_ROTATION[sessionWeeks][weekIndex] ?? []) : []) {
     if (!roster.byVillage[v]) continue;
+    if (isShortWeek(open(first(v)), lastWeek)) continue; // a week cut short may have no period for it
     if (blocks[first(v)].filter((k) => k.label === 'Shabbat Prep' && k.len === 1).length < CALENDAR.shabbatPrepExtra) major.push(`Village ${v} is missing its extra Shabbat Prep period.`);
   }
 

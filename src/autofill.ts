@@ -2,7 +2,17 @@ import { PERIODS_PER_DAY, areaOf } from './config';
 import type { Bunk } from './types';
 
 /** Villages are color-coded by the first letter of the bunk name (O, C, S, M, T, ...). */
-export const villageOf = (name: string): string => name.trim().charAt(0).toUpperCase();
+export const villageOf = (name: string): string => (isGuest(name) ? GUEST_VILLAGE : name.trim().charAt(0).toUpperCase());
+
+/**
+ * Taste of CSL: bunks named TC1, TC2, ... who are in camp for the first week of session 2 only. Their week is set (it is
+ * copied from the calendar), so Auto generate does not schedule them: it only keeps out of their way at the pool and the
+ * Waterfront. They are a village of their own, "TC", and not part of Tusc although the name starts with a T.
+ */
+export const GUEST_VILLAGE = 'TC';
+export function isGuest(name: string): boolean {
+  return /^TC\s*\d*$/i.test(name.trim());
+}
 
 // These activities are never a single period on their own.
 const ALWAYS_DOUBLE_PERIOD = new Set(['Low Ropes', 'High Ropes', 'Waterfront', 'MNL', 'MAL']);
