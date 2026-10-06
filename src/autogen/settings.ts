@@ -14,8 +14,14 @@ import {
   POOL_MAX_CAMPERS,
   POOL_TARGETS,
   ROPES_MAX_CAMPERS,
+  BY_CAMPERS_DAY_CAP,
+  ROPES_START_HIGH,
+  VILLAGE_TARGETS,
+  BY_CAMPERS_SLOT_CAP,
+  CAMPER_CAP,
   VISIT,
   WEEK_BLOCK_MAX,
+  rememberDayCaps,
   SHABBAT_PREP_EXTRA_MAX,
   setPool,
   setRopesMax,
@@ -28,6 +34,7 @@ import {
 import { pairKey } from './roster';
 import { BUILT_IN_TOKEN_AREAS, TOKEN_AREAS, TOKEN_LABEL } from './planner';
 import { resetSharedAreas } from './share';
+import { SESSION_CALENDAR, normalizeCalendar, type CalendarEvent, type SessionTemplate } from './sessionCalendar';
 import { resetAreaBits } from './state';
 
 /** How one program area is scheduled. Every number is per bunk unless it says otherwise. */
@@ -54,7 +61,24 @@ export interface Settings {
   core?: CoreSettings;
   /** Visit numbers, when they are not the default. */
   visits?: VisitSettings;
+  /** A village's own number of times a session for an area (or 'Ropes'), in place of the area's: area, then village letter. */
+  villageTargets?: Record<string, Record<string, number>>;
+  /** Villages whose first ropes of this session is High Ropes. */
+  ropesStartHigh?: string[];
+  /** The session calendar (trips, village days, Mass Program, ...) when it is not the template for the session's length. */
+  calendar?: CalendarEvent[];
+  /** Which set of defaults these settings were saved under. Settings from before SETTINGS_VERSION are brought up to date when read. */
+  v?: number;
 }
+
+/**
+ * 2: Judaics and Yoga take two bunks at once (two of a village a day). Settings saved before that still hold the old one
+ * and one for them, so those two numbers are moved up when such settings are read.
+ * 3: Yoga takes 20 campers at once, not 22. Settings saved with the old 22 are moved to 20.
+ */
+export const SETTINGS_VERSION = 3;
+/** What Yoga's camper limit started at before settings version 3. */
+const OLD_YOGA_CAMPERS = 22;
 
 /** An area that bunks may share: how many at once, how many of one village in a day, and (Athletics, A&C) how many times a bunk may have it in a week. */
 export interface SharedNumbers {
@@ -81,6 +105,8 @@ export interface CoreSettings {
   /** Ropes in a session (low ropes first, then high ropes), and the most campers at ropes at once. */
   ropesPerSession: number;
   ropesMaxCampers: number;
+  /** Yoga goes by campers: two bunks have it together only when they have no more campers between them than this. */
+  yogaMaxCampers: number;
   /** The pool: swims a week, how many of an O or C bunk's first swims are lessons alone, and the most campers in the water at once. */
   poolPerWeek: number;
   poolLessons: number;
@@ -112,6 +138,7 @@ const CORE_LIMITS = {
   shabbatPrepExtra: [0, SHABBAT_PREP_EXTRA_MAX],
   ropesPerSession: [0, 2],
   ropesMaxCampers: [5, 200],
+  yogaMaxCampers: [5, 200],
   poolPerWeek: [0, 1],
   poolLessons: [0, 4],
   poolMaxCampers: [10, 500],
@@ -156,6 +183,7 @@ function readCore(): CoreSettings {
     shabbatWeeks: null,
     ropesPerSession: SESSION_TARGETS.Ropes,
     ropesMaxCampers: ROPES_MAX_CAMPERS,
+    yogaMaxCampers: CAMPER_CAP.Yoga,
     poolPerWeek: POOL_TARGETS.O?.perWeek ?? 1,
     poolLessons: POOL_LESSONS,
     poolMaxCampers: POOL_MAX_CAMPERS,
@@ -313,6 +341,8 @@ export function removeArea(s: Settings, name: string): Settings {
   delete areas[name];
   return normalizeSettings({ ...s, areas, custom: (s.custom ?? []).filter((c) => c !== name) });
 }
+/** The areas that went from one bunk at a time to two (settings version 2). */
+const OPENED_UP = ['Judaics', 'Yoga'];
 /** The village key in DANCE_TARGETS that stands for a village not listed there. */
 const OTHER = '*';
 
@@ -324,14 +354,15 @@ function readConfig(): Settings {
   for (const area of SETTING_AREAS) {
     const dance = area === 'Dance';
     const min = dance ? DANCE_TARGETS[OTHER] : SESSION_TARGETS[area];
-    areas[area] = { min, max: Math.max(min, SESSION_FILLER_MAX[area] ?? min), atOnce: SLOT_CAP[area], villagePerDay: DAY_CAP[area] };
+    const byCampers = CAMPER_CAP[area] !== undefined; // the check reads such an area as about two bunks at a time
+    areas[area] = { min, max: Math.max(min, SESSION_FILLER_MAX[area] ?? min), atOnce: byCampers ? 2 : SLOT_CAP[area], villagePerDay: byCampers ? 2 : DAY_CAP[area] };
     if (dance) {
       const villages = { ...DANCE_TARGETS };
       delete villages[OTHER];
       areas[area].villages = villages;
     }
   }
-  return { areas };
+  return { areas, v: SETTINGS_VERSION };
 }
 
 /** The settings the app starts with: a fresh copy each time, safe to change. */
@@ -347,6 +378,8 @@ export function normalizeSettings(raw: unknown): Settings {
   const out = defaultSettings();
   const given = (raw as { areas?: Record<string, Partial<AreaSettings>> } | null)?.areas;
   if (!given || typeof given !== 'object') return out;
+  const saved = Number((raw as { v?: unknown }).v ?? 1);
+  const older = saved < 2;
   // Added areas: the ones listed, or (a spreadsheet has no list) every area that does not come with the app.
   const listed = (raw as { custom?: unknown }).custom;
   const names = Array.isArray(listed) ? listed.map(String) : Object.keys(given).filter((k) => !SETTING_AREAS.includes(k));
@@ -360,10 +393,28 @@ export function normalizeSettings(raw: unknown): Settings {
   }
   const sharing = normalizeSharing((raw as { sharing?: unknown }).sharing);
   if (sharing) out.sharing = sharing;
-  const core = normalizeCore((raw as { core?: unknown }).core);
+  const givenCore = (raw as { core?: { yogaMaxCampers?: unknown } | null }).core;
+  // saved while Yoga started at 22 campers: that was the app's number, not a choice, so it follows the app to 20
+  const core = normalizeCore(saved < 3 && givenCore && Number(givenCore.yogaMaxCampers) === OLD_YOGA_CAMPERS ? { ...givenCore, yogaMaxCampers: defaultCore().yogaMaxCampers } : givenCore);
   if (core) out.core = core;
   const visits = normalizeVisits((raw as { visits?: unknown }).visits);
   if (visits) out.visits = visits;
+  const calendar = normalizeCalendar((raw as { calendar?: unknown }).calendar);
+  if (calendar) out.calendar = calendar;
+  const byVillage = (raw as { villageTargets?: unknown }).villageTargets;
+  if (byVillage && typeof byVillage === 'object') {
+    const kept: Record<string, Record<string, number>> = {};
+    for (const [area, villages] of Object.entries(byVillage as Record<string, unknown>)) {
+      if (!villages || typeof villages !== 'object') continue;
+      for (const [v, n] of Object.entries(villages as Record<string, unknown>)) {
+        const letter = v.trim().charAt(0).toUpperCase();
+        if (letter && Number.isFinite(Number(n))) (kept[area] ??= {})[letter] = Math.max(0, Math.min(12, Math.round(Number(n))));
+      }
+    }
+    if (Object.keys(kept).length) out.villageTargets = kept;
+  }
+  const high = (raw as { ropesStartHigh?: unknown }).ropesStartHigh;
+  if (Array.isArray(high) && high.length) out.ropesStartHigh = [...new Set(high.map((v) => String(v).trim().charAt(0).toUpperCase()).filter(Boolean))].sort();
   for (const area of SETTING_AREAS) {
     const g = given[area];
     if (!g || typeof g !== 'object') continue;
@@ -372,6 +423,8 @@ export function normalizeSettings(raw: unknown): Settings {
     d.max = Math.max(d.min, whole(g.max, 0, 12, d.max));
     d.atOnce = whole(g.atOnce, 1, 2, d.atOnce);
     d.villagePerDay = whole(g.villagePerDay, 1, 6, d.villagePerDay);
+    // saved before two bunks could be at Judaics or Yoga together: the old one and one become the new two and two
+    if (older && OPENED_UP.includes(area) && d.atOnce === 1 && d.villagePerDay === 1) Object.assign(d, { atOnce: 2, villagePerDay: 2 });
     if (d.villages && g.villages && typeof g.villages === 'object') {
       const villages: Record<string, number> = {};
       for (const [letter, n] of Object.entries(g.villages)) {
@@ -447,8 +500,9 @@ export function applySettings(settings?: Settings | null): void {
       if (a.max > a.min) filler[area] = a.max;
       hardMax[area] = a.max;
     }
-    SLOT_CAP[area] = a.atOnce;
-    DAY_CAP[area] = a.villagePerDay;
+    // an area that goes by campers is not held to a number of bunks
+    SLOT_CAP[area] = CAMPER_CAP[area] !== undefined ? BY_CAMPERS_SLOT_CAP : a.atOnce;
+    DAY_CAP[area] = CAMPER_CAP[area] !== undefined ? BY_CAMPERS_DAY_CAP : a.villagePerDay;
   }
   replace(SESSION_FILLER_MAX, filler);
   replace(SESSION_HARD_MAX, hardMax);
@@ -459,6 +513,7 @@ export function applySettings(settings?: Settings | null): void {
   SESSION_TARGETS['TW UH'] = core.uhMin;
   SESSION_TARGETS.Ropes = core.ropesPerSession;
   setRopesMax(core.ropesMaxCampers);
+  CAMPER_CAP.Yoga = core.yogaMaxCampers;
   CALENDAR.hobbySessions = core.hobbySessions;
   CALENDAR.shabbatPrep = core.shabbatPrep;
   CALENDAR.shabbatPrepExtra = core.shabbatPrepExtra;
@@ -475,6 +530,12 @@ export function applySettings(settings?: Settings | null): void {
     DAY_CAP[area] = core[key].villagePerDay;
     if (key !== 'uh') WEEK_BLOCK_MAX[area] = core[key].maxPerWeek;
   }
+  rememberDayCaps();
+  SESSION_CALENDAR.events = s.calendar ?? null;
+  for (const key of Object.keys(VILLAGE_TARGETS)) delete VILLAGE_TARGETS[key];
+  Object.assign(VILLAGE_TARGETS, JSON.parse(JSON.stringify(s.villageTargets ?? {})));
+  ROPES_START_HIGH.length = 0;
+  ROPES_START_HIGH.push(...(s.ropesStartHigh ?? []));
   const visits = visitsOf(s);
   VISIT.free = [...visits.free];
   VISIT.lastWeekSlack = visits.lastWeekSlack;
@@ -483,6 +544,47 @@ export function applySettings(settings?: Settings | null): void {
   SHARING.across = sharing.across;
   SHARING.grades = sharing.grades;
   SHARING.pairs = { ...sharing.pairs };
+}
+
+/** The settings a session starts with: the app's own, with the template's numbers put in. */
+export function templateSettings(template: SessionTemplate): Settings {
+  const s = defaultSettings();
+  for (const [area, n] of Object.entries(template.numbers ?? {})) {
+    const a = s.areas[area];
+    if (!a) continue;
+    if (n.min !== undefined) a.min = n.min;
+    a.max = Math.max(a.min, n.max ?? Math.min(a.max, a.min));
+    if (n.villages && a.villages) a.villages = { ...n.villages };
+  }
+  return normalizeSettings({ ...s, villageTargets: template.villageTargets, ropesStartHigh: template.ropesStartHigh });
+}
+
+/** Does some village have six bunks or more? The usual numbers then leave too few places. */
+export const bigVillageIn = (names: readonly string[]): string | undefined => {
+  const count: Record<string, number> = {};
+  for (const name of names) {
+    const v = name.trim().charAt(0).toUpperCase();
+    if (v && !/^TC\s*\d*$/i.test(name.trim())) count[v] = (count[v] ?? 0) + 1;
+  }
+  return Object.keys(count).find((v) => count[v] >= 6);
+};
+/** Are the settings for big villages in use? */
+export function usesBigVillageSettings(s: Settings): boolean {
+  const core = coreOf(s);
+  return core.athletics.atOnce >= 4 && core.athletics.villagePerDay >= 3 && core.ac.villagePerDay >= 3 && s.areas.Ceramics.atOnce >= 2 && sharingOf(s).within === 'village' && settingAreas(s).every((a) => s.areas[a].villagePerDay >= 3);
+}
+/**
+ * The settings a camp with six bunks in a village needs (measured: with 27 bunks the usual numbers did not come out, and
+ * these did): 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day everywhere, and any two bunks of a
+ * village within a grade may share, not only the ones next to each other. Offered, never applied unasked.
+ */
+export function withBigVillageSettings(s: Settings): Settings {
+  const core = coreOf(s);
+  const areas: Record<string, AreaSettings> = {};
+  for (const a of Object.keys(s.areas)) areas[a] = { ...s.areas[a], villagePerDay: Math.max(3, s.areas[a].villagePerDay), ...(a === 'Ceramics' ? { atOnce: 2 } : {}) };
+  const shared = (n: SharedNumbers, atOnce = n.atOnce): SharedNumbers => ({ ...n, atOnce, villagePerDay: Math.max(3, n.villagePerDay) });
+  const next = withCore({ ...s, areas }, { ...core, athletics: shared(core.athletics, 4), ac: shared(core.ac), music: shared(core.music), uh: shared(core.uh) });
+  return withSharing(next, { ...sharingOf(next), within: 'village' });
 }
 
 /** Are these the default settings? */

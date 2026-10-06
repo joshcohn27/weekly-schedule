@@ -8,9 +8,11 @@ import type { Bunk, DayInfo } from '../types';
 interface Props {
   bunks: Bunk[];
   days: DayInfo[];
+  /** The six day headings, with their dates when the session has them. */
+  dayLabels?: readonly string[];
 }
 
-export default function ScheduleView({ bunks, days }: Props) {
+export default function ScheduleView({ bunks, days, dayLabels = DAYS }: Props) {
   const rows = useMemo(() => blocksByRow(computeBlocks(bunks), bunks.length), [bunks]);
   /** The block that was clicked, and what it lights up elsewhere. */
   const [picked, setPicked] = useState<{ row: number; col: number; highlight: Highlight } | null>(null);
@@ -36,7 +38,7 @@ export default function ScheduleView({ bunks, days }: Props) {
               <th rowSpan={2}>#</th>
               {DAYS.map((d, i) => (
                 <th key={d} colSpan={PERIODS_PER_DAY} className="day">
-                  <div>{d}</div>
+                  <div>{dayLabels[i]}</div>
                   <div>R"H &amp; LOD: {days[i].rhLod}</div>
                   <div>
                     TS: {days[i].ts} General Day: {days[i].generalDay} DOD: {days[i].dod}

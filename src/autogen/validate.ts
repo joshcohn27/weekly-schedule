@@ -8,8 +8,11 @@ import {
   POOL_TARGETS,
   POOL_MAX_CAMPERS,
   POOL_MAX_PER_WEEK,
+  ROPES_START_HIGH,
   SESSION_HARD_MAX,
   setVisitWeek,
+  UH_BONUS_NOW,
+  WEEK_FOUR_UH_BONUS,
   SHABBAT_PREP_STAFF,
   SHABBAT_ROTATION,
   SINGLE_PERIOD_AREAS,
@@ -32,7 +35,9 @@ import {
   type BunkHistory,
 } from './history';
 import { buildRoster, isRun, shareLevel, type Roster } from './roster';
-import { OPEN, beforeSwimTest, isFixedMohawkAthletics, sharedArea, slotGroupProblems } from './share';
+import { openPeriods, swimIsOptional } from './weekRoom';
+import { isGuest } from '../autofill';
+import { OPEN, beforeSwimTest, firstDayOf, isFixedMohawkAthletics, setFirstDay, sharedArea, slotGroupProblems } from './share';
 
 export type Rule = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7' | 'H8' | 'H9' | 'H10' | 'H11' | 'H12' | 'H13' | 'H14' | 'H15' | 'H16' | 'H17' | 'H18' | 'H19';
 
@@ -67,7 +72,8 @@ export interface ValidationInput {
 /** Check a week that is already in hand (roster and history built) against the hard rules H1 to H19. */
 export function validateGrid(input: ValidationInput): Violation[] {
   const { weekIndex, sessionWeeks, roster, hist, grid } = input;
-  setVisitWeek(weekIndex >= sessionWeeks);
+  setVisitWeek(weekIndex >= sessionWeeks, sessionWeeks === 4 && weekIndex === 4);
+  setFirstDay(weekIndex === 1 ? firstDayOf(grid) : 0);
   const n = roster.n;
   const locked = (b: number, s: number): boolean => !!input.locked?.[b]?.[s];
   const lockedAny = (b: number, start: number, len: number): boolean => {
@@ -175,9 +181,13 @@ export function validateGrid(input: ValidationInput): Violation[] {
   // H15: Time with UH at most so many times a session
   for (let b = 0; b < n; b++) {
     const mine = blocks[b].filter((k) => k.area === 'TW UH');
-    const total = (hist[b].earlier['TW UH'] ?? 0) + (hist[b].later['TW UH'] ?? 0) + mine.length;
-    if (total > UH_MAX_PER_SESSION && mine.some((k) => !lockedAny(b, k.start, k.len))) {
-      add('H15', `${roster.names[b]} has Time with UH ${total} times in the session, and the most is ${UH_MAX_PER_SESSION}.`, b);
+    const soFar = (hist[b].earlier['TW UH'] ?? 0) + mine.length;
+    const total = soFar + (hist[b].later['TW UH'] ?? 0);
+    // week 4 of 4 may hold one more; an earlier week is judged on what the bunk has had by then, and on the session's most with it
+    const most = UH_MAX_PER_SESSION + UH_BONUS_NOW;
+    const over = UH_BONUS_NOW > 0 ? total > most : soFar > UH_MAX_PER_SESSION || total > UH_MAX_PER_SESSION + (sessionWeeks === 4 ? WEEK_FOUR_UH_BONUS : 0);
+    if (over && mine.some((k) => !lockedAny(b, k.start, k.len))) {
+      add('H15', `${roster.names[b]} has Time with UH ${total} times in the session, and the most is ${most}.`, b);
     }
   }
 
@@ -190,7 +200,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
       if (lockedAny(b, k.start, k.len)) continue;
       if (k.len !== 2 || periodOf(k.start) % 2 !== 0) add('H6', `${roster.names[b]} has ropes that are not a double period on ${where(k.start)}.`, b, k.start);
       const ord = ordinalAt(grid[b], hist[b].earlier, k.start) ?? 1;
-      const expected = ord === 1 ? 'Low Ropes' : 'High Ropes';
+      const expected = ord === 1 && !ROPES_START_HIGH.includes(roster.village[b]) ? 'Low Ropes' : 'High Ropes';
       if (k.label !== expected) add('H6', `${roster.names[b]}'s time ${ord} at ropes should be ${expected}.`, b, k.start);
     }
     if (total > 2) add('H6', `${roster.names[b]} has ${total} ropes blocks in the session.`, b);
@@ -271,7 +281,9 @@ export function validateGrid(input: ValidationInput): Violation[] {
   for (let b = 0; b < n; b++) {
     if (roster.village[b] !== 'O' && roster.village[b] !== 'C') continue;
     const swims = blocks[b].filter((k) => k.label === 'Pool' || k.label === 'Swim Test');
-    if ((swims.length < (POOL_TARGETS[roster.village[b]]?.perWeek ?? 0) || swims.length > POOL_MAX_PER_WEEK) && !swims.some((k) => lockedAny(b, k.start, k.len)) && !(weekIsLocked(b))) {
+    // a week the calendar has cut short is not held to the weekly swim
+    const due = swimIsOptional(openPeriods(grid[b], lastWeek), lastWeek) ? 0 : (POOL_TARGETS[roster.village[b]]?.perWeek ?? 0);
+    if ((swims.length < due || swims.length > POOL_MAX_PER_WEEK) && !swims.some((k) => lockedAny(b, k.start, k.len)) && !(weekIsLocked(b))) {
       add('H16', `${roster.names[b]} swims ${swims.length} times this week, and it should be once or twice.`, b);
     }
   }
@@ -382,7 +394,10 @@ export function validateGrid(input: ValidationInput): Violation[] {
 export function validateWeek(weeks: WeeksState, weekIndex: number, sessionWeeks: SessionWeeks, opts: ValidateOptions = {}): Violation[] {
   const schedule = weeks.weeks[weekIndex - 1];
   if (!isFilledWeek(schedule)) return [];
-  const roster = buildRoster(schedule.bunks);
+  // Taste of CSL bunks have a set week of their own and are not held to the rules
+  const keep = schedule.bunks.map((b) => !isGuest(b.name));
+  const bunks = schedule.bunks.filter((_, i) => keep[i]);
+  const roster = buildRoster(bunks);
   const hist = buildHistory(weeks, weekIndex, roster.names);
-  return validateGrid({ weeks, weekIndex, sessionWeeks, roster, hist, grid: schedule.bunks.map((b) => b.slots), locked: opts.locked });
+  return validateGrid({ weeks, weekIndex, sessionWeeks, roster, hist, grid: bunks.map((b) => b.slots), locked: opts.locked?.filter((_, i) => keep[i]) });
 }

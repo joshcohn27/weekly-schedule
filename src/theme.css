@@ -223,6 +223,16 @@ table.sharing-grid td {
 table.sharing-grid td.none {
   background: #eef1ee;
 }
+table.sharing-grid th.pair-hover {
+  background: #ffe08a;
+  box-shadow: inset 0 0 0 2px #b8860b;
+}
+table.sharing-grid td.pair-line {
+  background: #fff8dc;
+}
+table.sharing-grid td.pair-here {
+  background: #ffe08a;
+}
 table.sharing-grid td.changed {
   box-shadow: inset 0 0 0 2px #c62828;
   background: #fff3a6;
@@ -592,4 +602,24 @@ fieldset.readonly {
   .scroll {
     overflow: visible;
   }
+}
+
+.sessionbar {
+  margin: 6px 0;
+}
+.sessionbar select {
+  font-weight: bold;
+  width: auto;
+  font-size: 13px;
+}
+table.calendar-settings select {
+  width: auto;
+}
+table.calendar-settings th,
+table.calendar-settings td {
+  padding: 2px 6px;
+}
+
+.bunkbar button {
+  margin-right: 4px;
 }

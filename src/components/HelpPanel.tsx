@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { SUPPORT_EMAIL, SUPPORT_LINK } from '../config';
-import { FIXED_RULES } from './SettingsView';
 
 interface Props {
   onClose: () => void;
@@ -62,15 +61,24 @@ export default function HelpPanel({ onClose }: Props) {
 
         <h3>Building a week</h3>
         <ol>
-          <li>Pick the week at the top.</li>
-          <li>On the Build tab, enter the bunks: name, grades and number of campers. Keep each village together in the list.</li>
           <li>
-            Enter the trips by hand: a Tiyul, the Tusc bike trips. The page never decides when a trip happens. It builds around the ones
-            you put in.
+            Pick the session at the top: Session 1 (four weeks) or Session 2 (three weeks, with Color War). Each keeps its own bunks,
+            schedule and settings, and starts with its bunks and its calendar already in: opening day, the trips and Tiyuls, village day,
+            Mass Program or Color War, Visitor&apos;s Day. The weeks and days carry this summer&apos;s dates.
+          </li>
+          <li>Pick the week.</li>
+          <li>
+            On the Build tab, check the bunks: name, grades and number of campers. Keep each village together in the list. Bunks named TC1,
+            TC2 and so on are Taste of CSL: they are in camp for week 1 of Session 2 only, their week is set, and nobody shares an area
+            with them.
+          </li>
+          <li>
+            Move anything on the calendar that is different this year. On the Settings tab, under Session calendar, each line says what,
+            who, which week, which day and when. You can also enter a trip by hand on the Build tab, and it stays where you put it.
           </li>
           <li>
             Press <strong>Auto generate</strong>. Choose this week or the whole session. For each week you can leave it as it is, keep what
-            is there and fill the gaps, or clear it and build it again. Choose Session 1 (four weeks) or Session 2 (three weeks).
+            is there and fill the gaps, or clear it and build it again.
           </li>
           <li>
             Let it work. A panel shows which weeks are done and how long it has been. You can keep using the page, and each week appears as
@@ -99,6 +107,7 @@ export default function HelpPanel({ onClose }: Props) {
           </li>
         </ul>
 
+        {/* Hidden for now: the rules that are always kept are not listed.
         <h3>The rules that are always kept</h3>
         <ul>
           {FIXED_RULES.map((rule) => (
@@ -107,6 +116,7 @@ export default function HelpPanel({ onClose }: Props) {
           <li>Bunks only share a period with bunks they are allowed to be with, and (except at Athletics) on the same visit number.</li>
           <li>League is about three times a week and Waterfront about twice. A short week gets fewer.</li>
         </ul>
+        */}
 
         <h3>Settings</h3>
         <ul>

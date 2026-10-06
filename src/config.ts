@@ -7,7 +7,7 @@ export const WEEK_COUNT = 4;
  * The first number is the app itself, the second goes up when a feature is added (2 is Auto generate), and the third
  * goes up for a fix.
  */
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.6.0';
 /** Where the Contact support links go. */
 export const SUPPORT_EMAIL = 'joshcohn27@gmail.com';
 export const SUPPORT_LINK = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Weekly Period Schedule Builder')}`;
@@ -52,9 +52,23 @@ export const ACTIVITIES: Activity[] = [
   a('Tusc Biking', 'League'),
   a('Tiyul', 'Trips'),
   a('Bike Trip', 'Trips'),
+  a('Trip', 'Trips'),
   a('Time with UH', 'TW UH'),
   a('All-Camp Event', null),
   a('Village Day', null),
+  // The session calendar: whole days and half-days that are not periods. Auto generate builds around them.
+  a('O-Day', null),
+  a('C-Day', null),
+  a('S-Day', null),
+  a('M-Day', null),
+  a('T-Day', null),
+  a('Mass Program', null),
+  a('Color War', null),
+  a("Visitor's Day", null),
+  a('All Camp Clean Up', null),
+  a('Tusc Triathlon', null),
+  a('Opening Day', null),
+  a('No Periods', null),
   // Only emitted by Auto generate, in the last week of a 4-week session.
   a('Hobby Culmination', null),
   a('Packing Time', null),

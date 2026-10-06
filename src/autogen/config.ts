@@ -23,6 +23,14 @@ export const SESSION_TARGETS: Record<string, number> = {
   'TW UH': 1,
 };
 /**
+ * A village that has its own number for an area in this session, in place of the one above: area, then village letter.
+ * (Tusc in Session 2: Ceramics once and ropes once, because it had its fill in Session 1.) Such a village gets no extra
+ * visit as a filler either. The settings overwrite it in place.
+ */
+export const VILLAGE_TARGETS: Record<string, Record<string, number>> = {};
+/** Villages whose first ropes of this session is High Ropes: they did Low Ropes in the session before. */
+export const ROPES_START_HIGH: string[] = [];
+/**
  * Areas a bunk may have once more than its target, to fill a period that would otherwise be Athletics or A&C: the most
  * per session. They are one bunk at a time, so asking every bunk for a third would use up nearly every period they have.
  */
@@ -87,8 +95,30 @@ export function setShabbat(picked: string[][] | null): void {
 /** The specialists of these areas run Shabbat Prep, so none of them has a period while any village is at Shabbat Prep. */
 export const SHABBAT_PREP_STAFF = ['Music', 'Judaics'];
 export const AC_ATHLETICS_MAX_GAP = 1;
-/** Trips are entered by hand before generating. The generator never writes them, and "replace" leaves them where they are. */
-export const TRIP_LABELS = ['Bike Trip', 'Tiyul'];
+/**
+ * Everything on the session calendar that is not a period: trips, village days, Mass Program, Color War, Visitor's Day and
+ * so on. They come from the calendar or are entered by hand before generating. The search never moves or writes them,
+ * "replace" leaves them where they are, and a bunk is away for as long as it has one.
+ */
+export const TRIP_LABELS = [
+  'Bike Trip',
+  'Tiyul',
+  'Trip',
+  'Village Day',
+  'All-Camp Event',
+  'O-Day',
+  'C-Day',
+  'S-Day',
+  'M-Day',
+  'T-Day',
+  'Mass Program',
+  'Color War',
+  "Visitor's Day",
+  'All Camp Clean Up',
+  'Tusc Triathlon',
+  'Opening Day',
+  'No Periods',
+];
 /** A week with at most this share of its periods empty counts as already built; one with more is still to be generated. */
 export const BUILT_WEEK_MAX_EMPTY = 0.25;
 
@@ -123,9 +153,9 @@ export const SLOT_CAP: Record<string, number> = {
   Music: 2,
   Teva: 2,
   Dance: 2,
-  Yoga: 1,
+  Yoga: 8, // not the limit at Yoga: that is CAMPER_CAP.Yoga, a number of campers
   Ceramics: 1,
-  Judaics: 1,
+  Judaics: 2, // two bunks of one village
   'Israel Education': 2,
   'TW UH': 2,
   Ropes: 8, // not the limit at Ropes: that is ROPES_MAX_CAMPERS, a number of campers
@@ -137,12 +167,22 @@ export const DAY_CAP: Record<string, number> = {
   Music: 2,
   Teva: 2,
   Dance: 2,
-  Yoga: 1,
+  Yoga: 6, // Yoga goes by campers, so a village is not held to a number of bunks a day
   Ceramics: 1,
-  Judaics: 1,
+  Judaics: 2,
   'Israel Education': 2,
   'TW UH': 2,
 };
+/**
+ * Areas that go by campers, the way Ropes does: bunks next to each other in a village share a period as long as they have no
+ * more campers between them than this. It is a setting. (Ropes has its own number, ROPES_MAX_CAMPERS.)
+ */
+export const CAMPER_CAP: Record<string, number> = { Yoga: 20 };
+/** What SLOT_CAP and DAY_CAP hold for such an area: high enough never to be the limit. */
+export const BY_CAMPERS_SLOT_CAP = 8;
+export const BY_CAMPERS_DAY_CAP = 6;
+/** Areas where only bunks of one village are together. */
+export const ONE_VILLAGE_AREAS = ['TW UH', 'Judaics'];
 /** H17: these areas are never a double period. A block of them is always one period. */
 export const SINGLE_PERIOD_AREAS = ['Athletics', 'A&C'];
 /** H15: most blocks of this area one bunk may have in a week. */
@@ -262,15 +302,16 @@ export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
 /** Attempts (counted over the whole search) made before three consecutive bunks of one village may share Ropes. */
 export const TRIO_AFTER = 64;
 /**
- * In the app a week that does not come out good is thrown away and generated again. One try at a week lasts this long at
- * most; after APP_BACK_UP_AFTER failed tries the week before it is redone as well.
+ * In the app a week that does not come out good is thrown away and generated again. One try at a week lasts APP_MAX_MS at
+ * most. After APP_BACK_UP_AFTER failed tries the week before it is redone as well, once. A week is never worked on for
+ * longer than APP_WEEK_MAX_MS in all: when that is up, the best week found is handed over with the periods that break a
+ * rule emptied and marked, so what comes back always keeps the rules. (The user's limits: 15 seconds a week as a rule,
+ * 45 at the very most.)
  */
-export const APP_MAX_MS = 20000;
+export const APP_MAX_MS = 15000;
 export const APP_BACK_UP_AFTER = 2;
-/**
- * A run never hands back a week that is not good unless it has been going this long in all: then a week that cannot be made
- * good (a roster that does not fit, a week filled in by hand in a way no schedule can meet) still comes back. Stop ends it sooner.
- */
+export const APP_WEEK_MAX_MS = 45000;
+/** A whole run never goes on longer than this, whatever the weeks are doing. */
 export const APP_TOTAL_MAX_MS = 300000;
 /** The most attempts at one week that run at the same time, each on its own processor core. */
 export const APP_MAX_WORKERS = 6;
@@ -286,6 +327,48 @@ export const FILL_STALL_STEPS = 500;
 export const FILL_REST_STEPS = 8;
 /** Chance the fill search takes its best move even when it does not help, to get out of a dead end. */
 export const FILL_NOISE = 0.25;
+
+/**
+ * When true, each bunk has Athletics only on every other day and A&C only on the days between. When false the search is
+ * free to put them on any days that keep the rules (never twice in a day, never two days in a row).
+ */
+export let FIXED_ATHLETICS_DAYS = false;
+export const setFixedAthleticsDays = (on: boolean): void => {
+  FIXED_ATHLETICS_DAYS = on;
+};
+
+/**
+ * Waterfront and league take a whole village out of a period, which nothing else can do. Where a half-day or a period is
+ * still open after the week's own blocks are down, a village takes one more, as long as each of its bunks keeps this many
+ * empty periods beyond what is planned for it.
+ */
+export let EXTRA_BLOCK_KEEP = 4;
+/** The same, in a week the calendar has cut short. */
+export const EXTRA_BLOCK_KEEP_SHORT = 2;
+export const setExtraBlockKeep = (n: number): void => {
+  EXTRA_BLOCK_KEEP = n;
+};
+
+/**
+ * Before the fill, a bunk left with more empty periods than Athletics and A&C can take (plus this many for a filler) takes
+ * visits it still owes from later weeks. An area is not topped up past this share of the bunk-periods it has in the week.
+ */
+export let TOP_UP_SLACK = 2;
+export let TOP_UP_MAX_LOAD = 0.5;
+/** Give neighbours in a village the same number of visits to an area each week, so they stay on the same visit and can go together. */
+export let BUDDY_PLANNING = true;
+export const setBuddyPlanning = (on: boolean): void => {
+  BUDDY_PLANNING = on;
+};
+/** No more than this share of an area's places in a week is planned: who may share and which days are open take the rest. */
+export const AREA_WEEK_SHARE = 0.7;
+/** And it takes them once it has this many more left over than this week's fair share of what the rest of the session will leave. */
+export let TOP_UP_FAIR_SLACK = 1;
+export function setTopUp(slack: number, load: number, fair = TOP_UP_FAIR_SLACK): void {
+  TOP_UP_SLACK = slack;
+  TOP_UP_MAX_LOAD = load;
+  TOP_UP_FAIR_SLACK = fair;
+}
 
 /**
  * Building around periods someone filled in by hand (other than trips) can make a target unreachable, so each limit
@@ -339,11 +422,40 @@ export function setWeekly(n: Weekly): void {
  * them be one visit apart in the last week of a session, when there is the least room to line them up. `slackNow` is what
  * applies to the week in hand: the generator and the rule checker set it before they look at a week.
  */
-export const VISIT: { free: string[]; lastWeekSlack: boolean; slackNow: number } = { free: ['Athletics', 'TW UH'], lastWeekSlack: false, slackNow: 0 };
-/** Set the visit slack for the week in hand. */
-export const setVisitWeek = (lastWeekOfSession: boolean): void => {
+export const VISIT: { free: string[]; lastWeekSlack: boolean; slackNow: number; freeNow: string[] } = { free: ['Athletics', 'TW UH'], lastWeekSlack: false, slackNow: 0, freeNow: [] };
+/** In week 4 of a 4-week session, bunks at these areas together need not be on the same visit: there is the least room to line them up. */
+export const VISIT_FREE_IN_WEEK_FOUR = ['A&C'];
+/**
+ * Week 4 of a 4-week session is four days long and has the least room, so a few limits are looser in that week only: this
+ * many bunks of a village a day at Athletics and at A&C, and one more Time with UH than a session usually allows.
+ */
+export const WEEK_FOUR_DAY_CAP: Record<string, number> = { Athletics: 3, 'A&C': 3 };
+export const WEEK_FOUR_UH_BONUS = 1;
+/** The Time with UH bonus for the week in hand, and whether that week is week 4 of 4. */
+export let UH_BONUS_NOW = 0;
+export let WEEK_FOUR_NOW = false;
+/** DAY_CAP as the settings left it, so the week 4 numbers can be put on and taken off again. */
+const DAY_CAP_SET: Record<string, number> = { ...DAY_CAP };
+/** Call after the settings have changed DAY_CAP. */
+export function rememberDayCaps(): void {
+  for (const key of Object.keys(DAY_CAP_SET)) delete DAY_CAP_SET[key];
+  Object.assign(DAY_CAP_SET, DAY_CAP);
+  WEEK_FOUR_NOW = false;
+  UH_BONUS_NOW = 0;
+}
+/** Set the rules for the week in hand: the generator and the rule checker call it before they look at a week. */
+export const setVisitWeek = (lastWeekOfSession: boolean, weekFourOfFour = false): void => {
   VISIT.slackNow = lastWeekOfSession && VISIT.lastWeekSlack ? 1 : 0;
+  VISIT.freeNow = weekFourOfFour ? VISIT_FREE_IN_WEEK_FOUR : [];
+  WEEK_FOUR_NOW = weekFourOfFour;
+  UH_BONUS_NOW = weekFourOfFour ? WEEK_FOUR_UH_BONUS : 0;
+  for (const [area, cap] of Object.entries(WEEK_FOUR_DAY_CAP)) {
+    if (DAY_CAP_SET[area] === undefined) continue;
+    DAY_CAP[area] = weekFourOfFour ? Math.max(DAY_CAP_SET[area], cap) : DAY_CAP_SET[area];
+  }
 };
+/** Is this an area where bunks together need not be on the same visit, in the week in hand? */
+export const visitFree = (area: string): boolean => VISIT.free.includes(area) || VISIT.freeNow.includes(area);
 /** How strongly league is drawn to the set of days it is aiming for. */
 export const NEXT_DAY_WEIGHT = 3;
 /** Sets of three days with none next to each other, for a village's three league periods (0 is Sunday). */
@@ -353,6 +465,14 @@ export const LEAGUE_DAY_PATTERNS = [
   [0, 3, 5],
   [1, 3, 5],
 ];
+/** Pairs of days that are not next to each other, for a village with two league periods a week. */
+export const LEAGUE_DAY_PAIRS: number[][] = [];
+for (let a = 0; a < 6; a++) for (let b = a + 2; b < 6; b++) LEAGUE_DAY_PAIRS.push([a, b]);
+/** League goes on the set of days with the most empty periods; this much chance is mixed in so the weeks do not all look alike. */
+export let LEAGUE_DAY_NOISE = 6;
+export const setLeagueDayNoise = (n: number): void => {
+  LEAGUE_DAY_NOISE = n;
+};
 /** Time with UH fills periods nothing else can, and the last weeks need it most: before the last week a bunk is kept this many under its limit. */
 export const UH_HELD_BACK = 1;
 /** A bunk away on trips for at least this many periods of a week is squeezed onto few days, and may use what was held back. */
@@ -394,6 +514,8 @@ export const WEIGHTS = {
   gapWide: 25,
   /** A Yoga, Ceramics or Judaics beyond what was planned for the week: there to fill a period, not a target. */
   fillerExtra: 4,
+  /** Each A&C a bunk is ahead of or behind its neighbour in the village: level, they can keep going together. */
+  buddyApart: 20,
   /** A Mohawk or Tusc bunk whose leftover periods this week hold no A&C at all. */
   noAcWeek: 30,
   /** Mohawk and Tusc: each block their A&C is not at least one ahead of their Athletics, so the little they have left over leans to A&C. */

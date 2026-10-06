@@ -1,13 +1,14 @@
+import { isGuest } from '../autofill';
 import type { Schedule, WeeksState } from '../types';
 import { placeCalendar, placeShabbatExtras, planCalendar } from './calendar';
 import { ATTEMPTS, BUILD_AROUND_STRETCH, ENOUGH_VALID_ATTEMPTS, SYNC_MAX_MS, TRIO_AFTER, TRIP_LABELS, setVisitWeek, type SessionWeeks } from './config';
 import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, halfSlots, isFilledWeek, type BunkHistory } from './history';
-import { placeExtraPool, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
+import { placeExtraPool, placeExtraVillageBlocks, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_AREAS, TOKEN_LABEL, planWeek, sessionTargetOf } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
-import { MOHAWK_SWIM_NOTE } from './share';
+import { MOHAWK_SWIM_NOTE, firstDayOf, setFirstDay } from './share';
 import { buildRoster, type Roster } from './roster';
 import { softScore } from './score';
 import type { Ctx } from './state';
@@ -18,6 +19,9 @@ export { isBad, weekQuality } from './quality';
 export type { QualityInput, WeekQuality } from './quality';
 export { validateWeek } from './validate';
 export type { Violation } from './validate';
+
+/** What stands in an empty period of a day that has already happened while the week is built: it has no periods to fill. */
+const PAST_EMPTY = 'No Periods';
 
 export interface AutoGenOptions {
   /** All loaded weeks. */
@@ -35,6 +39,8 @@ export interface AutoGenOptions {
   maxRounds?: number;
   /** Stop after this many milliseconds and return the best week so far. generateWeek defaults to SYNC_MAX_MS; generateWeekAsync to no limit. */
   maxMs?: number;
+  /** Days of the week that have already happened, counted from Sunday. They stay exactly as they are, empty periods too. */
+  pastDays?: number;
   /** Abort a generateWeekAsync run (the Cancel button). It then resolves to null. */
   signal?: AbortSignal;
 }
@@ -103,18 +109,26 @@ class WeekSearch {
   private readonly lastWeek: boolean;
   private readonly maxMs: number;
   private readonly stretch: number;
+  private readonly guests: string[][];
+  private readonly heldEmpty: boolean[][];
 
   constructor(private readonly opts: AutoGenOptions, defaultMaxMs: number) {
     this.maxMs = opts.maxMs ?? defaultMaxMs;
     this.sessionWeeks = opts.sessionWeeks ?? 4;
     const source = opts.weeks.weeks[opts.weekIndex - 1];
     this.source = isFilledWeek(source) ? source : null;
-    const bunks = this.source?.bunks ?? [];
+    // Taste of CSL bunks have a set week: they are left exactly as they are
+    const bunks = (this.source?.bunks ?? []).filter((b) => !isGuest(b.name));
+    this.guests = (this.source?.bunks ?? []).filter((b) => isGuest(b.name)).map((b) => b.slots);
     this.roster = buildRoster(bunks);
     this.hist = buildHistory(opts.weeks, opts.weekIndex, this.roster.names);
     // replacing clears the week; the trips that were entered by hand stay unless the user said otherwise
     const keep = (l: string): boolean => opts.keepTrips !== false && TRIP_LABELS.includes(l);
-    this.start = bunks.map((b) => (opts.mode === 'replace-all' ? b.slots.map((l) => (keep(l) ? l : '')) : [...b.slots]));
+    // days that have already happened are kept whatever the mode, and a period that was empty then stays empty: it is
+    // held with a stand-in while the week is built, and emptied again when the week is handed back
+    const past = (s: number): boolean => s < (opts.pastDays ?? 0) * 4;
+    this.start = bunks.map((b) => b.slots.map((l, s) => (past(s) ? l || PAST_EMPTY : opts.mode === 'replace-all' && !keep(l) ? '' : l)));
+    this.heldEmpty = bunks.map((b) => b.slots.map((l, s) => past(s) && l === ''));
     this.locked = this.start.map((row) => row.map((label) => label !== ''));
     // trips are expected to be there; anything else that was filled in by hand may put a target out of reach
     this.stretch = this.start.some((row) => row.some((label) => label !== '' && !TRIP_LABELS.includes(label))) ? BUILD_AROUND_STRETCH : 0;
@@ -132,10 +146,18 @@ class WeekSearch {
 
   private runRound(round: number): Found {
     const { opts, roster, hist, start, locked, lastWeek, sessionWeeks, stretch } = this;
-    setVisitWeek(opts.weekIndex >= sessionWeeks);
+    setVisitWeek(opts.weekIndex >= sessionWeeks, sessionWeeks === 4 && opts.weekIndex === 4);
+    setFirstDay(opts.weekIndex === 1 ? firstDayOf(start) : 0);
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
-      { weekIndex: opts.weekIndex, sessionWeeks, lastWeek, taken: (day, half) => start.some((row) => halfSlots(day, half).some((s) => row[s] !== '')) },
+      {
+        weekIndex: opts.weekIndex,
+        sessionWeeks,
+        lastWeek,
+        taken: (day, half) => start.some((row) => halfSlots(day, half).some((s) => row[s] !== '')),
+        // hobbies somebody already has (a guest bunk's set week, or entered by hand) settle which half-day it is
+        has: (day, half) => [...start, ...this.guests].some((row) => halfSlots(day, half).every((s) => row[s] === (half === 0 ? 'AM Hobbies' : 'PM Hobbies'))),
+      },
       mulberry32(roundSeed ^ 0x51ed270b),
     );
 
@@ -163,6 +185,7 @@ class WeekSearch {
         dayMask: buildDayMasks(start),
         days: [0, 1, 2, 3, 4, 5].filter((d) => !(lastWeek && d === 5)),
         calendar,
+        guests: this.guests,
       };
       placeCalendar(c);
       const plan = planWeek(c);
@@ -173,6 +196,7 @@ class WeekSearch {
       placeRopes(c, plan);
       placePool(c, plan);
       placeExtraPool(c, plan);
+      placeExtraVillageBlocks(c, plan);
       fillFlexible(c, plan);
       relabelRopes(c);
 
@@ -187,6 +211,7 @@ class WeekSearch {
         missing: c.missing,
         carried: c.carried,
         musicExcused: c.excused,
+        guests: this.guests,
         stretch,
       });
       // rule breaks first, then anything not acceptable, then the small stuff, then the soft preferences
@@ -220,9 +245,16 @@ class WeekSearch {
     }
     // Mohawk's swim test is not in a period: it is during General Swim on the opening day. A note under that day says so.
     const noted = (notes: string): string => (notes.includes(MOHAWK_SWIM_NOTE) ? notes : [notes.trim(), MOHAWK_SWIM_NOTE].filter(Boolean).join('. '));
-    const days = opts.weekIndex === 1 && roster.byVillage.M ? source.days.map((d, i) => (i === 0 ? { ...d, notes: noted(d.notes) } : d)) : source.days;
+    const days = opts.weekIndex === 1 && roster.byVillage.M ? source.days.map((d, i) => (i === firstDayOf(this.start) ? { ...d, notes: noted(d.notes) } : d)) : source.days;
     return {
-      schedule: { bunks: source.bunks.map((b, i) => ({ ...b, slots: chosen.grid[i] })), days },
+      schedule: {
+        bunks: source.bunks.map((b) => {
+          const at = isGuest(b.name) ? -1 : roster.names.indexOf(b.name.trim());
+          if (at < 0) return b;
+          return { ...b, slots: chosen.grid[at].map((l, s) => (this.heldEmpty[at][s] ? '' : l)) };
+        }),
+        days,
+      },
       warnings: [...new Set([...chosen.warnings, ...chosen.quality.hard, ...sessionWarnings(roster, hist, chosen.grid, opts.weekIndex, sessionWeeks)])],
       seed: opts.seed,
       quality: chosen.quality,

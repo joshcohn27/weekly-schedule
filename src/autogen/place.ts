@@ -1,11 +1,12 @@
 import { areaOf } from '../config';
-import { AGE_ALLOWED, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_PATTERNS, leagueFor, leagueMinFor, triathlonPeriodsAWeek, TRI_AWAY_PERIODS, TRIP_LABELS, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
+import { ROPES_START_HIGH, AGE_ALLOWED, EXTRA_BLOCK_KEEP, EXTRA_BLOCK_KEEP_SHORT, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_NOISE, LEAGUE_DAY_PAIRS, LEAGUE_DAY_PATTERNS, leagueFor, leagueMinFor, triathlonPeriodsAWeek, TRI_AWAY_PERIODS, TRIP_LABELS, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
 import { ropeGroups } from './groups';
 import { blocksOf, halfSlots, slotAt } from './history';
 import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
-import { beforeSwimTest } from './share';
+import { beforeSwimTest, firstDay } from './share';
+import { isShortWeek, leagueWant, openPeriods, swimIsOptional, waterfrontWant } from './weekRoom';
 import {
   ALL_SLOTS,
   areaOnDay,
@@ -51,6 +52,10 @@ function leftover(c: Ctx, bunks: number[], day: number, adding: number): number 
 }
 
 const idx = (c: Ctx, v: string): number[] => c.roster.byVillage[v];
+/** Periods the village has open this week, once the calendar and the set blocks are taken out. */
+const open = (c: Ctx, v: string): number => openPeriods(c.grid[idx(c, v)[0]], c.lastWeek);
+/** League periods (triathlon sessions for Tusc) the village should have this week: fewer in a week the calendar has cut short. */
+const leagueThisWeek = (c: Ctx, v: string): number => leagueWant(v, open(c, v));
 
 /**
  * How many bunks still have these periods empty, on average. Every period can only take so many bunks under the sharing and
@@ -86,7 +91,7 @@ const awayOnTrip = (c: Ctx, v: string): boolean => c.grid[idx(c, v)[0]].filter((
 function pendingLeagueBlocks(c: Ctx, v: string): number {
   if (v === 'T') return 0; // Tusc's triathlon is placed later and has its own room check
   const have = Math.max(...idx(c, v).map((b) => inWeekCount(c, b, 'League')));
-  return Math.max(0, leagueFor(v) - have);
+  return Math.max(0, leagueThisWeek(c, v) - have);
 }
 const leagueCells = (c: Ctx, v: string): number =>
   v === 'T' ? (awayOnTrip(c, v) ? 0 : triathlonPeriodsAWeek()) : pendingLeagueBlocks(c, v) * (v === 'M' ? 2 : 1);
@@ -123,8 +128,8 @@ export function placeWaterfront(c: Ctx, plan: Plan): void {
     const here = Math.max(...members.map((b) => inWeekCount(c, b, 'Waterfront')));
     thisWeek[v] = here;
     total[v] = earlier + later + here;
-    // catch up if earlier weeks came up short
-    want[v] = WATERFRONT_PER_WEEK + Math.max(0, WATERFRONT_PER_WEEK * (c.weekIndex - 1) - earlier);
+    // a week the calendar has cut short gets fewer; a village that is behind is given one more where there is room (placeExtraVillageBlocks)
+    want[v] = waterfrontWant(open(c, v));
   }
 
   // Waterfront likes one half-day off a week. When the villages would use every half-day there is, the village that is
@@ -207,11 +212,36 @@ export function placeWaterfront(c: Ctx, plan: Plan): void {
     total[v]++;
   }
   for (const v of villages) {
-    if (thisWeek[v] < Math.min(want[v], WATERFRONT_PER_WEEK)) warn(c, `Village ${v} got ${thisWeek[v]} of ${WATERFRONT_PER_WEEK} Waterfront periods this week (there was not enough room).`);
+    if (thisWeek[v] < want[v]) warn(c, `Village ${v} got ${thisWeek[v]} of ${WATERFRONT_PER_WEEK} Waterfront periods this week (there was not enough room).`);
   }
 }
 
 // ---- League -------------------------------------------------------------------------------------
+
+/**
+ * The days for a village's league periods: `count` days with none next to each other, taking in the days it already
+ * plays on. Of the sets that are possible, the one whose days have the most empty periods, so no day is left with
+ * nothing but single periods to fill. Undefined when no such set exists (a short week, a week around a trip).
+ */
+function emptiestDays(c: Ctx, members: number[], count: number, playing: number[], open: (day: number) => boolean): number[] | undefined {
+  const sets = count >= 3 ? LEAGUE_DAY_PATTERNS : count === 2 ? LEAGUE_DAY_PAIRS : [];
+  const emptyOn = (day: number): number => {
+    let worst = 0;
+    for (const b of members) {
+      let free = 0;
+      for (const s of daySlots(day)) if (c.grid[b][s] === '' && fillable(c, s)) free++;
+      if (free > worst) worst = free;
+    }
+    return worst ** 2;
+  };
+  let best: { days: number[]; score: number } | undefined;
+  for (const days of sets) {
+    if (!playing.every((d) => days.includes(d)) || !days.every(open)) continue;
+    const score = days.reduce((sum, d) => sum + (playing.includes(d) ? 0 : emptyOn(d)), 0) + c.rng() * LEAGUE_DAY_NOISE;
+    if (!best || score > best.score) best = { days, score };
+  }
+  return best?.days;
+}
 
 export function placeLeague(c: Ctx): void {
   for (const v of shuffle(c.rng, c.roster.villages)) {
@@ -222,12 +252,13 @@ export function placeLeague(c: Ctx): void {
     const have = Math.max(...members.map((b) => inWeekCount(c, b, 'League')));
     const optionsOn = (day: number): number[][] => (doubles ? [[...halfSlots(day, 0)], [...halfSlots(day, 1)]] : [0, 1, 2, 3].map((p) => [slotAt(day, p)]));
     const playing = (day: number): boolean => villageAreaOnDay(c, v, day, 'League');
-    const open = (day: number): boolean =>
+    const openDay = (day: number): boolean =>
       playing(day) || optionsOn(day).some((slots) => villageFree(c, v, slots) && !members.some((b) => backToBack(c, b, slots, 'League')));
     // League days are never next to each other. Aim for a set of three such days that are all still possible; a week with
     // no such set (the short last week, a week around a trip) gets as many as fit, which is at least LEAGUE_MIN_PER_WEEK.
-    const pattern = shuffle(c.rng, LEAGUE_DAY_PATTERNS).find((days) => c.days.filter(playing).every((d) => days.includes(d)) && days.every((d) => c.days.includes(d) && open(d)));
-    for (let i = have; i < leagueFor(v); i++) {
+    const want = leagueThisWeek(c, v);
+    const pattern = emptiestDays(c, members, want, c.days.filter(playing), (d) => c.days.includes(d) && openDay(d));
+    for (let i = have; i < want; i++) {
       let best: { slots: number[]; score: number } | null = null;
       for (const day of c.days) {
         if (playing(day) || villageOnNextDay(c, v, day, 'League') || (pattern && !pattern.includes(day))) continue;
@@ -238,9 +269,9 @@ export function placeLeague(c: Ctx): void {
         }
       }
       if (!best) {
-        if (i < leagueMinFor(v)) {
-          c.missing.push(`Village ${v} got ${i} of ${leagueFor(v)} league periods.`);
-          warn(c, `Village ${v} got ${i} of ${leagueFor(v)} league periods this week (there was not enough room).`);
+        if (i < Math.min(leagueMinFor(v), want)) {
+          c.missing.push(`Village ${v} got ${i} of ${want} league periods.`);
+          warn(c, `Village ${v} got ${i} of ${want} league periods this week (there was not enough room).`);
         }
         break;
       }
@@ -258,7 +289,7 @@ export function placeTri(c: Ctx): void {
   const members = idx(c, v);
   const label = 'Tusc Triathlon Training';
   let allowed = c.days;
-  if (c.weekIndex === 1) allowed = allowed.filter((d) => d !== 0); // starts on Monday
+  if (c.weekIndex === 1) allowed = allowed.filter((d) => d > firstDay()); // starts the day after the swim tests
   // training comes before the mini trip: on the days before it, or earlier on the day itself
   const tripStart = c.tripDay === null ? Infinity : c.grid[members[0]].findIndex((l, s) => l === 'Bike Trip' && Math.floor(s / 4) === c.tripDay);
   if (c.tripDay !== null) allowed = allowed.filter((d) => d <= (c.tripDay as number));
@@ -270,8 +301,9 @@ export function placeTri(c: Ctx): void {
   const singles = (day: number): number[][] => [0, 1, 2, 3].map((p) => [slotAt(day, p)]);
   // One double and two singles, on days that are not next to each other. Aim for a set of three such days; a week with
   // no such set gets as many sessions as fit.
-  const pattern = shuffle(c.rng, LEAGUE_DAY_PATTERNS).find((days) => days.every((d) => allowed.includes(d) && !villageAreaOnDay(c, v, d, 'League') && singles(d).some(fits)));
-  const blocks: ('double' | 'single')[] = Array.from({ length: leagueFor(v) }, (_, i) => (i === 0 ? 'double' : 'single'));
+  const want = leagueThisWeek(c, v);
+  const pattern = emptiestDays(c, members, want, [], (d) => allowed.includes(d) && !villageAreaOnDay(c, v, d, 'League') && singles(d).some(fits));
+  const blocks: ('double' | 'single')[] = Array.from({ length: want }, (_, i) => (i === 0 ? 'double' : 'single'));
   let placed = 0;
   for (const kind of blocks) {
     let best: { slots: number[]; score: number } | null = null;
@@ -288,7 +320,7 @@ export function placeTri(c: Ctx): void {
     putVillage(c, v, best.slots, label);
     placed++;
   }
-  if (placed < leagueMinFor(v)) {
+  if (placed < Math.min(leagueMinFor(v), want)) {
     c.missing.push('Tusc got fewer triathlon training periods than planned.');
     warn(c, `Tusc got fewer triathlon training periods than planned this week (there was not enough pool-free time).`);
   }
@@ -359,7 +391,7 @@ function okPlaceGroup(c: Ctx, unit: readonly number[], slots: readonly number[],
 // ---- Ropes --------------------------------------------------------------------------------------
 
 /** One group at ropes per half-day in the whole camp. */
-const ropesInHalf = (c: Ctx, slots: readonly number[]): boolean => c.grid.some((row) => slots.some((s) => areaOf(row[s]) === 'Ropes'));
+const ropesInHalf = (c: Ctx, slots: readonly number[]): boolean => [...c.grid, ...(c.guests ?? [])].some((row) => slots.some((s) => areaOf(row[s]) === 'Ropes'));
 
 export function placeRopes(c: Ctx, plan: Plan): void {
   const ropers = plan.Ropes.map((k, b) => (k > 0 ? b : -1)).filter((b) => b >= 0);
@@ -385,6 +417,8 @@ export function placeRopes(c: Ctx, plan: Plan): void {
       for (const b of unit) put(c, b, halfSlots(spot.day, spot.half), 'Low Ropes'); // relabelled Low or High at the end
     },
     (unit) => `Ropes for ${names(unit)} could not be placed this week.`,
+    // before the last week a ropes block that does not fit waits for another week
+    () => 'Ropes', // a ropes block that does not fit waits for another week; the last week is judged on the session's total
   );
 }
 
@@ -394,7 +428,7 @@ export function relabelRopes(c: Ctx): void {
     let ord = (c.hist[b].earlier.Ropes ?? 0) + 1;
     for (const k of blocksOf(c.grid[b])) {
       if (k.area !== 'Ropes') continue;
-      const label = ord === 1 ? 'Low Ropes' : 'High Ropes';
+      const label = ord === 1 && !ROPES_START_HIGH.includes(c.roster.village[b]) ? 'Low Ropes' : 'High Ropes';
       if (!c.locked[b][k.start]) for (let i = 0; i < k.len; i++) c.grid[b][k.start + i] = label;
       ord++;
     }
@@ -529,31 +563,60 @@ function splitPoolUnits(c: Ctx, units: number[][]): number[][] {
 /** Give each pool group a period: one group at the pool at a time, and never while the Swim Test or Tusc training is on. */
 function placePoolUnits(c: Ctx, units: number[][], extra: boolean): void {
   const names = (unit: number[]): string => unit.map((b) => c.roster.names[b]).join(' and ');
+  const options = (unit: number[]): { value: number; score: number }[] => {
+    const out: { value: number; score: number }[] = [];
+    for (const day of c.days) {
+      if (unit.some((b) => areaOnDay(c, b, day, 'Pool') || onNextDay(c, b, day, 'Pool'))) continue;
+      const poolToday = daySlots(day).filter((s) => poolLoad(c, s).count > 0).length;
+      for (let p = 0; p < 4; p++) {
+        const s = slotAt(day, p);
+        if (!unit.every((b) => isFree(c, b, s) && !backToBack(c, b, [s], 'Pool'))) continue;
+        // O and C swim together only once each of them has both lessons behind it by then
+        if (unit.length > 1 && unit.some((b) => 'OC'.includes(c.roster.village[b]) && lessonsBefore(c, b, s) < POOL_LESSONS)) continue;
+        if (poolLoad(c, s).count > 0) continue;
+        out.push({ value: s, score: c.rng() + 0.25 * poolToday - SPREAD_WEIGHT * leftover(c, unit, day, 1) - BUSY_WEIGHT * busyness(c, [s]) });
+      }
+    }
+    return out;
+  };
+  const apply = (unit: number[], slot: number): void => {
+    for (const b of unit) put(c, b, [slot], 'Pool');
+  };
+  // One group at the pool a period, and the youngest bunks swim alone, so in a full week nearly every period is spoken
+  // for. Groups are matched to periods all together first (each group to a period it can use, no period twice), which
+  // finds a period for everyone whenever there is a way; taking them one at a time can paint itself into a corner.
+  const list = shuffle(c.rng, units);
+  const can = list.map((unit) => options(unit).sort((x, y) => x.score - y.score).map((o) => o.value));
+  const holder = new Map<number, number>(); // period -> the group that has it
+  const tryPlace = (u: number, seen: Set<number>): boolean => {
+    for (const s of can[u]) {
+      if (seen.has(s)) continue;
+      seen.add(s);
+      const other = holder.get(s);
+      if (other === undefined || tryPlace(other, seen)) {
+        holder.set(s, u);
+        return true;
+      }
+    }
+    return false;
+  };
+  const order = list.map((_, u) => u).sort((x, y) => can[x].length - can[y].length);
+  for (const u of order) tryPlace(u, new Set());
+  const placed = new Set<number>();
+  for (const [slot, u] of holder) {
+    apply(list[u], slot);
+    placed.add(u);
+  }
+  // whoever is left has no period of its own: the old way, with its last resorts
   placeMostConstrainedFirst<number>(
     c,
-    shuffle(c.rng, units),
-    (unit) => {
-      const out: { value: number; score: number }[] = [];
-      for (const day of c.days) {
-        if (unit.some((b) => areaOnDay(c, b, day, 'Pool') || onNextDay(c, b, day, 'Pool'))) continue;
-        const poolToday = daySlots(day).filter((s) => poolLoad(c, s).count > 0).length;
-        for (let p = 0; p < 4; p++) {
-          const s = slotAt(day, p);
-          if (!unit.every((b) => isFree(c, b, s) && !backToBack(c, b, [s], 'Pool'))) continue;
-          // O and C swim together only once each of them has both lessons behind it by then
-          if (unit.length > 1 && unit.some((b) => 'OC'.includes(c.roster.village[b]) && lessonsBefore(c, b, s) < POOL_LESSONS)) continue;
-          if (poolLoad(c, s).count > 0) continue;
-          out.push({ value: s, score: c.rng() + 0.25 * poolToday - SPREAD_WEIGHT * leftover(c, unit, day, 1) - BUSY_WEIGHT * busyness(c, [s]) });
-        }
-      }
-      return out;
-    },
-    (unit, slot) => {
-      for (const b of unit) put(c, b, [slot], 'Pool');
-    },
+    list.filter((_, u) => !placed.has(u)),
+    options,
+    apply,
     (unit) => `${extra ? 'A second Pool' : 'Pool'} for ${names(unit)} could not be placed this week.`,
     // a second swim that does not fit is simply not given, and a swim counted over the session may be made up in another week
-    (unit) => (extra || unit.every((b) => POOL_TARGETS[c.roster.village[b]]?.perWeek === undefined) ? 'Pool' : undefined),
+    // and so is the weekly swim in a week the calendar has cut short
+    (unit) => (extra || unit.every((b) => POOL_TARGETS[c.roster.village[b]]?.perWeek === undefined || swimIsOptional(openPeriods(c.grid[b], c.lastWeek), c.lastWeek)) ? 'Pool' : undefined),
     extra ? undefined : (unit) => swimInsteadOfLeague(c, unit),
   );
 }
@@ -624,5 +687,68 @@ export function placeExtraPool(c: Ctx, plan: Plan): void {
     c.unmet = before.unmet;
     c.carried.length = before.carried;
     c.warnings.length = before.warnings;
+  }
+}
+
+// ---- One more Waterfront or league where there is room ----------------------------------------
+
+/**
+ * Waterfront and league are the only things that take a whole village out of a period at once. After the week's own blocks
+ * are down, a village whose bunks would still be left with more empty periods than they need takes another Waterfront on a
+ * half-day nobody is using, and then another league period: Waterfront first, and the village that has had the least first.
+ * Nothing two days in a row still holds, so a village never ends up with more than three of either.
+ */
+export function placeExtraVillageBlocks(c: Ctx, plan: Plan): void {
+  const tokens = (b: number): number => TOKEN_AREAS.reduce((sum, a) => sum + plan[a][b], 0);
+  const spare = (v: string): number => Math.min(...idx(c, v).map((b) => ALL_SLOTS.filter((s) => fillable(c, s) && isFree(c, b, s)).length - tokens(b)));
+  // a week the calendar has cut short has few periods for the whole camp at once, so a village gives up more of its own to get out of the way
+  const keep = (v: string): number => (isShortWeek(open(c, v), c.lastWeek) ? EXTRA_BLOCK_KEEP_SHORT : EXTRA_BLOCK_KEEP);
+  const waterfronts = (v: string): number => Math.max(...idx(c, v).map((b) => (c.hist[b].earlier.Waterfront ?? 0) + (c.hist[b].later.Waterfront ?? 0) + inWeekCount(c, b, 'Waterfront')));
+  const best = (v: string, options: number[][]): number[] | null => {
+    let pick: { slots: number[]; score: number } | null = null;
+    for (const slots of options) {
+      const score = c.rng() - SPREAD_WEIGHT * leftover(c, idx(c, v), Math.floor(slots[0] / 4), slots.length) - BUSY_WEIGHT * busyness(c, slots);
+      if (!pick || score < pick.score) pick = { slots, score };
+    }
+    return pick?.slots ?? null;
+  };
+  // Waterfront: only a village that has had the least so far, so the villages stay within one of each other
+  for (let guard = 0; guard < 12; guard++) {
+    const least = Math.min(...c.roster.villages.map(waterfronts));
+    let placed = false;
+    for (const v of shuffle(c.rng, c.roster.villages.filter((x) => waterfronts(x) === least && spare(x) - 2 >= keep(x)))) {
+      const options: number[][] = [];
+      for (const day of c.days) {
+        if (villageAreaOnDay(c, v, day, 'Waterfront') || villageOnNextDay(c, v, day, 'Waterfront')) continue;
+        for (const half of [0, 1]) {
+          const slots = [...halfSlots(day, half)];
+          if (!villageFree(c, v, slots) || slots.some((s) => slotHas(c, s, 'Waterfront'))) continue;
+          if (idx(c, v).some((b) => backToBack(c, b, slots, 'Waterfront')) || beforeSwimTest(c.weekIndex, c.grid[idx(c, v)[0]], slots[0], v)) continue;
+          options.push(slots);
+        }
+      }
+      const slots = best(v, options);
+      if (!slots) continue;
+      putVillage(c, v, slots, 'Waterfront');
+      placed = true;
+      break;
+    }
+    if (!placed) break;
+  }
+  // league: the villages that play league in single or double periods (Tusc trains for the triathlon instead)
+  for (const v of shuffle(c.rng, c.roster.villages)) {
+    if (v === 'T' || leagueFor(v) === 0) continue;
+    const len = v === 'M' ? 2 : 1;
+    while (spare(v) - len >= keep(v)) {
+      const options: number[][] = [];
+      for (const day of c.days) {
+        if (villageAreaOnDay(c, v, day, 'League') || villageOnNextDay(c, v, day, 'League')) continue;
+        const onDay = v === 'M' ? [[...halfSlots(day, 0)], [...halfSlots(day, 1)]] : [0, 1, 2, 3].map((p) => [slotAt(day, p)]);
+        for (const slots of onDay) if (villageFree(c, v, slots) && !idx(c, v).some((b) => backToBack(c, b, slots, 'League'))) options.push(slots);
+      }
+      const slots = best(v, options);
+      if (!slots) break;
+      putVillage(c, v, slots, leagueLabelFor(v, c.sessionWeeks));
+    }
   }
 }

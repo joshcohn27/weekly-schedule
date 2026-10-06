@@ -11,7 +11,9 @@ import {
 } from './config';
 import { dayOf, halfSlots, slotAt } from './history';
 import { chance, shuffle, type Rng } from './rng';
+import { firstDay } from './share';
 import {
+  poolLoad,
   put,
   putVillage,
   rangeFree,
@@ -40,6 +42,8 @@ export function planCalendar(
     lastWeek: boolean;
     /** Is some bunk already busy on this half-day (away on a trip, or filled in by hand)? */
     taken?: (day: number, half: number) => boolean;
+    /** Does some bunk already have hobbies on this half-day? */
+    has?: (day: number, half: number) => boolean;
   },
   rng: Rng,
 ): CalendarPlan {
@@ -54,7 +58,8 @@ export function planCalendar(
     const wedTaken = !!input.taken?.(3, 1);
     const tueTaken = !!input.taken?.(2, 0);
     const drawWed = chance(rng, HOBBY_WED_PM_PROBABILITY);
-    hobbies.push((wedTaken !== tueTaken ? tueTaken : drawWed) ? [3, 1] : [2, 0]);
+    const wed = input.has?.(3, 1) ? true : input.has?.(2, 0) ? false : wedTaken !== tueTaken ? tueTaken : drawWed;
+    hobbies.push(wed ? [3, 1] : [2, 0]);
     // a third session is Sunday morning: never in week 1 (the swim tests are then), and not when someone is away for it
     if (sessions >= 3 && input.weekIndex > 1 && !input.taken?.(0, 0)) hobbies.push([0, 0]);
   }
@@ -103,17 +108,17 @@ function placeVillageFirstFit(c: Ctx, v: string, options: number[][], label: str
 
 function placeSundayOfWeekOne(c: Ctx): void {
   if (c.weekIndex !== 1) return;
-  // Swim tests: each non-Mohawk village gets one period of Sunday, in random order.
+  // Swim tests: each non-Mohawk village gets one period of the first day that has periods (Sunday, unless the session opens later), in random order.
   const swimmers = c.roster.villages.filter((v) => v !== 'M');
   const periods = c.calendar.swimOrder;
   swimmers.forEach((v, i) => {
     const order = [0, 1, 2, 3].map((k) => periods[(i + k) % 4]);
-    const placed = placeVillageFirstFit(c, v, order.map((p) => [slotAt(0, p)]), 'Swim Test', 'Pool');
+    const placed = placeVillageFirstFit(c, v, order.map((p) => [slotAt(firstDay(), p)]).filter((slots) => poolLoad(c, slots[0]).count === 0), 'Swim Test', 'Pool');
     if (!placed) warn(c, `The Sunday swim test for village ${v} could not be placed because Sunday is already filled in.`);
   });
   // Mohawk plays Athletics in period 4 and has normal periods 1 to 3.
   if (c.roster.byVillage.M) {
-    const placed = placeVillageFirstFit(c, 'M', [[slotAt(0, 3)]], 'Athletics', 'Athletics');
+    const placed = placeVillageFirstFit(c, 'M', [[slotAt(firstDay(), 3)]], 'Athletics', 'Athletics');
     if (!placed) warn(c, 'Sunday period 4 Athletics for village M could not be placed because it is already filled in.');
   }
 }

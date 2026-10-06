@@ -8,7 +8,6 @@ import {
   FLEXIBLE_LATER_WEEK_SHARE,
   FLEXIBLE_VILLAGES,
   DANCE_TARGETS,
-  leagueFor,
   triathlonPeriodsAWeek,
   LAST_WEEK_SHARE,
   LATER_WEEKS_NEGLIGIBLE,
@@ -19,15 +18,17 @@ import {
   POOL_TARGETS,
   POOL_TARGET_OTHER,
   SESSION_TARGETS,
+  VILLAGE_TARGETS,
   SHABBAT_ROTATION,
   TRI_AWAY_PERIODS,
   TRIP_LABELS,
-  WATERFRONT_PER_WEEK,
 } from './config';
 import { blocksOf, isBuiltWeek } from './history';
 import { ropeGroups } from './groups';
 import { weightedSample } from './rng';
 import type { Ctx } from './state';
+import { ROPES_HALF_DAY_SHARE, TOO_SHORT_FOR_WEEKLY, leagueWant, openPeriods, waterfrontWant } from './weekRoom';
+import { shuffle } from './rng';
 
 /** The areas planned as single periods, a count per bunk. The Settings tab can add to them (see settings.ts). */
 export const BUILT_IN_TOKEN_AREAS = ['Music', 'Judaics', 'Israel Education', 'Teva', 'Ceramics', 'Yoga', 'Dance', 'TW UH'];
@@ -68,7 +69,7 @@ export function sessionTargetOf(v: string, sessionWeeks: number, area: string): 
     if (t?.perWeek !== undefined) return t.perWeek * sessionWeeks;
     return Math.min(t?.perSession ?? POOL_TARGET_OTHER.perSession, sessionWeeks);
   }
-  return SESSION_TARGETS[area] ?? 0;
+  return VILLAGE_TARGETS[area]?.[v] ?? SESSION_TARGETS[area] ?? 0;
 }
 
 export const inWeekCount = (c: Ctx, b: number, area: string): number => blocksOf(c.grid[b]).filter((k) => k.area === area).length;
@@ -109,25 +110,29 @@ export function expectedSpare(c: Ctx, b: number, week: number): number {
     let free = 0;
     for (let s = 0; s < 24; s++) if (c.grid[b][s] === '' && !(last && s >= 20)) free++;
     const row = blocksOf(c.grid[b]);
-    const leagueWant = v === 'T' ? triathlonPeriods(c, b, week) : leagueFor(v) * (v === 'M' ? 2 : 1);
+    const open = openPeriods(c.grid[b], last);
+    const leagueWanted = v === 'T' ? (triathlonPeriods(c, b, week) > 0 ? leagueWant(v, open) + 1 : 0) : leagueWant(v, open) * (v === 'M' ? 2 : 1);
     const leagueHave = row.filter((k) => k.area === 'League').reduce((sum, k) => sum + k.len, 0);
     const wfHave = row.filter((k) => k.area === 'Waterfront').length;
-    free -= Math.max(0, leagueWant - leagueHave);
-    free -= 2 * Math.max(0, (last ? WATERFRONT_PER_WEEK * 0.75 : WATERFRONT_PER_WEEK) - wfHave);
+    free -= Math.max(0, leagueWanted - leagueHave);
+    free -= 2 * Math.max(0, waterfrontWant(open) - wfHave);
     return free - upkeep;
   }
-  let free = 24;
+  // a week still to come: what the calendar, hobbies and the set blocks will leave it
+  let open = 24;
   const hobbies = hobbiesInWeek(week, c.sessionWeeks);
-  if (last) free -= 8 + (hobbies > 0 ? 2 : 0); // Friday, Thursday and Monday hobbies
-  else free -= 2 * hobbies; // two periods for each hobby session this week
-  if (week === 1) free -= 1; // Sunday swim test, or Mohawk's Athletics
-  if (v === 'T') free -= triathlonPeriods(c, b, week); // triathlon: one double and two singles
-  else free -= v === 'M' ? leagueFor(v) * 2 : leagueFor(v);
-  free -= last ? WATERFRONT_PER_WEEK : WATERFRONT_PER_WEEK * 2; // the short last week has room for about one Waterfront each
-  if ((SHABBAT_ROTATION[c.sessionWeeks][week] ?? []).includes(v)) free -= shabbatPrepPeriods();
-  free -= tripCells(c, b, week);
-  // Ropes are done before the last week. A later week tends to have more room than this count says (a tight village gets
-  // one Waterfront fewer), and guessing low makes the early weeks use up the rare areas, so the guess leans high.
+  if (last) open -= 8 + (hobbies > 0 ? 2 : 0); // Friday, Thursday and Monday hobbies
+  else open -= 2 * hobbies; // two periods for each hobby session this week
+  if (week === 1) open -= 1; // the swim test, or Mohawk's Athletics
+  if ((SHABBAT_ROTATION[c.sessionWeeks][week] ?? []).includes(v)) open -= shabbatPrepPeriods();
+  open = Math.max(0, open - tripCells(c, b, week)); // trips, village day, Mass Program and the rest of the calendar
+  let free = open;
+  // league and Waterfront are an average over the session: a week cut short has fewer
+  if (v === 'T') free -= triathlonPeriods(c, b, week) > 0 ? leagueWant(v, open) + 1 : 0; // triathlon: the first session is a double
+  else free -= leagueWant(v, open) * (v === 'M' ? 2 : 1);
+  free -= 2 * waterfrontWant(open);
+  // Ropes are done before the last week. A later week tends to have more room than this count says, and guessing low
+  // makes the early weeks use up the rare areas, so the guess leans high.
   return free - upkeep + (last ? 1 : 0) + LATER_WEEK_ROOM_BONUS;
 }
 
@@ -141,7 +146,7 @@ const capacityWeight = (c: Ctx, b: number, week: number): number => {
 };
 
 /** This week, plus every later week of the session that is not already built. */
-function remainingWeeks(c: Ctx): number[] {
+export function remainingWeeks(c: Ctx): number[] {
   const out: number[] = [];
   for (let w = c.weekIndex; w <= c.sessionWeeks; w++) if (w === c.weekIndex || !isBuiltWeek(c.weeks.weeks[w - 1], BUILT_WEEK_MAX_EMPTY)) out.push(w);
   return out.length ? out : [c.weekIndex];
@@ -194,7 +199,7 @@ function lottery(c: Ctx, inWeek: Counts[], area: string, target: (b: number) => 
  * for the bunk and DAY_CAP bunks a day for its village, so it goes by the days the bunk has open, not by its empty periods.
  * A week squeezed onto a few days by a trip and Shabbat Prep has very little, and needs its rare areas saved for it.
  */
-function leftoverRoom(c: Ctx, b: number, week: number): number {
+export function leftoverRoom(c: Ctx, b: number, week: number): number {
   const v = c.roster.village[b];
   const last = c.sessionWeeks === 4 && week === 4;
   const now = week === c.weekIndex;
@@ -273,10 +278,16 @@ export function planWeek(c: Ctx): Plan {
   };
 
   // Ropes go in groups (bunks next to each other in a village, up to the camper limit), so a group draws its week once and every member follows.
-  const ropeNeed = Array.from({ length: n }, (_, b) => b).filter((b) => counted(c, inWeek, b, 'Ropes') < SESSION_TARGETS.Ropes);
+  const ropeNeed = Array.from({ length: n }, (_, b) => b).filter((b) => counted(c, inWeek, b, 'Ropes') < sessionTargetOf(c.roster.village[b], c.sessionWeeks, 'Ropes'));
   const groups = ropeGroups(c.roster, ropeNeed, (b) => counted(c, inWeek, b, 'Ropes'), () => 0);
   const leaders = new Set(groups.map((g) => g[0]));
-  draw('Ropes', 'Ropes', (b) => (leaders.has(b) ? SESSION_TARGETS.Ropes : counted(c, inWeek, b, 'Ropes')), () => 1);
+  draw('Ropes', 'Ropes', (b) => (leaders.has(b) ? sessionTargetOf(c.roster.village[b], c.sessionWeeks, 'Ropes') : counted(c, inWeek, b, 'Ropes')), () => 1);
+  // One group at ropes a half-day in the whole camp: a week only has so many half-days, and fewer when the calendar is
+  // in it. The groups beyond what this week can hold go another week (the ones that cannot wait keep their place).
+  let halfDays = 0;
+  for (const day of c.days) for (const half of [0, 2]) if (c.grid.some((row) => row[day * 4 + half] === '' && row[day * 4 + half + 1] === '')) halfDays++;
+  const going = shuffle(c.rng, groups.filter((g) => plan.Ropes[g[0]] > 0)).sort((x, y) => mins.Ropes[y[0]] - mins.Ropes[x[0]]);
+  for (const g of going.slice(Math.max(0, Math.floor(halfDays * ROPES_HALF_DAY_SHARE)))) if (mins.Ropes[g[0]] === 0) plan.Ropes[g[0]] = 0;
   for (const g of groups) {
     for (const member of g.slice(1)) {
       plan.Ropes[member] = plan.Ropes[g[0]];
@@ -294,24 +305,26 @@ export function planWeek(c: Ctx): Plan {
   const poolMins = mins.Pool;
   plan.Pool = plan.Pool.map((k, b) => {
     const t = POOL_TARGETS[c.roster.village[b]];
-    return t?.perWeek !== undefined ? Math.max(0, t.perWeek - (inWeek[b].Pool ?? 0)) : k;
+    // a bunk with next to no periods this week is not expected at the pool
+    const short = openPeriods(c.grid[b], c.lastWeek) < TOO_SHORT_FOR_WEEKLY;
+    return t?.perWeek !== undefined ? (short ? 0 : Math.max(0, t.perWeek - (inWeek[b].Pool ?? 0))) : short ? 0 : k;
   });
   // a weekly minimum (O, C, T) is never put off; the per-session villages follow the draw
   mins.Pool = plan.Pool.map((k, b) => (POOL_TARGETS[c.roster.village[b]]?.perWeek !== undefined ? k : poolMins[b]));
 
   plan.Music = Array.from({ length: n }, (_, b) =>
-    musicDue(c.roster.village[b], c.roster.pos[b], c.weekIndex) ? Math.max(0, MUSIC_PER_WEEK - (inWeek[b].Music ?? 0)) : 0,
+    musicDue(c.roster.village[b], c.roster.pos[b], c.weekIndex) && openPeriods(c.grid[b], c.lastWeek) >= TOO_SHORT_FOR_WEEKLY ? Math.max(0, MUSIC_PER_WEEK - (inWeek[b].Music ?? 0)) : 0,
   );
   limitMusicToRoom(c, plan.Music);
   mins.Music = plan.Music.slice();
 
   const danceTarget = (b: number) => DANCE_TARGETS[c.roster.village[b]] ?? DANCE_TARGETS['*'];
-  const rareTarget = (b: number, area: string): number => (area === 'Dance' ? danceTarget(b) : (SESSION_TARGETS[area] ?? 0));
+  const rareTarget = (b: number, area: string): number => (area === 'Dance' ? danceTarget(b) : sessionTargetOf(c.roster.village[b], c.sessionWeeks, area));
   const RARE = TOKEN_AREAS.filter((a) => a !== 'Music');
   const nowShare = shareForThisWeek(c, (b) => RARE.reduce((sum, a) => sum + Math.max(0, rareTarget(b, a) - counted(c, inWeek, b, a)), 0));
 
   // every area with a plain per-session number, the ones added on the Settings tab among them
-  for (const area of TOKEN_AREAS) if (!OWN_PLAN.includes(area)) draw(area, area, () => SESSION_TARGETS[area] ?? 0, () => null, nowShare);
+  for (const area of TOKEN_AREAS) if (!OWN_PLAN.includes(area)) draw(area, area, (b) => sessionTargetOf(c.roster.village[b], c.sessionWeeks, area), () => null, nowShare);
   draw('Dance', 'Dance', danceTarget, (b) => capOf(danceTarget(b)), nowShare);
 
   // Time with the Unit Head: the youngest and oldest bunks go first (week 1, or week 2 at the latest).
@@ -339,16 +352,25 @@ const trimOrder = (): PlanArea[] => ['TW UH', ...TOKEN_AREAS.filter((a) => !BUIL
  * the quota planner picks it up again.
  */
 function trimToRoom(c: Ctx, plan: Plan, mins: Plan): void {
-  const wf = c.lastWeek ? WATERFRONT_PER_WEEK : WATERFRONT_PER_WEEK * 2;
   for (let b = 0; b < c.roster.n; b++) {
     const v = c.roster.village[b];
+    const open = openPeriods(c.grid[b], c.lastWeek);
+    const wf = 2 * waterfrontWant(open);
     let free = 0;
     for (let s = 0; s < 24; s++) if (c.grid[b][s] === '' && !(c.lastWeek && s >= 20)) free++;
-    const league = v === 'T' ? triathlonPeriods(c, b, c.weekIndex) : leagueFor(v) * (v === 'M' ? 2 : 1);
+    const league = v === 'T' ? (triathlonPeriods(c, b, c.weekIndex) > 0 ? leagueWant(v, open) + 1 : 0) : leagueWant(v, open) * (v === 'M' ? 2 : 1);
     const room = free - league - wf;
     const planned = (): number => plan.Pool[b] + 2 * plan.Ropes[b] + plan.Music[b] + TOKEN_AREAS.reduce((sum, a) => sum + (a === 'Music' ? 0 : plan[a][b]), 0);
     for (const area of trimOrder()) {
       while (planned() > room && plan[area][b] > mins[area][b]) plan[area][b]--;
+    }
+    // still more than the week holds (the last week is asked for everything that is left): what does not fit is not planned
+    for (const area of trimOrder()) {
+      if (area === 'Pool' || area === 'Ropes') continue;
+      while (planned() > room && plan[area][b] > 0) {
+        plan[area][b]--;
+        c.carried.push({ bunk: b, area });
+      }
     }
   }
 }

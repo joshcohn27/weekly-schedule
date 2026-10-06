@@ -3,8 +3,10 @@ import { SUPPORT_LINK } from '../config';
 import type { Bunk } from '../types';
 import SharingSettings from './SharingSettings';
 import { useState } from 'react';
-import { NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
+import { bigVillageIn, usesBigVillageSettings, withBigVillageSettings, coreOf, withCore, NEW_AREA, addArea, isDefaultSettings, removeArea, sameVisitIn, settingAreas, whyNotAdd, withSameVisit, type AreaSettings, type Settings } from '../autogen/settings';
+import CalendarSettings from './CalendarSettings';
 import CoreRows, { LastWeekSwitch } from './CoreSettings';
+import type { SessionTemplate } from '../autogen/sessionCalendar';
 import Info, { HINT } from './Info';
 
 interface Props {
@@ -19,6 +21,8 @@ interface Props {
   problems?: SettingsProblem[];
   /** The bunks of the week on screen, for the sharing grid. */
   bunks?: Bunk[];
+  /** The session calendar: shown when the session is known. */
+  calendar?: { template: SessionTemplate; onApply: () => void };
 }
 
 const NAME: Record<string, string> = { 'Israel Education': 'Israel' };
@@ -40,12 +44,16 @@ export const FIXED_RULES = [
  * The Settings tab: how often each program area happens and how many bunks it takes. Auto generate uses these numbers,
  * and they are saved with the schedule.
  */
-export default function SettingsView({ settings, villages, onChange, onReset, disabled, problems = [], bunks = [] }: Props) {
+export default function SettingsView({ settings, villages, onChange, onReset, disabled, problems = [], bunks = [], calendar }: Props) {
   const set = (area: string, patch: Partial<AreaSettings>) => onChange({ ...settings, areas: { ...settings.areas, [area]: { ...settings.areas[area], ...patch } } });
   // the program area being added: its name and its numbers are chosen before it goes in
   const [name, setName] = useState('');
   const [draft, setDraft] = useState<AreaSettings>(NEW_AREA);
   const blocked = name.trim() === '' ? null : whyNotAdd(settings, name);
+  // a village with six or more bunks needs more places than the usual numbers give: offered here, never done unasked
+  const bigVillage = bigVillageIn(bunks.map((b) => b.name));
+  const suggested = usesBigVillageSettings(settings);
+  const useSuggested = () => onChange(withBigVillageSettings(settings));
   const add = () => {
     if (whyNotAdd(settings, name)) return;
     onChange(addArea(settings, name, draft));
@@ -96,7 +104,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
         <ul className="settings-problems" role="alert">
           {problems.map((p) => (
             <li key={p.text} data-level={p.level}>
-              <strong>{p.level === 'no' ? 'Not possible.' : 'Unlikely to work.'}</strong> {p.level === 'unlikely' && <Info text={HINT.estimate} />} {p.text}{' '}
+              <strong>{p.level === 'no' ? 'Not possible.' : p.level === 'short' ? 'Will come up short.' : 'Unlikely to work.'}</strong> {p.level === 'unlikely' && <Info text={HINT.estimate} />} {p.text}{' '}
               <em>{p.fix}</em>
             </li>
           ))}
@@ -154,13 +162,24 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                       {number(area, 'at most', a.max, 0, 12, (n) => set(area, { max: n, min: Math.min(n, a.min) }))} <Info text={HINT.atMost} />
                     </td>
                   )}
-                  <td>
-                    <select aria-label={`${nameOf(area)} bunks at once`} value={a.atOnce} disabled={disabled} onChange={(e) => set(area, { atOnce: Number(e.target.value) })}>
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                    </select>
-                  </td>
-                  <td>{number(area, 'bunks of one village in a day', a.villagePerDay, 1, 6, (n) => set(area, { villagePerDay: n }))}</td>
+                  {area === 'Yoga' ? (
+                    <td colSpan={2}>
+                      At most{' '}
+                      {number(area, 'most campers at once', coreOf(settings).yogaMaxCampers, 5, 200, (n) => onChange(withCore(settings, { ...coreOf(settings), yogaMaxCampers: n })))}{' '}
+                      campers at once{' '}
+                      <Info text="Yoga goes by people, not by bunks, the way Ropes does: bunks that are next to each other in a village go together as long as their campers add up to no more than this. A bunk bigger than the number goes alone." />
+                    </td>
+                  ) : (
+                    <>
+                      <td>
+                        <select aria-label={`${nameOf(area)} bunks at once`} value={a.atOnce} disabled={disabled} onChange={(e) => set(area, { atOnce: Number(e.target.value) })}>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </td>
+                      <td>{number(area, 'bunks of one village in a day', a.villagePerDay, 1, 6, (n) => set(area, { villagePerDay: n }))}</td>
+                    </>
+                  )}
                   <td>
                     <input
                       type="checkbox"
@@ -232,12 +251,25 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
           Reset to the default settings
         </button>
       </p>
+      {bigVillage && (
+        <p className="hint big-villages">
+          Village {bigVillage} has six or more bunks. With that many the usual numbers leave too few places, and weeks come back with
+          empty periods. The suggested settings: 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day at every area,
+          and any two bunks of a village within a grade may share (not only the ones next to each other in the list).{' '}
+          <button type="button" disabled={disabled || suggested} onClick={useSuggested}>
+            {suggested ? 'The suggested settings are in use' : 'Use the suggested settings'}
+          </button>
+        </p>
+      )}
+      {calendar && <CalendarSettings settings={settings} template={calendar.template} villages={villages} onChange={onChange} onApply={calendar.onApply} disabled={disabled} />}
+      {/* Hidden for now: the list of rules that are always kept is not shown on this page.
       <h3>Always kept</h3>
       <ul>
         {FIXED_RULES.map((rule) => (
           <li key={rule}>{rule}</li>
         ))}
       </ul>
+      */}
     </section>
   );
 }

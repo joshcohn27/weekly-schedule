@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weekly Period Schedule Builder: User's Manual</title>
+<style>
+  @page { size: Letter; margin: 0.7in 0.7in 0.8in 0.7in; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, "Times New Roman", serif; font-size: 11pt; line-height: 1.36; color: #1c2620; margin: 0; }
+  h1, h2, h3, h4 { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #2f5d3a; line-height: 1.2; }
+  h1 { font-size: 24pt; margin: 0 0 10pt; page-break-before: always; border-bottom: 2pt solid #2f5d3a; padding-bottom: 5pt; }
+  h2 { font-size: 14pt; margin: 13pt 0 5pt; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 13pt 0 4pt; page-break-after: avoid; }
+  p { margin: 0 0 6.5pt; }
+  ul, ol { margin: 0 0 8pt 0; padding-left: 20pt; }
+  li { margin-bottom: 2.5pt; }
+  b, strong { color: #17301e; }
+  .cover { page-break-before: avoid; height: 9in; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  .cover h1 { page-break-before: avoid; border: 0; font-size: 34pt; margin-bottom: 8pt; }
+  .cover .sub { font-family: "Segoe UI", Arial, sans-serif; font-size: 16pt; color: #2f5d3a; margin-bottom: 30pt; }
+  .cover .ver { font-family: "Segoe UI", Arial, sans-serif; font-size: 12pt; color: #555; }
+  .cover img { width: 78%; margin: 22pt auto; border: 1pt solid #b9c7bc; }
+  figure { margin: 8pt 0 12pt; page-break-inside: avoid; text-align: center; }
+  figure img { max-width: 100%; max-height: 2.8in; border: 1pt solid #b9c7bc; }
+  figure.tall img { max-height: 3.6in; }
+  h1.flow { page-break-before: auto; margin-top: 22pt; }
+  figure.strip img { max-height: 1.3in; }
+  figcaption { font-family: "Segoe UI", Arial, sans-serif; font-size: 9pt; color: #4a5a4f; margin-top: 3pt; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 9.5pt; }
+  th, td { border: 0.75pt solid #9db0a2; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+  th { background: #dfe9e1; font-family: "Segoe UI", Arial, sans-serif; }
+  tr { page-break-inside: avoid; }
+  .note { border-left: 3pt solid #c9a227; background: #fdf8e3; padding: 6pt 9pt; margin: 8pt 0 10pt; page-break-inside: avoid; }
+  .warn { border-left: 3pt solid #b3261e; background: #fbeceb; padding: 6pt 9pt; margin: 8pt 0 10pt; page-break-inside: avoid; }
+  .ui { font-family: "Segoe UI", Arial, sans-serif; font-weight: 600; white-space: nowrap; }
+  .toc ol { list-style: none; padding-left: 0; font-family: "Segoe UI", Arial, sans-serif; font-size: 12pt; }
+  .toc li { margin-bottom: 6pt; }
+  .steps li { margin-bottom: 6pt; }
+  .small { font-size: 9.5pt; color: #4a5a4f; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <h1>Weekly Period Schedule Builder</h1>
+  <div class="sub">User's Manual</div>
+  <img src="screenshots/13-schedule-tab-week-2.png" alt="A finished week on the Schedule tab">
+  <div class="ver">For version 1.6.0 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
+</section>
+
+<h1>Quick Start</h1>
+<p>This page gets you from an empty page to a finished session. Each step is explained in full later in the manual.</p>
+<ol class="steps">
+  <li><b>Open the page.</b> The first time, a panel called <span class="ui">How to use this page</span> opens by itself. Read it or press <span class="ui">Close</span>. The <span class="ui">?</span> beside the title brings it back.</li>
+  <li><b>Pick the session</b> in the <span class="ui">Session:</span> box at the top: Session 1 (4 weeks) or Session 2 (3 weeks, with Color War).</li>
+  <li><b>Look at week 1 on the Build tab.</b> The session starts with its bunks and its calendar already in: opening day, the trips, village day and so on.</li>
+  <li><b>Fix the bunks.</b> Change names, grades and camper counts so they match this summer. The first letter of a bunk's name is its village. The buttons after <span class="ui">Add a bunk to</span> add one to a village in every week.</li>
+  <li><b>Check the calendar.</b> On the <span class="ui">Settings</span> tab, under <span class="ui">Session calendar</span>, move anything that falls on a different day this year.</li>
+  <li><b>Press <span class="ui">Auto generate</span></b> in the bar under the tabs.</li>
+  <li><b>Choose <span class="ui">The whole session, week by week</span></b> and press <span class="ui">Generate</span>.</li>
+  <li><b>Wait a few seconds.</b> A panel shows each week as it finishes. You can keep using the page.</li>
+  <li><b>Look at the Schedule tab</b> for each week, and the <span class="ui">Tracking</span> tab to see that the counts are fair. Not happy? Press <span class="ui">Auto generate</span> again for a different version, or <span class="ui">Undo</span>.</li>
+  <li><b>Save it.</b> Press <span class="ui">Download all weeks (.xlsx)</span>. That file is your backup, and it is how you move the schedule to another computer.</li>
+</ol>
+<figure class="strip"><img src="screenshots/03-session-picker-and-tabs.png" alt="The top of the page"><figcaption>The top of the page: the session picker, and the five tabs.</figcaption></figure>
+<div class="note"><b>The one thing to remember:</b> the schedule lives in this browser on this computer. Download an Excel file whenever you have something worth keeping.</div>
+
+<div class="toc">
+<h2>What is in this manual</h2>
+<ol>
+  <li>1. What the app is, and where your work is kept</li>
+  <li>2. A tour of the page</li>
+  <li>3. How to do things by hand</li>
+  <li>4. Sessions, dates and the session calendar</li>
+  <li>5. Auto generate</li>
+  <li>6. The rules Auto generate follows</li>
+  <li>7. Settings reference</li>
+  <li>8. Saving, sharing and printing</li>
+  <li>9. Things that cannot be undone</li>
+  <li>10. Troubleshooting and questions</li>
+  <li>11. Known limits</li>
+  <li>12. Glossary</li>
+</ol>
+</div>
+
+<h1>1. What the app is</h1>
+<p>The Weekly Period Schedule Builder holds the camp's period schedule: every bunk, four periods a day, Sunday to Friday, for each week of a session. You can fill it in by hand, or have the app build a week or a whole session for you and then change what you like.</p>
+<p>It is for whoever makes the schedule: a director or a program staffer. If you are comfortable with a spreadsheet you will be comfortable here.</p>
+<h2>Where your work is kept</h2>
+<p>There is no login and nothing is sent anywhere. Everything you enter is saved by your web browser, on the computer you are using. That has three consequences.</p>
+<ul>
+  <li><b>Another computer, or another browser on the same computer, starts empty.</b> To move a schedule, download it as an Excel file and upload it on the other one.</li>
+  <li><b>Clearing your browser's site data erases the schedule.</b> So does using a private or incognito window, once it is closed.</li>
+  <li><b>The Excel file is your backup.</b> Download one before any big change, and at the end of each working session.</li>
+</ul>
+<p>Session 1 and Session 2 are kept separately. Switching from one to the other does not lose either.</p>
+
+<h1>2. A tour of the page</h1>
+<h2>The top of the page</h2>
+<ul>
+  <li><span class="ui">?</span> beside the title opens <span class="ui">How to use this page</span>, a short guide.</li>
+  <li><span class="ui">Session:</span> chooses Session 1 or Session 2. Each shows its dates.</li>
+  <li><span class="ui">Start this session over</span> throws away the session on screen and starts it again from its own bunks, calendar and numbers. It asks first.</li>
+  <li>The five tabs: <span class="ui">Build</span>, <span class="ui">Schedule</span>, <span class="ui">Tracking</span>, <span class="ui">Specialists</span>, <span class="ui">Settings</span>.</li>
+</ul>
+<h2>The week bar</h2>
+<figure class="strip"><img src="screenshots/04-week-bar-download-upload.png" alt="The week bar"><figcaption>The week bar is under the tabs on every tab.</figcaption></figure>
+<ul>
+  <li><span class="ui">Week:</span> picks the week you are looking at. Each week shows its dates.</li>
+  <li><span class="ui">Download Week N (.xlsx)</span> saves the week on screen as an Excel file.</li>
+  <li><span class="ui">Download all weeks (.xlsx)</span> saves every week of the session in one file.</li>
+  <li><span class="ui">Specialist schedules (.xlsx)</span> saves a file with one tab for each program area.</li>
+  <li><span class="ui">Upload</span> loads a file that was downloaded from this app.</li>
+  <li><span class="ui">Reset Week N</span> empties the week on screen: its bunks and its activities.</li>
+  <li><span class="ui">Auto generate</span> builds the periods for you.</li>
+</ul>
+<h2>Build</h2>
+<p>This is where the schedule is entered and changed. Each row is a bunk: its name, grades and number of campers, then a box for every period of the week. The day headings carry the dates.</p>
+<figure><img src="screenshots/02-build-tab-session-start.png" alt="The Build tab"><figcaption>The Build tab for week 1 of Session 1, as the session starts. Sunday is Opening Day and has no periods.</figcaption></figure>
+<p>Above the grid are two tools, <span class="ui">Set a whole period at once</span> and <span class="ui">Clear</span>, both explained in chapter 3. At the end of each row are buttons to move the bunk up or down and to remove it. Above the grid are buttons that add a bunk to a village in every week, and one that fills in the biggest camp. Below the grid you can add an empty row, and from week 2 on, a button copies the previous week's bunks.</p>
+<h2>Schedule</h2>
+<p>The finished grid, ready to print. Bunks doing the same thing in the same period are merged into one box. Click a box to light up every box in the same program area; a league lights up within its village. The <span class="ui">Print</span> button prints it.</p>
+<figure class="tall"><img src="screenshots/13-schedule-tab-week-2.png" alt="The Schedule tab"><figcaption>A generated week on the Schedule tab.</figcaption></figure>
+<h2>Tracking</h2>
+<p>How many times each bunk has each program area, for the week on screen and for the whole session. This is the place to check that things are fair. The last row, <span class="ui">All bunks</span>, adds everything up.</p>
+<figure class="tall"><img src="screenshots/15-tracking-tab.png" alt="The Tracking tab"><figcaption>The Tracking tab after a whole session was generated.</figcaption></figure>
+<h2>Specialists</h2>
+<p>The schedule from one program area's side. Pick the area, and each week is a grid with days across and periods down. Each box says who comes, which visit it is for them in that area (counted from the start of the session), and how many campers. Print it for the specialist.</p>
+<figure><img src="screenshots/16-specialists-tab.png" alt="The Specialists tab"><figcaption>The Specialists tab.</figcaption></figure>
+<h2>Settings</h2>
+<p>The numbers Auto generate works with: how often each program area happens, how many bunks it takes at once, who may share a period, and the session calendar. Chapter 7 lists every setting.</p>
+<figure><img src="screenshots/18-settings-tab.png" alt="The Settings tab"><figcaption>The top of the Settings tab.</figcaption></figure>
+
+<h1>3. How to do things by hand</h1>
+<h2>Enter and edit bunks</h2>
+<ul>
+  <li>Type in the name, grades and number-of-campers boxes at the start of a row.</li>
+  <li><b>The first letter of the name is the village.</b> O is Onondaga, C is Cayuga, S is Seneca, M is Mohawk, T is Tusc. A bunk named O3 is in village O. Keep each village together in the list, youngest first: the app treats bunks next to each other in a village as the ones most likely to share a period.</li>
+  <li><b>Grades</b> can be written the way you write them: 4th, 4th/5th, 9th. The app uses them to decide which bunks are close enough in age to share.</li>
+  <li><b>The camper count</b> matters at the pool, at ropes and at Yoga, which go by how many campers fit.</li>
+  <li><b>Names that start with TC</b> (TC1, TC2 and so on) are Taste of CSL. See chapter 4.</li>
+  <li>The arrows at the end of a row move a bunk up or down. <span class="ui">Remove</span> deletes it and everything in its row. <span class="ui">Add bunk</span>, under the grid, adds an empty row to the week on screen.</li>
+</ul>
+<h3>Add bunks quickly</h3>
+<p>Above the grid, after <span class="ui">Add a bunk to</span>, there is a button for each village: <span class="ui">O</span>, <span class="ui">C</span>, <span class="ui">S</span>, <span class="ui">M</span>, <span class="ui">T</span>, and in Session 2 <span class="ui">TC</span>. One click adds the next bunk of that village (after O5 comes O6) <b>to every week of the session</b>, in its place in the list, with a starting grade and with the calendar already on its row. Type its camper count afterwards.</p>
+<p><span class="ui">Fill in the biggest camp (27 bunks, 15 campers each)</span> brings every village up to its most bunks in every week: 5 Onondaga, 6 Cayuga, 6 Seneca, 6 Mohawk and 4 Tusc, and in Session 2 four Taste of CSL bunks in week 1 as well. It also sets every bunk to 15 campers. The 15 is only a round number to plan with; nothing holds a bunk to it, and you can type the real counts over it. Bunks that are already there keep everything on their rows. It asks first.</p>
+<h2>Fill a period by hand</h2>
+<p>Click a period's box and pick an activity from the list, or type to search. Activities are grouped by program area.</p>
+<figure><img src="screenshots/05-activity-picker-open.png" alt="The activity list, open"><figcaption>The activity list, open. Typing narrows it.</figcaption></figure>
+<ul>
+  <li><b>Write-ins.</b> Type anything that is not in the list and it is kept as written. A write-in is not counted on the Tracking tab.</li>
+  <li><b>Hobbies fill everyone.</b> Picking AM Hobbies or PM Hobbies in one bunk's box fills that half-day for every bunk.</li>
+  <li><b>A league fills its village.</b> Picking League, CHL, SSL, MNL or MAL fills that period for the whole village.</li>
+  <li><b>Some activities are always double periods:</b> Low Ropes, High Ropes, Waterfront, MNL and MAL fill both periods of the half-day you clicked in.</li>
+  <li>Changing one box afterwards only changes that one box.</li>
+</ul>
+<h2>Set a whole period at once</h2>
+<figure class="strip"><img src="screenshots/06-set-a-whole-period.png" alt="Set a whole period at once"><figcaption>Pick the day, the period (or all day, morning, afternoon), who, and the activity.</figcaption></figure>
+<p>Choose the day, the period, <span class="ui">All bunks</span> or one village, and the activity. Then press the button, which reads <span class="ui">Set for all bunks</span> or <span class="ui">Set for O village</span>. This is the quick way to enter a trip.</p>
+<h2>Enter a trip</h2>
+<p>Trips, Tiyuls and bike trips are on the session calendar and go onto the schedule by themselves (chapter 4). To put one somewhere else by hand, use <span class="ui">Set a whole period at once</span> with the activity Tiyul, Bike Trip or Trip for the village and the periods it is away. A trip you enter by hand stays where you put it, and the calendar does not add a second one for that village.</p>
+<h2>Clear an area, a bunk or a village</h2>
+<figure class="strip"><img src="screenshots/07-clear-tool.png" alt="The Clear tool"><figcaption>The Clear tool.</figcaption></figure>
+<p>The Clear tool empties part of the week in one go: everything or one program area, for all bunks, one village or one bunk, on one day or the whole week, all day or one part of it. For example: Waterfront, for all bunks, on Tuesday, because of weather. It tells you how many periods it will empty and asks first.</p>
+<p>The emptied periods turn <b>yellow</b> on the Build and Schedule tabs, so it is plain what still needs filling. A yellow period goes back to normal as soon as something is put in it. <span class="ui">Remove the yellow marks</span> takes the marks away and leaves the periods empty.</p>
+<figure><img src="screenshots/17-yellow-cleared-periods.png" alt="Yellow, cleared periods"><figcaption>After clearing Waterfront on Tuesday: the emptied periods are yellow.</figcaption></figure>
+<h2>Build around what you entered</h2>
+<p>Anything you put in by hand can be kept while the app fills the rest. Enter what you want fixed, press <span class="ui">Auto generate</span>, and choose <span class="ui">Keep what is there and build around it</span>. Only the empty periods are filled. This is also how you refill yellow periods after a Clear.</p>
+
+<h1>4. Sessions, dates and the calendar</h1>
+<h2>Two sessions</h2>
+<table>
+  <tr><th></th><th>Session 1</th><th>Session 2</th></tr>
+  <tr><td>Length</td><td>4 weeks</td><td>3 weeks</td></tr>
+  <tr><td>Dates, summer 2027</td><td>June 27 to July 23</td><td>July 26 to August 15</td></tr>
+  <tr><td>Opening day</td><td>Sunday June 27. No periods; they start Monday.</td><td>Monday July 26. No periods; they start Tuesday.</td></tr>
+  <tr><td>Bunks it starts with</td><td>5 Onondaga, 4 Cayuga, 5 Seneca, 4 Mohawk, 4 Tusc</td><td>4 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL (TC1 to TC4) in week 1</td></tr>
+  <tr><td>Special to it</td><td>Visitor's Day, Mass Program, village day on the last Sunday, the three-day Tusc bike trip, Hobby Culmination and Packing Time</td><td>Color War, the Tusc Triathlon, village day for everyone including Tusc</td></tr>
+</table>
+<p>Each session keeps its own bunks, schedule and settings. A session you have never opened starts from its template: its bunks, its numbers, and its calendar already on the schedule. The grades and camper counts it starts with are placeholders: change them to this summer's.</p>
+<h2>The session calendar</h2>
+<p>The calendar is everything that is not a period: opening day, the Tiyuls, the bike trips, village day (O-Day, C-Day and so on), Mass Program, Color War, Visitor's Day and the clean up. It starts as the session was in 2026, on this summer's dates.</p>
+<figure><img src="screenshots/21-session-calendar.png" alt="The session calendar"><figcaption>The session calendar, at the bottom of the Settings tab.</figcaption></figure>
+<p>Each line says <b>what</b>, <b>who</b> (the whole camp or one village), which <b>week</b>, which <b>day</b>, and <b>when</b> (all day, morning, afternoon, or one period). To move something, change its line. You can also remove a line or add one.</p>
+<ul>
+  <li><span class="ui">Add a line</span> adds a new item for you to fill in.</li>
+  <li><span class="ui">Back to the Session 1 calendar</span> (or Session 2) undoes your changes to the calendar.</li>
+  <li><span class="ui">Put the calendar on the schedule now</span> writes it onto every week. It only fills empty periods. Auto generate does the same thing before it builds a week.</li>
+</ul>
+<div class="note">Moving a line does not move something that is already on the schedule. Clear the old one on the Build tab, then press <span class="ui">Put the calendar on the schedule now</span>.</div>
+<h3>What the calendar holds to start with</h3>
+<table>
+  <tr><th>Session 1</th><th>When</th></tr>
+  <tr><td>Opening Day</td><td>Week 1, Sunday, all day</td></tr>
+  <tr><td>Onondaga Tiyul</td><td>Week 2, Tuesday afternoon</td></tr>
+  <tr><td>Tusc mini bike trip</td><td>Week 2, Wednesday afternoon</td></tr>
+  <tr><td>Cayuga Tiyul</td><td>Week 2, Thursday afternoon</td></tr>
+  <tr><td>All Camp Clean Up, then Visitor's Day</td><td>Week 3, Sunday morning, then afternoon</td></tr>
+  <tr><td>Mass Program</td><td>Week 3, Wednesday afternoon and all of Thursday</td></tr>
+  <tr><td>Village day (O-Day, C-Day, S-Day, M-Day)</td><td>Week 4, Sunday, all day</td></tr>
+  <tr><td>Tusc bike trip</td><td>Week 4, Sunday, Monday and Tuesday, all day</td></tr>
+  <tr><td>Seneca Tiyul</td><td>Week 4, Monday afternoon into Tuesday morning</td></tr>
+  <tr><td>Mohawk Tiyul</td><td>Week 4, Tuesday afternoon into Wednesday morning</td></tr>
+</table>
+<table>
+  <tr><th>Session 2</th><th>When</th></tr>
+  <tr><td>No Periods, then Opening Day</td><td>Week 1, Sunday, then Monday, all day</td></tr>
+  <tr><td>Tusc trip</td><td>Week 1, Tuesday, all day</td></tr>
+  <tr><td>Taste of CSL's week</td><td>Week 1, Tuesday to Friday</td></tr>
+  <tr><td>Onondaga and Cayuga Tiyul</td><td>Week 2, Sunday afternoon</td></tr>
+  <tr><td>Seneca Tiyul</td><td>Week 2, Monday afternoon into Tuesday morning</td></tr>
+  <tr><td>Mohawk Tiyul</td><td>Week 2, Tuesday afternoon into Wednesday morning</td></tr>
+  <tr><td>Village day for every village</td><td>Week 2, Thursday, all day</td></tr>
+  <tr><td>All Camp Clean Up</td><td>Week 3, Sunday, period 3</td></tr>
+  <tr><td>Color War</td><td>Week 3, Monday and Tuesday, all day</td></tr>
+  <tr><td>Tusc Triathlon (the whole camp)</td><td>Week 3, Thursday afternoon</td></tr>
+</table>
+<h2>Taste of CSL</h2>
+<p>Bunks named TC1, TC2 and so on are Taste of CSL. They are in camp for week 1 of Session 2 only.</p>
+<ul>
+  <li>Their week is set, copied from 2026. The first half of the TC bunks follows one schedule and the second half the other; the two differ only on Tuesday afternoon.</li>
+  <li>Auto generate leaves their week exactly as it is.</li>
+  <li>Nobody else is put at a program area in a period Taste of CSL has it. They may all be there together.</li>
+  <li>They are a village of their own. They are not part of Tusc, even though the name starts with a T.</li>
+  <li>You can have more or fewer than four. Add or remove TC bunks on the Build tab in week 1.</li>
+</ul>
+<figure class="tall"><img src="screenshots/22-session-2-week-1-as-it-starts.png" alt="Session 2, week 1"><figcaption>Session 2, week 1, as the session starts: no periods Sunday, Opening Day Monday, Taste of CSL's week filled in, Tusc on its trip Tuesday.</figcaption></figure>
+
+<h1>5. Auto generate</h1>
+<p>Auto generate builds the periods from the bunks on the Build tab. It puts the session calendar on first, where it is not there yet, and builds around it and around anything you entered by hand. It reads the other weeks of the session, so each bunk's totals stay fair across the whole session.</p>
+<figure><img src="screenshots/09-auto-generate-dialog-whole-session.png" alt="The Auto generate dialog"><figcaption>The Auto generate dialog, set to the whole session.</figcaption></figure>
+<h2>What the dialog asks</h2>
+<ul>
+  <li><b>What should be generated?</b> <span class="ui">Just Week N</span>, or <span class="ui">The whole session, week by week</span>.</li>
+  <li><b>For one week that already has activities:</b> <span class="ui">Keep what is there and build around it</span> (only the empty periods are filled) or <span class="ui">Replace what is there</span> (the week is cleared first).</li>
+  <li><b>For the whole session, a choice for each week:</b>
+    <ul>
+      <li><span class="ui">Lock: leave it exactly as it is</span></li>
+      <li><span class="ui">Build around what is there</span></li>
+      <li><span class="ui">Regenerate: clear it and build it again</span></li>
+    </ul>
+    A week that is already filled in starts as Lock.</li>
+  <li><span class="ui">When replacing, keep Bike Trip and Tiyul where they are.</span> On to start with. Everything on the session calendar is kept the same way.</li>
+  <li><span class="ui">Count what the other weeks already have.</span> On to start with. A bunk that already had Yoga twice in a week you are keeping is not given a third, and its visit numbers carry on from there. Off, the weeks you are not generating are ignored.</li>
+  <li><span class="ui">Leave the days that have already happened as they are (through today).</span> On to start with. Once the session is under way, generating a week again only touches the days still to come, and what already happened still counts toward the totals.</li>
+  <li><b>When a village has six bunks or more,</b> the dialog also offers <span class="ui">Use the settings for big villages</span>, ticked. See chapter 7.</li>
+</ul>
+<p>The session comes from the picker at the top of the page, not from the dialog.</p>
+<h2>While it runs</h2>
+<figure class="strip"><img src="screenshots/10-progress-panel-mid-run.png" alt="The progress panel"><figcaption>The progress panel: weeks done, where each week stands, the time so far, and Stop.</figcaption></figure>
+<ul>
+  <li>It works in the background. You can switch tabs and weeks, look at Tracking, and download.</li>
+  <li>Each week appears on the page as soon as it is done.</li>
+  <li>The weeks being generated can be looked at but not changed until the run is over.</li>
+  <li><span class="ui">Stop</span> keeps the weeks that are already done and leaves the rest as they were.</li>
+</ul>
+<h2>How long it takes</h2>
+<p>A whole session usually takes a few seconds to half a minute. In our own tests on one computer, four runs of Session 1 took 5, 5, 16 and 33 seconds, and four runs of Session 2 took 6, 6, 17 and 26 seconds. A slower computer will take longer.</p>
+<p>The app tries a week several ways at once. If none comes out right it tries again, without saying anything except "try 2" in the panel. A try lasts 15 seconds at most, and a week is never worked on for more than 45 seconds in all.</p>
+<h2>When a week will not come out</h2>
+<p>If 45 seconds pass and no version of a week keeps every rule, the app hands back the best one it found, with the periods that broke a rule <b>emptied and marked yellow</b>. Nothing on the week breaks a rule. Fill the yellow periods by hand, or change a setting and generate again.</p>
+<h2>Afterwards</h2>
+<figure class="strip"><img src="screenshots/11-after-a-run-undo.png" alt="After a run"><figcaption>After a run: what was generated, and Undo.</figcaption></figure>
+<ul>
+  <li><b>Generate again as often as you like.</b> Every run gives a different schedule.</li>
+  <li><span class="ui">Undo</span> puts back every week the run made. It leaves alone anything you changed in other weeks meanwhile.</li>
+  <li><b>Undo has limits.</b> It only undoes the last run. It goes away as soon as you change a period by hand, upload a file, switch session, or reload the page.</li>
+</ul>
+
+<h1>6. The rules it follows</h1>
+<p>These are the rules a generated week keeps. They are written here in plain words; the app does not list them on screen.</p>
+<h2>For every bunk</h2>
+<ul>
+  <li>Every period has something in it. The one exception is the last Friday of Session 1, which is departure and stays empty.</li>
+  <li>No program area twice in one day.</li>
+  <li>No program area two days in a row. Trips do not count, and Friday into Sunday does not count.</li>
+  <li>Nothing in period 4 and again in period 1 the next morning.</li>
+  <li>Athletics and A&amp;C are single periods, never a double.</li>
+  <li>Athletics and A&amp;C stay within two of each other over the session, and every bunk gets A&amp;C.</li>
+</ul>
+<h2>For villages</h2>
+<ul>
+  <li>Waterfront, league, Shabbat Prep, the swim test, Tiyul and the bike trip are for the whole village at once.</li>
+  <li>Waterfront is a double period, morning or afternoon, one village at a time.</li>
+  <li>Nobody goes to Waterfront before the swim test. In week 1 that means not on the first morning with periods, and not before the village has swum. Mohawk takes its test during General Swim on the first day, so its Waterfront starts on the second.</li>
+  <li>Only so many bunks of one village go to an area in one day. The number is a setting.</li>
+</ul>
+<h2>Sharing a period</h2>
+<ul>
+  <li>Only so many bunks are at an area at once. The number is a setting.</li>
+  <li>Bunks only share with bunks they are allowed to be with (chapter 7, Who may share a period).</li>
+  <li>Bunks that share are on the same visit number, so a bunk on its second Teva is not put with a bunk on its first. Athletics and Time with UH are the exceptions to start with.</li>
+  <li>Time with UH and Judaics: two bunks, of the same village.</li>
+  <li>Ropes and Yoga go by campers: bunks next to each other in a village go together as long as their campers add up to no more than the limit.</li>
+</ul>
+<h2>The pool</h2>
+<ul>
+  <li>One group at the pool in a period.</li>
+  <li>An Onondaga or Cayuga bunk's first swims are lessons, one bunk alone. How many is a setting.</li>
+  <li>Onondaga and Cayuga never swim together. Tusc always swims as a whole village. Seneca and Mohawk swim together only at the same age.</li>
+  <li>Tusc's triathlon training is never in a period when someone is swimming.</li>
+</ul>
+<h2>The calendar and Shabbat</h2>
+<ul>
+  <li>Nothing on the session calendar is ever moved, and nothing you entered by hand is changed unless you chose to replace the week.</li>
+  <li>A village has Shabbat Prep on Friday afternoon of its Shabbat week, and the extra single periods you set.</li>
+  <li>No bunk has Music or Judaics while any village is at Shabbat Prep, because those specialists run it.</li>
+  <li>Low Ropes comes before High Ropes.</li>
+</ul>
+<h2>Fairness, and short weeks</h2>
+<ul>
+  <li>"Twice a week" means on average over the session. A week the calendar cuts short, such as the week with Mass Program, gets fewer Waterfront and league periods.</li>
+  <li>When the calendar leaves a bunk a good deal less room than an ordinary session, it gets as many visits as fit. It is not treated as a failure.</li>
+  <li>Neighbours in a village are given the same areas each week, so they stay on the same visit and can keep going together.</li>
+  <li>In week 4 of Session 1, which has the least room, three things are looser: A&amp;C partners need not be on the same visit, three bunks of a village a day may have Athletics or A&amp;C, and a bunk may have one more Time with UH.</li>
+  <li>Waterfront and league may go one over their number in a week where a half-day is open and the village has room.</li>
+</ul>
+
+<h1>7. Settings reference</h1>
+<p>Settings are saved with the session and go into the Excel file. A small <span class="ui">i</span> beside a number says more when you point at it.</p>
+<figure><img src="screenshots/19-settings-i-hint-open.png" alt="An i hint, open"><figcaption>Pointing at an <span class="ui">i</span> opens a short explanation.</figcaption></figure>
+<h2>The check at the top</h2>
+<p>The page does the arithmetic on your numbers as you change them. It says one of four things.</p>
+<table>
+  <tr><th>It says</th><th>It means</th></tr>
+  <tr><td>These settings add up: the periods fit.</td><td>Nothing to do.</td></tr>
+  <tr><td>Will come up short.</td><td>A schedule comes out, but the calendar leaves less room than the numbers ask for, so some bunks will end the session short of a few visits. Nothing has to change. Lower a number if you would rather choose what gives way.</td></tr>
+  <tr><td>Unlikely to work.</td><td>It adds up on paper, but settings this tight did not generate when they were tried. It says what to try.</td></tr>
+  <tr><td>Not possible.</td><td>The periods do not add up. It says what to try.</td></tr>
+</table>
+<h2>Every setting</h2>
+<table>
+  <tr><th style="width:21%">Setting</th><th style="width:33%">What it controls</th><th style="width:16%">Starts at</th><th>A reason to change it</th></tr>
+  <tr><td>Waterfront, about _ a week</td><td>Waterfront blocks a village has in a week, on average.</td><td>2</td><td>The lake is closed part of the summer.</td></tr>
+  <tr><td>League, about _ a week, for each village</td><td>League periods a week. Mohawk's are double periods. For Tusc the number is triathlon sessions.</td><td>3 for every village</td><td>One village plays less often.</td></tr>
+  <tr><td>Pool, at least _ a week</td><td>Swims each bunk gets every week.</td><td>1</td><td>The pool is closed: set 0.</td></tr>
+  <tr><td>Pool, at most _</td><td>The most swims in a week. A second swim is given a whole village at a time, to the village that has swum least.</td><td>2</td><td>Keep everyone to one swim.</td></tr>
+  <tr><td>Lessons alone, the first _ swims</td><td>How many of an Onondaga or Cayuga bunk's first swims are one bunk alone.</td><td>2</td><td>More or fewer lessons this year.</td></tr>
+  <tr><td>Pool, most campers at once</td><td>The most campers in the water together, unless it is one whole village.</td><td>80</td><td>Fewer lifeguards.</td></tr>
+  <tr><td>Ropes, exactly _ a session</td><td>Ropes blocks each bunk gets. Low first, then High, each a double period.</td><td>2</td><td>The course is closed for part of the session.</td></tr>
+  <tr><td>Ropes, at most _ campers at once</td><td>Bunks next to each other in a village go together up to this many campers.</td><td>30</td><td>Fewer staff at ropes.</td></tr>
+  <tr><td>Hobbies, exactly _ sessions in the whole session</td><td>Hobby half-days for the whole camp, in total. Every week gets its Friday morning first, then a midweek one, then Sunday mornings.</td><td>7</td><td>More or fewer hobby days.</td></tr>
+  <tr><td>Shabbat Prep, exactly _ more single periods</td><td>Single periods of Shabbat Prep earlier in a village's Shabbat week, on top of the Friday afternoon double.</td><td>1</td><td>A village needs more or less time to prepare.</td></tr>
+  <tr><td>Who has Shabbat each week</td><td>Tick the village or villages for each week, or No Shabbat.</td><td>Week 1 Mohawk, week 2 Onondaga and Cayuga, week 3 Seneca and Tusc</td><td>This summer's turns are different.</td></tr>
+  <tr><td>Athletics and A&amp;C, at most _ a week</td><td>The most of each a bunk has in a week. They fill whatever periods the other areas leave.</td><td>3</td><td>Rarely.</td></tr>
+  <tr><td>Music, at least _ a week, at most _</td><td>The weekly Music, and how far it may go to fill a period.</td><td>1 and 2</td><td>The Music specialist is part time.</td></tr>
+  <tr><td>Time with UH, at least _ a session, at most _</td><td>Time with the Unit Head: what every bunk gets, and how far it may go to fill a period.</td><td>1 and 3</td><td>Unit heads want more time with bunks.</td></tr>
+  <tr><td>Judaics, Israel, Teva, Ceramics, Yoga: at least _ a session, at most _</td><td>"At least" is what every bunk is given. "At most" is how far it may go to fill a period that would otherwise be Athletics or A&amp;C.</td><td>Judaics 2 and 3. Israel 2 and 2. Teva 3 and 3. Ceramics 2 and 3. Yoga 2 and 3.</td><td>A specialist is hired, leaves, or is part time. To stop using an area, set both to 0.</td></tr>
+  <tr><td>Dance, by village, a session, exactly</td><td>Dance is set village by village.</td><td>O 3, C 2, S 3, M 1, T 2</td><td>A village wants more or less Dance.</td></tr>
+  <tr><td>Bunks at once</td><td>How many bunks an area takes in one period.</td><td>Athletics 3, A&amp;C 3, Ceramics 1, the others 2</td><td>A second specialist, or a bigger space.</td></tr>
+  <tr><td>Yoga, at most _ campers at once</td><td>Yoga goes by campers, like ropes: neighbours in a village go together up to this many.</td><td>20</td><td>The Yoga space holds more or fewer.</td></tr>
+  <tr><td>Bunks of one village in a day</td><td>The most bunks of one village an area sees in one day.</td><td>2, and 1 for Ceramics</td><td>A big village: see below.</td></tr>
+  <tr><td>Same visit number</td><td>Ticked: bunks that share a period there must be on the same visit. Unticked: any visit will do.</td><td>Ticked for everything except Athletics and Time with UH</td><td>An area where it does not matter who has been before.</td></tr>
+  <tr><td>In the last week of the session, bunks that share a period may be one visit apart</td><td>A little slack in the last week, when there is the least room to line bunks up.</td><td>Off</td><td>The last week keeps coming back with gaps.</td></tr>
+</table>
+<p class="small">Session 2 starts with two numbers lower than Session 1: Yoga is at least 1 and at most 2, and Dance is one fewer for every village. In Session 2 Tusc also gets Ceramics once and one ropes block, High Ropes, because it is the same campers as Session 1. Those two Tusc numbers come with the session and are not on the Settings tab.</p>
+<h2>Add or remove a program area</h2>
+<p>When someone is hired for something new, such as archery or martial arts, type its name in the last row of the table, choose its numbers, and press <span class="ui">Add</span>. It becomes an activity you can pick on the Build tab, a column on the Tracking tab, a tab in the specialist schedules, and Auto generate gives it to every bunk as single periods. Up to six can be added. An added area has a <span class="ui">Remove</span> button beside its name. To stop using an area that came with the app, set both its numbers to 0.</p>
+<h2>Who may share a period</h2>
+<p>Three choices cover most camps:</p>
+<ul>
+  <li><b>Inside a village:</b> only the bunk next to it in the list, or any bunk of the village. Starts at only the next bunk.</li>
+  <li><b>Paired villages (O with C, S with M):</b> may mix, or never mix. Starts at may mix.</li>
+  <li><b>Grades:</b> the same grade, within one grade, or any grades. Starts at within one grade.</li>
+</ul>
+<p>These are for the areas where bunks may be together. Athletics takes any bunks, Tusc bunks always share with each other, and the pool keeps its own rules whatever is chosen here.</p>
+<p><span class="ui">Advanced: customize sharing</span> opens a grid with a box for every pair of bunks. A ticked box means the two may share. Tick or untick any pair; a box you change is outlined, and it stays that way whatever the three choices are set to. Pointing at a box lights up the two bunks it is for. <span class="ui">Undo the changes on the grid</span> puts every pair back.</p>
+<figure><img src="screenshots/20-sharing-grid.png" alt="The sharing grid"><figcaption>The sharing grid. The two bunks of the box under the pointer are lit up.</figcaption></figure>
+<div class="note">The grid goes by bunk name. A bunk that is renamed starts again from the three choices.</div>
+<h2>The settings for big villages</h2>
+<p>The biggest Session 1 camp is 5 Onondaga, 6 Cayuga, 6 Seneca, 6 Mohawk and 4 Tusc. With six bunks in a village the usual numbers leave too few places, and weeks come back with empty periods. When a village has six bunks or more, the Settings tab shows a button, <span class="ui">Use the suggested settings</span>, and the Auto generate dialog offers the same thing, ticked. They are:</p>
+<ul>
+  <li>4 bunks at once at Athletics, and 2 at Ceramics.</li>
+  <li>3 bunks of a village a day at every area.</li>
+  <li>Any two bunks of a village within a grade may share, not only the ones next to each other in the list.</li>
+</ul>
+<p>In our tests, six whole sessions with that 27-bunk camp at 15 campers a bunk and these settings all came out complete, in 5 to 30 seconds each. With the usual numbers the same camp came back with empty periods in weeks 1 and 2. With full bunks only one fits at Yoga at a time, so expect bunks to end the session short on Yoga.</p>
+<h2>Reset to the default settings</h2>
+<p><span class="ui">Reset to the default settings</span> puts every number back to what the session starts with. It does not touch the schedule.</p>
+
+<h1>8. Saving, sharing and printing</h1>
+<h2>Download</h2>
+<table>
+  <tr><th>Button</th><th>What is in the file</th></tr>
+  <tr><td>Download Week N (.xlsx)</td><td>The week on screen on a tab named "Week N", a Tracking tab for that week, and the settings tabs.</td></tr>
+  <tr><td>Download all weeks (.xlsx)</td><td>One tab for each week that has bunks, a "Whole Session Tracking" tab, and the settings tabs.</td></tr>
+  <tr><td>Specialist schedules (.xlsx)</td><td>One tab for each program area, laid out like the Specialists tab. This file is for reading and printing; it cannot be uploaded back.</td></tr>
+</table>
+<p>The settings tabs are <b>Settings</b> (one row per program area), <b>Main areas</b> (Waterfront, league, pool and the rest, and which session the file is from), <b>Sharing</b>, and, when you changed the calendar, <b>Calendar</b>.</p>
+<h2>Upload</h2>
+<p><span class="ui">Upload</span> reads every "Week N" tab in a file, however many there are, and tells you which weeks it will load and which it will overwrite before it does anything. A file with settings in it brings them along and replaces the ones on screen. A file that was saved from the other session is loaded into that session, and the session on screen is kept as it is.</p>
+<h2>What comes back, and what does not</h2>
+<table>
+  <tr><th>Kept through a download and upload</th><th>Not kept</th></tr>
+  <tr><td>Bunks: names, grades, camper counts. Every period, write-ins included. Day details. All settings. The session calendar, when it was changed. Which session it is.</td><td>The yellow marks left by the Clear tool. The chance to Undo. The Tracking and Specialists tabs are worked out again from the schedule, not read from the file.</td></tr>
+</table>
+<p>You can edit the file in Excel or Google Sheets and upload it again. Keep the tab names and the header rows as they are.</p>
+<h2>Printing</h2>
+<p>The Schedule tab has a <span class="ui">Print</span> button. For a specialist, either print the Specialists tab from your browser, or download <span class="ui">Specialist schedules (.xlsx)</span> and print the tab you want from Excel. Landscape paper suits both.</p>
+
+<h1 class="flow">9. Things that cannot be undone</h1>
+<p>Each of these asks before it acts, except where noted. None of them can be taken back afterwards. <b>Download all weeks first</b> if there is anything on the page you might want again.</p>
+<table>
+  <tr><th style="width:30%">Button</th><th>What it does</th></tr>
+  <tr><td>Start this session over</td><td>Throws away the session's bunks, schedule and settings, and starts it again from its template.</td></tr>
+  <tr><td>Reset Week N</td><td>Removes every bunk and every activity from the week on screen.</td></tr>
+  <tr><td>Clear all activities (bottom of the page)</td><td>Empties every period of the week on screen. Bunks stay. The calendar items on that week go too.</td></tr>
+  <tr><td>Reset to sample (bottom of the page)</td><td>Replaces the week on screen with a sample set of bunks and no activities.</td></tr>
+  <tr><td>Remove, at the end of a bunk's row</td><td>Deletes the bunk and its whole row. It does not ask first.</td></tr>
+  <tr><td>Clear, on the Build tab</td><td>Empties the periods you described. They are marked yellow, so you can see where, but what was in them is gone.</td></tr>
+  <tr><td>Upload</td><td>Overwrites the weeks that are in the file, and the settings if the file has them.</td></tr>
+  <tr><td>Fill in the biggest camp</td><td>Adds bunks to every week and sets every bunk's camper count to 15. The counts that were there are gone.</td></tr>
+  <tr><td>Add a bunk to O, C, S, M, T</td><td>Adds a bunk to every week of the session. It does not ask first. Remove it again week by week.</td></tr>
+  <tr><td>Use Week N's bunks (Build tab, from week 2 on)</td><td>Replaces the week's bunks, and clears its activities.</td></tr>
+  <tr><td>Reset to the default settings</td><td>Puts every setting back, including a changed calendar and the sharing grid.</td></tr>
+  <tr><td>Auto generate, with Replace or Regenerate</td><td>Clears the week before building it. This one has <span class="ui">Undo</span>, until you change something by hand.</td></tr>
+</table>
+
+<h1 class="flow">10. Troubleshooting and questions</h1>
+<h3>A week came back with yellow, empty periods.</h3>
+<p>The app could not find a version of that week that keeps every rule inside 45 seconds, so it emptied the periods that broke one. Fill them by hand, press Auto generate again for another try, or loosen a setting. If a village has six bunks, use the settings for big villages.</p>
+<h3>The Settings tab says "Will come up short".</h3>
+<p>That is information, not an error. The calendar leaves less room than the numbers ask for, so some bunks will end the session a visit or two short of something. Auto generate fits in as many as it can. Session 2 says this from the start, because it is short and Color War takes two days.</p>
+<h3>The Settings tab says "Not possible" or "Unlikely to work".</h3>
+<p>The numbers ask for more than there are periods or places. The message says what to try, usually a lower "at least", or two bunks at once.</p>
+<h3>It is taking a long time.</h3>
+<p>A week is never worked on for more than 45 seconds, so a four-week session cannot take more than about three minutes. If it is slow every time, close other programs, or other browser tabs with this page open. <span class="ui">Stop</span> keeps the weeks that are done.</p>
+<h3>A bunk ended up in the wrong village.</h3>
+<p>The village is the first letter of the bunk's name. A bunk called "Onondaga 3" is in village O, and so is one called "Oak". A name that starts with TC is Taste of CSL, not Tusc.</p>
+<h3>A bunk has no grade or no camper count.</h3>
+<p>The app still works. Without a grade it goes by the bunk's place in its village, and without a count it assumes 12 campers.</p>
+<h3>I refreshed the page during a run.</h3>
+<p>The run stops. The weeks that had already appeared are kept. Press Auto generate again for the rest.</p>
+<h3>I moved something on the calendar and it did not move on the schedule.</h3>
+<p>The calendar only fills empty periods. Clear the old one on the Build tab, then press <span class="ui">Put the calendar on the schedule now</span>.</p>
+<h3>Auto generate put a second Tiyul on.</h3>
+<p>It does not when the one you entered is labelled Tiyul. If you wrote it in under another name, the app cannot tell it is the Tiyul. Use the activity called Tiyul.</p>
+<h3>The schedule is gone.</h3>
+<p>The browser's saved data was cleared, or you are on a different browser or computer. Upload your last Excel file.</p>
+<h3>Something else.</h3>
+<p>Use <span class="ui">Contact support</span> at the bottom of the page.</p>
+
+<h1 class="flow">11. Known limits</h1>
+<ul>
+  <li><b>No login and no cloud.</b> The schedule is in one browser on one computer. Two people cannot work on it at once.</li>
+  <li><b>Two sessions.</b> Session 1 is four weeks and Session 2 is three. The dates are set for summer 2027 and cannot be changed on screen.</li>
+  <li><b>Sunday to Friday, four periods a day.</b> Saturday is not on the grid.</li>
+  <li><b>No phone layout.</b> The grid is wide. Use a laptop or desktop.</li>
+  <li><b>Day details</b> (R"H and LOD, TS, General Day, DOD, birthdays, EVP, notes) show on the Schedule tab but can only be edited in the Excel file.</li>
+  <li><b>The app does not know about weather, staffing or one-off events.</b> Enter those by hand, or add a line to the session calendar.</li>
+  <li><b>A day off for one bunk</b> cannot be put on the calendar. The calendar is for the whole camp or a whole village. Enter it by hand on the Build tab.</li>
+  <li><b>Tusc's own Session 2 numbers</b> (Ceramics once, one High Ropes) come with the session and are not on the Settings tab.</li>
+  <li><b>A hand-entered period is trusted.</b> When building around what you entered, the app does not check your own entries against the sharing rules.</li>
+  <li><b>Undo</b> only covers the last Auto generate, and only until you change something.</li>
+  <li><b>A much bigger camp may not fit.</b> Beyond six bunks in a village, expect yellow periods.</li>
+</ul>
+
+<h1 class="flow">12. Glossary</h1>
+<table>
+  <tr><th style="width:26%">Term</th><th>Meaning</th></tr>
+  <tr><td>A&amp;C</td><td>Arts and Crafts.</td></tr>
+  <tr><td>Bunk</td><td>One cabin group. A row on the schedule.</td></tr>
+  <tr><td>Village</td><td>A group of bunks of about the same age: Onondaga (O), Cayuga (C), Seneca (S), Mohawk (M), Tusc (T). The first letter of a bunk's name.</td></tr>
+  <tr><td>Period</td><td>One of the four activity slots in a day. Periods 1 and 2 are the morning, 3 and 4 the afternoon.</td></tr>
+  <tr><td>Double period</td><td>One activity across both periods of a morning or an afternoon.</td></tr>
+  <tr><td>Program area</td><td>What an activity counts toward on the Tracking tab. Low Ropes and High Ropes both count as Ropes.</td></tr>
+  <tr><td>Visit number</td><td>Which time this is for a bunk at an area, counted from the start of the session.</td></tr>
+  <tr><td>League</td><td>A village's own sports league: League (Onondaga), CHL (Cayuga), SSL (Seneca), MNL or MAL (Mohawk). Tusc has triathlon training instead.</td></tr>
+  <tr><td>Tiyul</td><td>A village's trip out of camp.</td></tr>
+  <tr><td>Hobbies</td><td>A half-day when the whole camp does chosen activities: AM Hobbies or PM Hobbies.</td></tr>
+  <tr><td>Time with UH</td><td>Time with the Unit Head.</td></tr>
+  <tr><td>Teva</td><td>The Teva program area.</td></tr>
+  <tr><td>Shabbat Prep</td><td>A village getting ready to lead Shabbat, run by the Music and Judaics specialists.</td></tr>
+  <tr><td>Mass Program (MP)</td><td>A program for the whole camp that takes the place of periods.</td></tr>
+  <tr><td>Village day</td><td>A day a village spends together instead of at periods: O-Day, C-Day and so on.</td></tr>
+  <tr><td>Color War (CW)</td><td>Two days of Session 2 with no periods.</td></tr>
+  <tr><td>Taste of CSL (TC)</td><td>Younger campers who come for the first week of Session 2.</td></tr>
+  <tr><td>Session calendar</td><td>The list, on the Settings tab, of everything in a session that is not a period.</td></tr>
+  <tr><td>Auto generate</td><td>The button that builds the periods for you.</td></tr>
+  <tr><td>Build around</td><td>Generating a week while keeping what is already on it.</td></tr>
+  <tr><td>Yellow period</td><td>An empty period that was cleared, by you or by Auto generate, and still needs filling.</td></tr>
+  <tr><td>Write-in</td><td>An activity you typed that is not in the list. It is kept, and not counted in Tracking.</td></tr>
+</table>
+
+</body>
+</html>

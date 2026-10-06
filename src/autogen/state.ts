@@ -69,6 +69,8 @@ export interface Ctx {
   days: number[];
   /** The week's random calendar choices, drawn once per generate so the attempts only vary the flexible parts. */
   calendar: CalendarPlan;
+  /** The weeks of bunks that are not scheduled here (Taste of CSL): they still take up the pool and the Waterfront. */
+  guests?: readonly (readonly string[])[];
 }
 
 export const isFree = (c: Ctx, b: number, s: number): boolean => c.grid[b][s] === '';
@@ -220,10 +222,11 @@ export const POOL_SLOT_LABELS = ['Pool', 'Swim Test', 'Tusc Triathlon Training']
 export function poolLoad(c: Ctx, s: number): { count: number } {
   let count = 0;
   for (let b = 0; b < c.roster.n; b++) if (POOL_SLOT_LABELS.includes(c.grid[b][s])) count++;
+  for (const row of c.guests ?? []) if (POOL_SLOT_LABELS.includes(row[s])) count++;
   return { count };
 }
 
-export const slotHas = (c: Ctx, s: number, label: string): boolean => c.grid.some((row) => row[s] === label);
+export const slotHas = (c: Ctx, s: number, label: string): boolean => c.grid.some((row) => row[s] === label) || !!c.guests?.some((row) => row[s] === label);
 
 export function warn(c: Ctx, message: string): void {
   if (!c.warnings.includes(message)) c.warnings.push(message);

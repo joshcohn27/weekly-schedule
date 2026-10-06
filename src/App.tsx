@@ -14,12 +14,14 @@ import { BUILT_WEEK_MAX_EMPTY } from './autogen/config';
 import { isBuiltWeek } from './autogen/history';
 import { startRun } from './autogen/background';
 import { checkSettings } from './autogen/feasibility';
-import { applySettings, isDefaultSettings, normalizeSettings, type Settings } from './autogen/settings';
+import { applySettings, bigVillageIn, isDefaultSettings, normalizeSettings, templateSettings, usesBigVillageSettings, withBigVillageSettings, type Settings } from './autogen/settings';
 import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
-import { APP_VERSION, SUPPORT_LINK, WEEK_COUNT } from './config';
+import { APP_VERSION, SUPPORT_LINK } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
-import { defaultWeeksState, isFirstVisit, loadWeeks, markHelpSeen, saveWeeks } from './storage';
+import { MAX_CAMPERS_PER_BUNK, addableVillages, biggestCampSize, datesOf, dayLabels, pastDaysOf, startSession, withBiggestCamp, withBunkAdded, templateOf, weekDates, withCalendar, type SessionId } from './session';
+import { SESSION_TEMPLATES, calendarFor } from './autogen/sessionCalendar';
+import { isFirstVisit, loadSession, loadWeeks, markHelpSeen, saveSession, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
 // import type { DayInfo } from './types';
 
@@ -39,7 +41,7 @@ const isEmpty = (s: Schedule | null): boolean => !s || s.bunks.length === 0;
 const withoutFilledMarks = (s: Schedule): Schedule => ({ ...s, bunks: s.bunks.map(pruneCleared) });
 
 export default function App() {
-  const [weeksState, setWeeksState] = useState<WeeksState>(() => loadWeeks() ?? defaultWeeksState());
+  const [weeksState, setWeeksState] = useState<WeeksState>(() => loadWeeks() ?? startSession(SESSION_TEMPLATES[0]));
   const [view, setView] = useState<View>('build');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [autoOpen, setAutoOpen] = useState(false);
@@ -57,17 +59,52 @@ export default function App() {
   useEffect(() => saveWeeks(weeksState), [weeksState]);
   useEffect(() => () => runRef.current?.stop(), []);
 
+  // which session this is: it decides how many weeks there are, the dates, the calendar and the numbers it starts from
+  const template = templateOf(weeksState.session);
+  const WEEK_COUNT = template.weeks;
   // the generator and the rule checker read their numbers from one place: keep it in step with this schedule's settings
   const settings = useMemo(() => {
-    applySettings(weeksState.settings);
-    return normalizeSettings(weeksState.settings ?? null);
-  }, [weeksState.settings]);
+    const mine = normalizeSettings(weeksState.settings ?? templateSettings(template));
+    applySettings(mine);
+    return mine;
+  }, [weeksState.settings, template]);
   const setSettings = useCallback((next: Settings | null) => {
     setWeeksState((ws) => {
       const { settings: _old, ...rest } = ws;
-      return next && !isDefaultSettings(next) ? { ...rest, settings: normalizeSettings(next) } : rest;
+      // what is kept is what differs from the app's own numbers; nothing kept means the session's own
+      const mine = normalizeSettings(next ?? templateSettings(templateOf(ws.session)));
+      return isDefaultSettings(mine) ? rest : { ...rest, settings: mine };
     });
   }, []);
+
+  /** Go to the other session. Each keeps its own schedule, bunks and settings; one that has never been opened starts from its template. */
+  const switchSession = (id: SessionId) => {
+    if (id === template.id || run !== null) return;
+    saveSession(template.id, { ...weeksState, session: template.id });
+    setAuto(null);
+    setWeeksState(loadSession(id) ?? startSession(templateOf(id)));
+  };
+  /** Throw this session's schedule away and start it again from its template. */
+  const startOver = () => {
+    if (!window.confirm(`Start ${template.name} over? Its bunks, its schedule and its settings go back to the way the session starts. This cannot be undone.`)) return;
+    setAuto(null);
+    setWeeksState(startSession(template));
+  };
+  // Setting up: a bunk added with one click goes into every week of the session, and the biggest camp can be filled in at once
+  const addBunkTo = (village: string) => {
+    setAuto(null);
+    setWeeksState((ws) => withBunkAdded(ws, village));
+  };
+  const fillBiggestCamp = () => {
+    if (!window.confirm(`Fill in the biggest camp for ${template.name}? Every village goes up to its most bunks in every week, and every bunk is set to ${MAX_CAMPERS_PER_BUNK} campers. Bunks that are already there stay, with everything on their rows.`)) return;
+    setAuto(null);
+    setWeeksState((ws) => withBiggestCamp(ws));
+  };
+  const putCalendarOn = () => {
+    setAuto(null);
+    setWeeksState((ws) => withCalendar(ws));
+    setView('build');
+  };
 
   const current = weeksState.current;
   /** A week that is part of the run can be looked at, not changed, until the run is over. */
@@ -237,16 +274,22 @@ export default function App() {
       if (handedOver.size > 0) setAuto({ weeks: indexes.filter((i) => handedOver.has(i)), seed, before });
     };
     setRun({ indexes, weekNumbers: indexes.map((i) => i + 1), states: indexes.map(() => 'waiting'), tries: 0, startedAt: Date.now() });
+    // a camp with six bunks in a village is switched to the settings that fit it, when the dialog was left saying so
+    const using = plan.useBigVillageSettings ? withBigVillageSettings(settings) : settings;
+    if (plan.useBigVillageSettings) setSettings(using);
     const started = startRun(
       {
         weeks: before,
-        steps: plan.weeks,
+        // days that have already happened stay as they are, when that is asked for
+        steps: plan.weeks.map((w) => ({ ...w, pastDays: plan.keepPast ? pastDaysOf(template, w.index + 1) : 0 })),
         roster: schedule.bunks, // a week with no bunks yet takes the bunks of the week on screen
-        sessionWeeks: plan.sessionWeeks,
+        sessionWeeks: template.weeks,
         keepTrips: plan.keepTrips,
         useOtherWeeks: plan.useOtherWeeks,
         seed,
-        settings,
+        settings: using,
+        // the session calendar goes down first: opening day, trips, village day, Mass Program or Color War, Taste of CSL
+        calendar: true,
       },
       {
         // a step lower than the last one means that week is being redone: it and the ones after it are not done any more
@@ -279,8 +322,8 @@ export default function App() {
     setAuto(null);
   };
 
-  const handleDownload = () => downloadWeek(schedule, current + 1, settings);
-  const handleDownloadAll = () => downloadAllWeeks(weeksState.weeks, settings);
+  const handleDownload = () => downloadWeek(schedule, current + 1, settings, template.id);
+  const handleDownloadAll = () => downloadAllWeeks(weeksState.weeks, settings, template.id);
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
@@ -289,7 +332,7 @@ export default function App() {
     e.target.value = '';
     if (!file) return;
 
-    const { weeks: parsed, settings: uploaded } = await readUploadedFile(file);
+    const { weeks: parsed, settings: uploaded, session: fileSession } = await readUploadedFile(file);
     if (parsed.length === 0) {
       window.alert("Couldn't read that file. Upload something downloaded from this app.");
       return;
@@ -307,10 +350,15 @@ export default function App() {
       .map((p) => `${weekLabel(p.weekNumber - 1)}${isEmpty(weeksState.weeks[p.weekNumber - 1]) ? '' : ' (overwrite)'}`)
       .join(', ');
     const settingsNote = uploaded && !isDefaultSettings(uploaded) ? ' The file also carries its own settings, which will replace the ones here.' : '';
-    if (!window.confirm(`Load ${summary}?${overflowNote}${settingsNote}`)) return;
+    // a file saved from the other session is loaded into that session, and this one is put away as it is
+    const other = fileSession && fileSession !== template.id ? templateOf(fileSession) : null;
+    const sessionNote = other ? ` The file is from ${other.name}: it will be loaded there, and ${template.name} is kept as it is.` : '';
+    if (!window.confirm(`Load ${summary}?${overflowNote}${settingsNote}${sessionNote}`)) return;
 
     setAuto(null);
-    setWeeksState((ws) => {
+    if (other) saveSession(template.id, { ...weeksState, session: template.id });
+    setWeeksState((now) => {
+      const ws: WeeksState = other ? (loadSession(other.id) ?? { session: other.id, current: 0, weeks: now.weeks.map(() => null) }) : now;
       const weeks = [...ws.weeks];
       for (const p of inRange) weeks[p.weekNumber - 1] = p.schedule;
       // a file with a Settings tab brings its settings along; an older file leaves the ones here alone
@@ -329,7 +377,23 @@ export default function App() {
             ?
           </button>
         </h1>
-        <p>Build a sample week: four periods a day, Sunday to Friday. Your work is saved in this browser.</p>
+        <p>Build a session week by week: four periods a day, Sunday to Friday. Your work is saved in this browser.</p>
+        <p className="sessionbar">
+          <label>
+            Session:{' '}
+            <select aria-label="Session" value={template.id} disabled={run !== null} onChange={(e) => switchSession(e.target.value as SessionId)}>
+              {SESSION_TEMPLATES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}: {datesOf(t)}
+                </option>
+              ))}
+            </select>
+          </label>{' '}
+          <button type="button" onClick={startOver} disabled={run !== null} title="Back to this session's own bunks, calendar and numbers.">
+            Start this session over
+          </button>{' '}
+          <span className="muted">Each session keeps its own bunks, schedule and settings.</span>
+        </p>
         <nav>
           {TABS.map((t) => (
             <button key={t.id} type="button" aria-pressed={view === t.id} onClick={() => setView(t.id)}>
@@ -346,8 +410,7 @@ export default function App() {
             <select value={current} onChange={(e) => switchWeek(Number(e.target.value))}>
               {Array.from({ length: WEEK_COUNT }, (_, i) => (
                 <option key={i} value={i}>
-                  {weekLabel(i)}
-                  {isEmpty(weeksState.weeks[i]) ? ' (empty)' : ''}
+                  {weekLabel(i)} ({weekDates(template, i + 1)}){isEmpty(weeksState.weeks[i]) ? ' (empty)' : ''}
                 </option>
               ))}
             </select>
@@ -387,7 +450,10 @@ export default function App() {
           <AutoGenerateDialog
             weekNumber={current + 1}
             hasActivities={hasActivities}
-            weeks={weekInfo}
+            weeks={weekInfo.slice(0, template.weeks)}
+            sessionWeeks={template.weeks}
+            sessionName={`${template.name}, ${datesOf(template)}`}
+            bigVillage={usesBigVillageSettings(settings) ? undefined : bigVillageIn(schedule.bunks.map((b) => b.name))}
             onCancel={() => setAutoOpen(false)}
             onGenerate={runAutoGenerate}
           />
@@ -396,6 +462,18 @@ export default function App() {
         {view === 'build' && (
           <fieldset className="readonly" disabled={locked}>
             {locked && <p className="hint">This week is being generated. You can look at it, and change it once the run is over.</p>}
+            <p className="bunkbar">
+              Add a bunk to{' '}
+              {addableVillages(template).map((v) => (
+                <button key={v} type="button" disabled={run !== null} onClick={() => addBunkTo(v)} title={`Adds the next ${v} bunk to every week of the session.`}>
+                  {v}
+                </button>
+              ))}{' '}
+              <button type="button" disabled={run !== null} onClick={fillBiggestCamp}>
+                Fill in the biggest camp ({biggestCampSize(template)} bunks, {MAX_CAMPERS_PER_BUNK} campers each)
+              </button>{' '}
+              <span className="muted">A bunk added here goes into every week of the session.</span>
+            </p>
             <BuildGrid
               bunks={schedule.bunks}
               onCell={setCell}
@@ -406,6 +484,7 @@ export default function App() {
               onFillSlots={fillSlots}
               onClear={clearPeriods}
               onRemoveMarks={removeMarks}
+              dayLabels={dayLabels(template, current + 1)}
               usePreviousWeek={
                 current > 0
                   ? {
@@ -419,7 +498,7 @@ export default function App() {
             {/* <DayDetails days={schedule.days} onDay={setDayField} /> */}
           </fieldset>
         )}
-        {view === 'schedule' && <ScheduleView bunks={schedule.bunks} days={schedule.days} />}
+        {view === 'schedule' && <ScheduleView bunks={schedule.bunks} days={schedule.days} dayLabels={dayLabels(template, current + 1)} />}
         {view === 'specialists' && <SpecialistView weeks={weeksState.weeks} onDownload={() => downloadSpecialists(weeksState.weeks)} />}
         {view === 'settings' && (
           <SettingsView
@@ -428,8 +507,9 @@ export default function App() {
             onChange={setSettings}
             onReset={() => setSettings(null)}
             disabled={run !== null}
-            problems={checkSettings(settings, weeksState.weeks)}
+            problems={checkSettings(settings, weeksState.weeks, template.weeks, calendarFor(template.weeks))}
             bunks={schedule.bunks}
+            calendar={{ template, onApply: putCalendarOn }}
           />
         )}
         {view === 'tracking' && <TrackingView bunks={schedule.bunks} weekLabel={weekLabel(current)} schedules={allSchedules} />}

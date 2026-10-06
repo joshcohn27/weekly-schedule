@@ -6,6 +6,7 @@ import {
   FILL_POLISH_STEPS,
   FILL_REST_STEPS,
   FILL_STALL_STEPS,
+  FIXED_ATHLETICS_DAYS,
   FLEXIBLE_VILLAGES,
   GAP_MAX_MT,
   GAP_MAX_OCS,
@@ -15,18 +16,30 @@ import {
   SESSION_FILLER_MAX,
   SHABBAT_PREP_STAFF,
   SLOT_CAP,
+  MIN_WEEK_CAPACITY,
+  AREA_WEEK_SHARE,
+  CAMPER_CAP,
+  VILLAGE_TARGETS,
+  BUDDY_PLANNING,
+  visitFree,
+  TOP_UP_FAIR_SLACK,
+  TOP_UP_MAX_LOAD,
+  TOP_UP_SLACK,
   TRIP_LABELS,
+  UH_BONUS_NOW,
   UH_HELD_BACK,
+  WEEK_FOUR_NOW,
   UH_MAX_PER_SESSION,
   UH_RELEASE_TRIP_PERIODS,
   WEEK_BLOCK_MAX,
   WEIGHTS,
 } from './config';
 import { SLOTS, dayOf } from './history';
-import { TOKEN_AREAS, TOKEN_LABEL, inWeekCount, sessionTargetOf, type Plan } from './planner';
+import { TOKEN_AREAS, TOKEN_LABEL, expectedSpare, inWeekCount, leftoverRoom, remainingWeeks, sessionTargetOf, type Plan } from './planner';
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
-import { groupBreaks, isFixedMohawkAthletics, sharedArea } from './share';
+import { isShortWeek, openPeriods } from './weekRoom';
+import { firstDay, groupBreaks, isFixedMohawkAthletics, sharedArea } from './share';
 import { ALL_SLOTS, buildDayMasks, fillable, isFree, type Ctx } from './state';
 
 // The areas that may fall a block short when a bunk has no room are RARE_AREAS. Music is only ever dropped as a last resort.
@@ -96,7 +109,10 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
     }
   }
 
+  trimToWeek(c, tok, free);
+  topUp(c, tok, free, total);
   fitToVillageDays(c, tok, free);
+  if (BUDDY_PLANNING) matchBuddies(c, tok, free, total);
 
   const search = new FillSearch(c, free);
   search.seed(tok);
@@ -106,6 +122,145 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
   // it this week and it is not held against the week.
   for (let b = 0; b < n; b++) if ((tok[b].Music ?? 0) > 0 && search.musicIsOptional && !c.grid[b].includes('Music')) c.excused.push(b);
   return clean;
+}
+
+/**
+ * Bunks that share a period must be on the same visit, so two neighbours can only go to Teva together while they have been
+ * the same number of times. The week's draw is made bunk by bunk and lets them drift apart, and then half the places in
+ * an area go unused. So neighbours in a village (the first with the second, the third with the fourth, ...) are given the
+ * same number of visits this week wherever they stand level, and the one that is behind is let catch up.
+ */
+function matchBuddies(c: Ctx, tok: Record<string, number>[], free: number[][], total: (b: number, area: string) => number): void {
+  const areas = TOKEN_AREAS.filter((a) => a !== 'Music' && placesAtOnce(c, a) > 1 && !visitFree(a));
+  for (const v of c.roster.villages) {
+    const members = c.roster.byVillage[v];
+    for (let k = 0; k + 1 < members.length; k += 2) {
+      const pair = [members[k], members[k + 1]];
+      // the two get the same areas this week: about as many as they had between them, the ones either was down for first
+      const had = pair.map((x) => areas.reduce((sum, area) => sum + (tok[x][area] ?? 0), 0));
+      const each = Math.floor((had[0] + had[1] + (c.rng() < 0.5 ? 1 : 0)) / 2);
+      const most = (area: string): number =>
+        Math.min(...pair.map((x) => Math.min(Math.max(0, sessionTargetOf(v, c.sessionWeeks, area) - total(x, area)), Math.ceil(new Set(free[x].map(dayOf)).size / 2))));
+      // a bunk that is behind its neighbour in an area catches up first, so they are level again
+      const behind = (area: string, x: number, y: number): number => Math.max(0, total(y, area) - total(x, area));
+      const give: Record<string, number> = {};
+      const wanted = shuffle(c.rng, areas).sort((x, y) => (tok[pair[0]][y] ?? 0) + (tok[pair[1]][y] ?? 0) - ((tok[pair[0]][x] ?? 0) + (tok[pair[1]][x] ?? 0)));
+      let left = each;
+      for (let round = 0; round < 3 && left > 0; round++) {
+        for (const area of wanted) {
+          if (left <= 0) break;
+          if ((give[area] ?? 0) >= most(area)) continue;
+          // first time round only what one of them was already down for; after that anything they both still owe
+          if (round === 0 && (tok[pair[0]][area] ?? 0) + (tok[pair[1]][area] ?? 0) === 0) continue;
+          give[area] = (give[area] ?? 0) + 1;
+          left--;
+        }
+      }
+      for (const area of areas) {
+        const n = give[area] ?? 0;
+        tok[pair[0]][area] = n + Math.min(1, behind(area, pair[0], pair[1]));
+        tok[pair[1]][area] = n + Math.min(1, behind(area, pair[1], pair[0]));
+        for (const x of pair) if (tok[x][area] === 0) delete tok[x][area];
+      }
+    }
+  }
+}
+
+/**
+ * How many bunks an area really takes at once, for planning. An area that goes by campers (Yoga) takes as many as fit
+ * under its camper limit: with full bunks that is one, however many the table allows. Never more than two are counted on:
+ * who may share and on which visit keeps the rest of the places from being used.
+ */
+function placesAtOnce(c: Ctx, area: string): number {
+  const campers = CAMPER_CAP[area];
+  if (campers === undefined) return Math.min(SLOT_CAP[area] ?? 1, 2);
+  // the two smallest bunks that stand next to each other in a village: if they do not fit together, nobody does
+  let pair = Infinity;
+  for (const v of c.roster.villages) {
+    const members = c.roster.byVillage[v];
+    for (let k = 0; k + 1 < members.length; k++) pair = Math.min(pair, c.roster.campers[members[k]] + c.roster.campers[members[k + 1]]);
+  }
+  if (pair > campers) return 1;
+  // some pairs fit and some do not: count on the share that does
+  let fit = 0;
+  let all = 0;
+  for (const v of c.roster.villages) {
+    const members = c.roster.byVillage[v];
+    for (let k = 0; k + 1 < members.length; k++) {
+      all++;
+      if (c.roster.campers[members[k]] + c.roster.campers[members[k + 1]] <= campers) fit++;
+    }
+  }
+  return 1 + (all > 0 ? fit / all : 0);
+}
+
+/**
+ * What a week cannot hold is put off, however much a bunk still owes (the last week of a session the calendar has
+ * squeezed is asked for everything that is left). A bunk has an area on days that are not next to each other, so no more
+ * times than half its open days; and an area only has so many places in the week.
+ */
+function trimToWeek(c: Ctx, tok: Record<string, number>[], free: number[][]): void {
+  const areas = TOKEN_AREAS.filter((a) => a !== 'Music');
+  const putOff = (b: number, area: string): void => {
+    tok[b][area]--;
+    c.unmet++;
+    c.carried.push({ bunk: b, area });
+  };
+  for (let b = 0; b < c.roster.n; b++) {
+    const most = Math.ceil(new Set(free[b].map(dayOf)).size / 2);
+    for (const area of areas) while ((tok[b][area] ?? 0) > most) putOff(b, area);
+  }
+  const periods = ALL_SLOTS.filter((s) => fillable(c, s) && free.some((cells) => cells.includes(s))).length;
+  for (const area of areas) {
+    const places = Math.floor(placesAtOnce(c, area) * periods * AREA_WEEK_SHARE);
+    let planned = tok.reduce((sum, t) => sum + (t[area] ?? 0), 0);
+    while (planned > places) {
+      // from the bunk that has the most of it this week
+      const most = Math.max(...tok.map((t) => t[area] ?? 0));
+      const from = shuffle(c.rng, tok.map((t, b) => ((t[area] ?? 0) === most ? b : -1)).filter((b) => b >= 0))[0];
+      putOff(from, area);
+      planned--;
+    }
+  }
+}
+
+/**
+ * The periods a bunk has left once its planned blocks are down can only be Athletics or A&C (and now and then a filler),
+ * and a week only holds so many of those: one of each a day for the bunk, and DAY_CAP bunks a day for its village. The
+ * week's draw is made before anything is placed, so a bunk can come out with far more left over than that. Such a bunk
+ * takes a visit it still owes from a later week now: the area with the most room left in this week.
+ */
+function topUp(c: Ctx, tok: Record<string, number>[], free: number[][], total: (b: number, area: string) => number): void {
+  const areas = TOKEN_AREAS.filter((a) => a !== 'Music');
+  const periods = ALL_SLOTS.filter((s) => fillable(c, s) && c.grid.some((row, b) => row[s] === '' || free[b].includes(s))).length;
+  const planned = (area: string): number => tok.reduce((sum, t) => sum + (t[area] ?? 0), 0);
+  for (const b of shuffle(c.rng, Array.from({ length: c.roster.n }, (_, i) => i))) {
+    const v = c.roster.village[b];
+    const members = c.roster.byVillage[v];
+    const days = new Set(free[b].map(dayOf)).size;
+    const share = Math.min(1, (DAY_CAP.Athletics + DAY_CAP['A&C']) / (2 * members.length));
+    const room = Math.floor(share * Math.min(WEEK_BLOCK_MAX.Athletics + WEEK_BLOCK_MAX['A&C'], 2 * days, 2 * Math.ceil(days / 2) + 2 * Math.floor(days / 2))) + TOP_UP_SLACK;
+    const mine = (): number => Object.values(tok[b]).reduce((a, x) => a + x, 0);
+    // this week's fair share of everything the bunk will have left over in the weeks still to come
+    const later = remainingWeeks(c).filter((w) => w !== c.weekIndex);
+    const owed = areas.reduce((sum, a) => sum + Math.max(0, sessionTargetOf(v, c.sessionWeeks, a) - total(b, a)), 0);
+    const leftoverAll = free[b].length - (tok[b].Music ?? 0) + later.reduce((sum, w) => sum + Math.max(0, expectedSpare(c, b, w)), 0) - owed;
+    const rooms = later.reduce((sum, w) => sum + (expectedSpare(c, b, w) >= MIN_WEEK_CAPACITY ? leftoverRoom(c, b, w) : 0), 0);
+    const now = leftoverRoom(c, b, c.weekIndex);
+    const fair = later.length === 0 ? Infinity : Math.ceil((Math.max(0, leftoverAll) * now) / Math.max(0.01, now + rooms)) + TOP_UP_FAIR_SLACK;
+    const limit = Math.min(room, fair);
+    while (free[b].length - mine() > limit) {
+      const options = areas
+        .filter((a) => sessionTargetOf(v, c.sessionWeeks, a) - total(b, a) - (tok[b][a] ?? 0) > 0)
+        // an area goes on days that are not next to each other, and a village only sends so many bunks to it in a day
+        .filter((a) => (tok[b][a] ?? 0) < Math.ceil(days / 2) && members.reduce((sum, x) => sum + (tok[x][a] ?? 0), 0) < (DAY_CAP[a] ?? Infinity) * days)
+        .map((a) => ({ a, load: (planned(a) + 1) / (placesAtOnce(c, a) * periods) + (tok[b][a] ?? 0) + c.rng() * 0.05 }))
+        .filter((o) => o.load - (tok[b][o.a] ?? 0) <= TOP_UP_MAX_LOAD);
+      if (options.length === 0) break;
+      const pick = options.reduce((x, y) => (y.load < x.load ? y : x)).a;
+      tok[b][pick] = (tok[b][pick] ?? 0) + 1;
+    }
+  }
 }
 
 /**
@@ -184,6 +339,10 @@ class FillSearch {
   private readonly base: { ath: number; ac: number; uh: number }[];
   /** Periods in which some village is at Shabbat Prep: the Music and Judaics specialists run it, so neither area has a bunk then. */
   private readonly prep: boolean[];
+  /** Each bunk's neighbour in its village (the first with the second, the third with the fourth, ...), or -1. They share A&C, so they are kept level. */
+  private readonly buddy: number[];
+  /** The program areas Taste of CSL is at in each period: it has an area to itself, so nobody else is there then. */
+  private readonly guestAt: Set<string>[];
   /** In a week with Shabbat Prep in it, a bunk's Music may be given up when it cannot fit. Any other week it never is. */
   readonly musicIsOptional: boolean;
 
@@ -205,7 +364,7 @@ class FillSearch {
     // the last one is kept for the week that needs it most: the last week, or a week the bunk is away on a trip for half a day or more
     this.uhLimit = c.grid.map((row) => {
       const away = row.filter((l) => TRIP_LABELS.includes(l)).length >= UH_RELEASE_TRIP_PERIODS;
-      return UH_MAX_PER_SESSION - (c.weekIndex >= c.sessionWeeks || away ? 0 : UH_HELD_BACK);
+      return UH_MAX_PER_SESSION + UH_BONUS_NOW - (c.weekIndex >= c.sessionWeeks || away ? 0 : UH_HELD_BACK);
     });
     this.allowedGap = c.roster.village.map((v) => (FLEXIBLE_VILLAGES.includes(v) ? GAP_MAX_MT : GAP_MAX_OCS) + slack + c.stretch);
     const other = (b: number, area: string): number => (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0);
@@ -214,7 +373,14 @@ class FillSearch {
     this.fillerBase = c.grid.map((_, b) => this.fillers.map((a) => other(b, a)));
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));
     this.prep = ALL_SLOTS.map((s) => c.grid.some((row) => row[s] === 'Shabbat Prep'));
-    this.musicIsOptional = this.prep.some(Boolean);
+    this.buddy = c.roster.village.map((v, b) => {
+      const members = c.roster.byVillage[v];
+      const at = c.roster.pos[b];
+      return members[at % 2 === 0 ? at + 1 : at - 1] ?? -1;
+    });
+    this.guestAt = ALL_SLOTS.map((s) => new Set((c.guests ?? []).map((row) => areaOf(row[s])).filter((a): a is string => !!a && a !== 'Hobbies')));
+    // and in a week the calendar has cut short
+    this.musicIsOptional = this.prep.some(Boolean) || c.grid.some((row) => isShortWeek(openPeriods(row, c.lastWeek), c.lastWeek));
   }
 
   /** Put every bunk's planned blocks and leftover areas down roughly: the search does the rest. */
@@ -239,7 +405,7 @@ class FillSearch {
           // a day takes one Athletics and one A&C at most, so the planned blocks go on the days with the most empty periods
           let openToday = 0;
           for (let p = 0; p < 4; p++) if (open.has(day * 4 + p)) openToday++;
-          const staffAway = this.prep[s] && SHABBAT_PREP_STAFF.includes(area);
+          const staffAway = (this.prep[s] && SHABBAT_PREP_STAFF.includes(area)) || this.guestAt[s].has(area);
           const score = (staffAway ? 50 : 0) + (sameDay ? 6 : 0) + (nextDay ? 5 : 0) + 3 * Math.max(0, at(s, label) + 1 - (SLOT_CAP[area] ?? 1)) + at(s, label) - 1.2 * openToday + c.rng() * 1.5;
           if (score < bestScore) {
             best = s;
@@ -256,7 +422,10 @@ class FillSearch {
         const day = dayOf(s);
         const own = (day + this.athleticsDays[b]) % 2 === 0 ? 'Athletics' : 'A&C';
         const clear = (label: string, area: string): boolean => !has(row, day, area) && !has(row, day - 1, area) && !has(row, day + 1, area) && row.every((l) => l !== label || area === 'Music');
-        row[s] = !has(row, day, own) ? own : clear('Time with UH', 'TW UH') ? 'Time with UH' : !this.prep[s] && clear('Music', 'Music') ? 'Music' : own;
+        const other = own === 'Athletics' ? 'A&C' : 'Athletics';
+        const fits = (area: string): boolean => !has(row, day, area) && !has(row, day - 1, area) && !has(row, day + 1, area) && row.filter((l) => l === area).length < (WEEK_BLOCK_MAX[area] ?? 3);
+        if (FIXED_ATHLETICS_DAYS) row[s] = !has(row, day, own) ? own : clear('Time with UH', 'TW UH') ? 'Time with UH' : !this.prep[s] && clear('Music', 'Music') ? 'Music' : own;
+        else row[s] = fits(own) ? own : fits(other) ? other : clear('Time with UH', 'TW UH') ? 'Time with UH' : !this.prep[s] && clear('Music', 'Music') ? 'Music' : own;
       }
     }
     for (let b = 0; b < this.n; b++) this.refresh(b);
@@ -370,6 +539,8 @@ class FillSearch {
         }
         const area = areaOf(label);
         if (!area) continue;
+        // nobody shares an area with Taste of CSL
+        if (!locked[s] && this.guestAt[s].has(area)) cost += HARD;
         // no Music or Judaics while a village is at Shabbat Prep
         if (this.prep[s] && !locked[s] && SHABBAT_PREP_STAFF.includes(area)) cost += HARD;
         // nothing in period 4 and again in period 1 the next day
@@ -387,7 +558,7 @@ class FillSearch {
           }
         }
         // Athletics on the bunk's Athletics days and A&C on the others
-        if (!locked[s] && ((area === 'A&C' && athleticsToday) || (area === 'Athletics' && !athleticsToday && !(fixedAthletics && s === 3)))) cost += HARD;
+        if (FIXED_ATHLETICS_DAYS && !locked[s] && ((area === 'A&C' && athleticsToday) || (area === 'Athletics' && !athleticsToday && !(fixedAthletics && s === firstDay() * 4 + 3)))) cost += HARD;
         const filler = this.fillers.indexOf(area);
         if (filler >= 0) {
           fillers[filler]++;
@@ -401,7 +572,7 @@ class FillSearch {
           if (!locked[s]) music++;
         } else if (area === 'Athletics') {
           ath++;
-          if (!locked[s] && !(fixedAthletics && s === 3)) athWeek++;
+          if (!locked[s] && !(fixedAthletics && s === firstDay() * 4 + 3)) athWeek++;
         } else if (area === 'A&C') {
           ac++;
           if (!locked[s]) acWeek++;
@@ -409,7 +580,8 @@ class FillSearch {
       }
     }
     // a village that gives up some of its Music for A&C does not get the Music back as a filler
-    const musicMax = MUSIC_LIGHT_VILLAGES.includes(c.roster.village[b]) ? (this.musicPlanned[b] ? 1 : 0) : WEEK_BLOCK_MAX.Music;
+    // (in week 4 of 4 it may: one Music to fill a period)
+    const musicMax = MUSIC_LIGHT_VILLAGES.includes(c.roster.village[b]) ? Math.max(this.musicPlanned[b] ? 1 : 0, WEEK_FOUR_NOW ? 1 : 0) : WEEK_BLOCK_MAX.Music;
     cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']) + Math.min(music, Math.max(0, musicAll - musicMax)));
     // Mohawk and Tusc have few periods left over, and those should not all go to Athletics and Time with UH
     if (this.flexible[b] && ac === 0 && (athWeek > 0 || uh > 0)) cost += WEIGHTS.noAcWeek;
@@ -419,12 +591,21 @@ class FillSearch {
     for (let k = 0; k < this.fillers.length; k++) {
       // a planned Yoga or Ceramics stays; one more may fill a period, up to the most a session allows
       cost += HARD * Math.max(0, this.fillerPlanned[b][k] - fillers[k]);
-      cost += HARD * Math.min(fillersOwn[k], Math.max(0, this.fillerBase[b][k] + fillers[k] - SESSION_FILLER_MAX[this.fillers[k]]));
+      cost += HARD * Math.min(fillersOwn[k], Math.max(0, this.fillerBase[b][k] + fillers[k] - (VILLAGE_TARGETS[this.fillers[k]]?.[c.roster.village[b]] ?? SESSION_FILLER_MAX[this.fillers[k]])));
       cost += WEIGHTS.fillerExtra * Math.max(0, fillers[k] - this.fillerPlanned[b][k]);
     }
     cost += WEIGHTS.musicExtra * Math.max(0, music - 1);
     // only what the search itself put down can be taken back
     cost += HARD * Math.min(uhOwn, Math.max(0, this.base[b].uh + uh - this.uhLimit[b])) + WEIGHTS.uhExtra * Math.max(0, this.base[b].uh + uh - 1);
+    // Bunks at A&C together must be on the same visit, so neighbours who drift apart can no longer go together and half
+    // of A&C's places are lost. A bunk is nudged to end the week level with its neighbour.
+    const mate = this.buddy[b];
+    if (BUDDY_PLANNING && mate >= 0 && !visitFree('A&C')) {
+      let theirs = this.base[mate].ac;
+      const other = this.grid[mate];
+      for (let s = 0; s < SLOTS; s++) if (other[s] === 'A&C' && (s % 4 === 0 || other[s - 1] !== 'A&C')) theirs++;
+      cost += WEIGHTS.buddyApart * Math.abs(this.base[b].ac + ac - theirs);
+    }
     const gap = this.base[b].ac + ac - (this.base[b].ath + ath);
     if (this.flexible[b]) cost += WEIGHTS.flexibleAcBehind * Math.max(0, 1 - gap);
     cost += WEIGHTS.gapOver * Math.max(0, Math.abs(gap) - this.allowedGap[b]) + WEIGHTS.gapWide * Math.max(0, Math.abs(gap) - 1) + (gap < 0 ? WEIGHTS.athleticsAhead : 0);

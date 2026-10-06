@@ -5,3 +5,4 @@ report.txt
 report2.txt
 src/autogen/zz_probe.test.ts
 director_report.txt
+src/autogen/zz_*.test.ts

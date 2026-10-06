@@ -43,7 +43,9 @@ export function normalizeWeeksState(raw: unknown): WeeksState | null {
   const weeks: (Schedule | null)[] = Array.from({ length: WEEK_COUNT }, (_, i) => normalize(rawWeeks[i]));
   const current = typeof obj.current === 'number' && obj.current >= 0 && obj.current < WEEK_COUNT ? obj.current : 0;
   const settings = normalizeSettings((raw as { settings?: unknown }).settings);
-  return isDefaultSettings(settings) ? { weeks, current } : { weeks, current, settings };
+  const id = (raw as { session?: unknown }).session;
+  const session = id === 'session1' || id === 'session2' ? { session: id as 'session1' | 'session2' } : {};
+  return isDefaultSettings(settings) ? { weeks, current, ...session } : { weeks, current, settings, ...session };
 }
 
 export function loadWeeks(): WeeksState | null {
@@ -68,6 +70,24 @@ export function saveWeeks(state: WeeksState): void {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch {
     // storage full or blocked: the app still works, it just won't remember
+  }
+}
+
+/** Each session keeps its own schedule, bunks and settings: the one that is not on screen waits here. */
+const sessionKey = (id: string): string => `weekly-schedule-session-${id}`;
+export function loadSession(id: string): WeeksState | null {
+  try {
+    const raw = localStorage.getItem(sessionKey(id));
+    return raw ? normalizeWeeksState(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+export function saveSession(id: string, state: WeeksState): void {
+  try {
+    localStorage.setItem(sessionKey(id), JSON.stringify(state));
+  } catch {
+    // storage full or blocked: the session that is put away is not remembered
   }
 }
 
