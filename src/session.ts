@@ -55,10 +55,10 @@ const VILLAGE_ORDER = [GUEST_VILLAGE, 'O', 'C', 'S', 'M', 'T'];
 /** The grades a village's bunks usually are, youngest first: what a bunk added in one click starts with. */
 const USUAL_GRADES: Record<string, string[]> = {
   [GUEST_VILLAGE]: ['3rd'],
-  O: ['4th', '4th/5th', '5th', '5th/6th', '6th', '6th'],
-  C: ['4th', '4th/5th', '5th', '5th/6th', '6th', '6th'],
-  S: ['7th', '7th/8th', '8th', '8th/9th', '9th', '9th'],
-  M: ['7th', '7th/8th', '8th', '8th/9th', '9th', '9th'],
+  O: ['3rd/4th', '4th', '5th', '6th', '6th'],
+  C: ['3rd/4th', '4th', '5th', '5th', '6th', '6th'],
+  S: ['7th', '7th', '8th', '8th', '9th', '9th'],
+  M: ['7th', '7th', '8th', '8th', '9th', '9th'],
   T: ['10th'],
 };
 /** The camp has this many cabins: no week can have more bunks than this, Taste of CSL included. */
