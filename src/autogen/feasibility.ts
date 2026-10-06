@@ -1,4 +1,4 @@
-import { isGuest, villageOf } from '../autofill';
+import { isGuest, villageName, villageOf } from '../autofill';
 import type { Schedule } from '../types';
 import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, SHABBAT_PREP_STAFF, TIYUL_WEEKS, TRIP_LABELS, hobbyWeeks, shabbatFor, type SessionWeeks } from './config';
 import { CAMP, type CalendarEvent } from './sessionCalendar';
@@ -119,7 +119,7 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
       if (need > a.villagePerDay * days) {
         out.push({
           level: 'no',
-          text: `Village ${v} needs ${need} ${nameOf(area)} visits, and at ${plural(a.villagePerDay, 'bunk')} a day there are only ${a.villagePerDay * days} in the session.`,
+          text: `${villageName(v)} needs ${need} ${nameOf(area)} visits, and at ${plural(a.villagePerDay, 'bunk')} a day there are only ${a.villagePerDay * days} in the session.`,
           fix: `Try ${Math.ceil(need / days)} bunks of one village in a day for ${nameOf(area)}, or fewer visits.`,
         });
       }
@@ -177,9 +177,9 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
       level: worst.level,
       text:
         worst.level === 'no'
-          ? `A schedule is not possible with these settings: each village ${worst.v} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill, and they can hold about ${worst.room}.`
-          : `A schedule is unlikely with these settings: each village ${worst.v} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill. They can hold about ${worst.room}, and it stops generating well before that.`,
-      fix: `Try giving each bunk about ${worst.over} more ${worst.over === 1 ? 'visit' : 'visits'} a session: raise the numbers on ${flexibleNames.join(', ')}, or Dance for village ${worst.v}; or more Waterfront or league a week.`,
+          ? `A schedule is not possible with these settings: each ${villageName(worst.v)} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill, and they can hold about ${worst.room}.`
+          : `A schedule is unlikely with these settings: each ${villageName(worst.v)} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill. They can hold about ${worst.room}, and it stops generating well before that.`,
+      fix: `Try giving each bunk about ${worst.over} more ${worst.over === 1 ? 'visit' : 'visits'} a session: raise the numbers on ${flexibleNames.join(', ')}, or Dance for ${villageName(worst.v)}; or more Waterfront or league a week.`,
     });
   }
   // Ropes: one group a half-day in the whole camp, so a session only has room for so many
@@ -195,7 +195,7 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
     const by = Math.ceil(-shortest.by);
     out.push({
       level: 'short',
-      text: `With this session's calendar a village ${shortest.v} bunk has about ${by} fewer periods than these numbers ask for, so bunks will end the session short of a few visits. Auto generate fits in as many as it can.`,
+      text: `With this session's calendar a ${villageName(shortest.v)} bunk has about ${by} fewer periods than these numbers ask for, so bunks will end the session short of a few visits. Auto generate fits in as many as it can.`,
       fix: 'Nothing has to change. To choose what gives way yourself, lower the numbers on the areas that matter least, or Waterfront or league.',
     });
   }

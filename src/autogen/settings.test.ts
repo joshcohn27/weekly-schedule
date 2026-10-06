@@ -164,7 +164,7 @@ describe('the arithmetic check on the settings', () => {
     const [problem, ...rest] = checkSettings(s, weeks);
     expect(rest).toEqual([]);
     expect(problem.level).toBe('unlikely');
-    expect(problem.text).toMatch(/^A schedule is unlikely with these settings: each village C bunk would have about 16 periods/);
+    expect(problem.text).toMatch(/^A schedule is unlikely with these settings: each Cayuga bunk would have about 16 periods/);
     expect(problem.fix).toMatch(/^Try giving each bunk about 1 more visit a session: raise the numbers on .*Teva, Yoga/);
     // with almost nothing scheduled the periods cannot be filled at all
     const bare = defaultSettings();
@@ -187,7 +187,7 @@ describe('the arithmetic check on the settings', () => {
 
   it('flags a village that cannot send enough bunks in a day', () => {
     const s = withArea('Teva', { min: 5, max: 5, villagePerDay: 1 });
-    const found = checkSettings(s, weeks).filter((p) => p.text.startsWith('Village O needs 25 Teva visits'));
+    const found = checkSettings(s, weeks).filter((p) => p.text.startsWith('Onondaga needs 25 Teva visits'));
     expect(found).toHaveLength(1);
     expect(found[0].fix).toBe('Try 2 bunks of one village in a day for Teva, or fewer visits.');
   });

@@ -5,6 +5,22 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.8.0 (October 6, 2026)
+
+- **A Setup tab.** The page opens on it. It holds what is decided once for a session, in order: which session, its
+  bunks village by village, a line saying whether the numbers add up, and the way on to building. Uploading a file,
+  downloading all weeks and Start over are at the bottom of it.
+- **Bunks belong to the session.** A bunk added, renamed, moved or removed on Setup is changed in every week. The Build
+  tab shows the bunks and no longer changes them.
+- **The Build tab is only the week's periods.** The bar over it has the week, Auto generate and that week's download.
+  The bar is on the Build, Schedule and Tracking tabs, the ones that show one week.
+- **Village names.** Everywhere the page said "O village" or "Village M" it says Onondaga, Cayuga, Seneca, Mohawk, Tusc.
+- **Taste of CSL** is not on the Settings tab: no league, no numbers of its own, and its set week is not listed on the
+  calendar table.
+- **Session 2** starts with no Ceramics for Onondaga and Cayuga and one for Seneca, Mohawk and Tusc. Its Shabbat
+  setting shows its three weeks.
+- Opening a box, or going to another tab, starts from the top of the page.
+
 ## 1.7.1 (October 5, 2026)
 
 - **Exactly, or a range.** Each program area's row on the Settings tab now starts with a choice: "exactly 2 a session", or

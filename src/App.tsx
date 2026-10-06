@@ -7,10 +7,11 @@ import HelpPanel from './components/HelpPanel';
 import StartOverDialog, { type StartOverChoice } from './components/StartOverDialog';
 // import DayDetails from './components/DayDetails';
 import ScheduleView from './components/ScheduleView';
+import SetupView from './components/SetupView';
 import SettingsView from './components/SettingsView';
 import SpecialistView from './components/SpecialistView';
 import TrackingView from './components/TrackingView';
-import { bunkIdsForLabel, slotsForLabel, villageName, villageOf } from './autofill';
+import { bunkIdsForLabel, isGuest, slotsForLabel, villageOf } from './autofill';
 import { BUILT_WEEK_MAX_EMPTY } from './autogen/config';
 import { isBuiltWeek } from './autogen/history';
 import { startRun } from './autogen/background';
@@ -19,16 +20,17 @@ import { applySettings, bigVillageIn, isDefaultSettings, normalizeSettings, temp
 import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
 import { APP_VERSION, SUPPORT_LINK } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
-import { emptySchedule, newBunk } from './sample';
-import { MAX_BUNKS_IN_CAMP, MAX_CAMPERS_PER_BUNK, addableVillages, biggestCampSize, datesOf, dayLabels, pastDaysOf, startSession, startedOver, withBiggestCamp, withBunkAdded, templateOf, weekDates, withCalendar, type SessionId } from './session';
+import { emptySchedule } from './sample';
+import { MAX_BUNKS_IN_CAMP, MAX_CAMPERS_PER_BUNK, datesOf, dayLabels, pastDaysOf, rosterOf, startSession, startedOver, withBiggestCamp, withBunkAdded, withBunkChanged, withBunkMoved, withBunkRemoved, templateOf, weekDates, withCalendar, type SessionId } from './session';
 import { SESSION_TEMPLATES, calendarFor } from './autogen/sessionCalendar';
 import { isFirstVisit, loadSession, loadWeeks, markHelpSeen, saveSession, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
 // import type { DayInfo } from './types';
 
-type View = 'build' | 'schedule' | 'tracking' | 'specialists' | 'settings';
+type View = 'setup' | 'build' | 'schedule' | 'tracking' | 'specialists' | 'settings';
 
 const TABS: { id: View; label: string }[] = [
+  { id: 'setup', label: 'Setup' },
   { id: 'build', label: 'Build' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'tracking', label: 'Tracking' },
@@ -43,7 +45,8 @@ const withoutFilledMarks = (s: Schedule): Schedule => ({ ...s, bunks: s.bunks.ma
 
 export default function App() {
   const [weeksState, setWeeksState] = useState<WeeksState>(() => loadWeeks() ?? startSession(SESSION_TEMPLATES[0]));
-  const [view, setView] = useState<View>('build');
+  // the page always opens on Setup: which session this is and who is in it, before any week
+  const [view, setView] = useState<View>('setup');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [autoOpen, setAutoOpen] = useState(false);
   const [startOverOpen, setStartOverOpen] = useState(false);
@@ -59,6 +62,10 @@ export default function App() {
   const runRef = useRef<{ stop: () => void } | null>(null);
 
   useEffect(() => saveWeeks(weeksState), [weeksState]);
+  // a dialog that opens, or another tab, starts from the top of the page: nothing it shows up there is left out of sight
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
+  }, [view, autoOpen, startOverOpen, helpOpen]);
   useEffect(() => () => runRef.current?.stop(), []);
 
   // which session this is: it decides how many weeks there are, the dates, the calendar and the numbers it starts from
@@ -91,7 +98,6 @@ export default function App() {
     setStartOverOpen(false);
     setAuto(null);
     setWeeksState((ws) => startedOver(ws, how));
-    setView('build');
   };
   // Setting up: a bunk added with one click goes into every week of the session, and the biggest camp can be filled in at once
   const addBunkTo = (village: string) => {
@@ -101,6 +107,22 @@ export default function App() {
     }
     setAuto(null);
     setWeeksState((ws) => withBunkAdded(ws, village));
+  };
+  // the bunks are the session's: a change on the Setup tab is made in every week
+  const changeBunk = (id: string, field: 'name' | 'grades' | 'count', value: string) => {
+    setAuto(null);
+    setWeeksState((ws) => withBunkChanged(ws, id, field, value));
+  };
+  const moveBunkEverywhere = (id: string, direction: -1 | 1) => {
+    setAuto(null);
+    setWeeksState((ws) => withBunkMoved(ws, id, direction));
+  };
+  const removeBunkEverywhere = (id: string) => {
+    const bunk = rosterOf(weeksState).find((b) => b.id === id);
+    if (!bunk) return;
+    if (!window.confirm(`Remove ${bunk.name || 'this bunk'} from every week of ${template.name}? Everything on its rows goes with it.`)) return;
+    setAuto(null);
+    setWeeksState((ws) => withBunkRemoved(ws, id));
   };
   const fillBiggestCamp = () => {
     if (!window.confirm(`Fill in the biggest camp for ${template.name}? Every village goes up to its most bunks in every week, and every bunk is set to ${MAX_CAMPERS_PER_BUNK} campers. Bunks that are already there stay, with everything on their rows.`)) return;
@@ -118,7 +140,6 @@ export default function App() {
   const locked = !!run?.indexes.includes(current);
   const schedule = weeksState.weeks[current] ?? emptySchedule();
   const allSchedules = weeksState.weeks.filter((w): w is Schedule => w !== null);
-  const previousWeek = current > 0 ? weeksState.weeks[current - 1] : null;
 
   const updateCurrentSchedule = useCallback((fn: (s: Schedule) => Schedule) => {
     setAuto(null); // a manual edit ends the chance to undo the last Auto generate
@@ -192,55 +213,12 @@ export default function App() {
     updateCurrentSchedule((s) => ({ ...s, bunks: dropMarks(s.bunks) }));
   }, [updateCurrentSchedule]);
 
-  const setBunkField = useCallback(
-    (id: string, field: 'name' | 'grades' | 'count', value: string) => {
-      updateCurrentSchedule((s) => ({ ...s, bunks: s.bunks.map((b) => (b.id === id ? { ...b, [field]: value } : b)) }));
-    },
-    [updateCurrentSchedule],
-  );
-
-  const addBunk = useCallback(() => {
-    updateCurrentSchedule((s) => ({ ...s, bunks: [...s.bunks, newBunk()] }));
-  }, [updateCurrentSchedule]);
-
-  const removeBunk = useCallback(
-    (id: string) => {
-      updateCurrentSchedule((s) => ({ ...s, bunks: s.bunks.filter((b) => b.id !== id) }));
-    },
-    [updateCurrentSchedule],
-  );
-
-  const moveBunk = useCallback(
-    (id: string, direction: -1 | 1) => {
-      updateCurrentSchedule((s) => {
-        const i = s.bunks.findIndex((b) => b.id === id);
-        const j = i + direction;
-        if (i < 0 || j < 0 || j >= s.bunks.length) return s;
-        const bunks = [...s.bunks];
-        [bunks[i], bunks[j]] = [bunks[j], bunks[i]];
-        return { ...s, bunks };
-      });
-    },
-    [updateCurrentSchedule],
-  );
-
   // const setDayField = useCallback((index: number, field: keyof DayInfo, value: string) => {
   //   updateCurrentSchedule((s) => ({ ...s, days: s.days.map((d, i) => (i === index ? { ...d, [field]: value } : d)) }));
   // }, [updateCurrentSchedule]);
 
-  const useLastWeekBunks = () => {
-    if (!previousWeek || previousWeek.bunks.length === 0) return;
-    const msg =
-      schedule.bunks.length > 0
-        ? `Replace ${weekLabel(current)}'s bunks with ${weekLabel(current - 1)}'s roster? Activities already set for this week will be cleared.`
-        : `Fill ${weekLabel(current)} with ${weekLabel(current - 1)}'s bunk roster (names, grades, counts, empty activities)?`;
-    if (!window.confirm(msg)) return;
-    updateCurrentSchedule((s) => ({
-      ...s,
-      bunks: previousWeek.bunks.map((b) => newBunk(b.name, b.grades, b.count)),
-    }));
-  };
-
+  /** The tabs that show one week at a time: they get the week picker. */
+  const weekTabs = view === 'build' || view === 'schedule' || view === 'tracking';
   const hasActivities = schedule.bunks.some((b) => b.slots.some((l) => l !== ''));
 
   const weekInfo: WeekInfo[] = weeksState.weeks.map((w) => ({
@@ -368,19 +346,8 @@ export default function App() {
             ?
           </button>
         </h1>
-        <p>Build a session week by week: four periods a day, Sunday to Friday. Your work is saved in this browser.</p>
-        <p className="sessionbar">
-          <label>
-            Session:{' '}
-            <select aria-label="Session" value={template.id} disabled={run !== null} onChange={(e) => switchSession(e.target.value as SessionId)}>
-              {SESSION_TEMPLATES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}: {datesOf(t)}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <span className="muted">Each session keeps its own bunks, schedule and settings.</span>
+        <p className="sessionline">
+          <strong>{template.name}</strong> {datesOf(template)}
         </p>
         <nav>
           {TABS.map((t) => (
@@ -392,46 +359,41 @@ export default function App() {
       </header>
 
       <main>
-        <div className="weekbar">
-          <label>
-            Week:{' '}
-            <select value={current} onChange={(e) => switchWeek(Number(e.target.value))}>
-              {Array.from({ length: WEEK_COUNT }, (_, i) => (
-                <option key={i} value={i}>
-                  {weekLabel(i)} ({weekDates(template, i + 1)}){isEmpty(weeksState.weeks[i]) ? ' (empty)' : ''}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <button type="button" onClick={handleDownload}>
-            Download {weekLabel(current)} (.xlsx)
-          </button>{' '}
-          <button type="button" onClick={handleDownloadAll}>
-            Download all weeks (.xlsx)
-          </button>{' '}
-          <button type="button" onClick={() => downloadSpecialists(weeksState.weeks)} title="One tab per program area: when each bunk comes, and which visit it is for them.">
-            Specialist schedules (.xlsx)
-          </button>{' '}
-          <button type="button" onClick={handleUploadClick} disabled={run !== null}>
-            Upload
-          </button>
-          <input ref={fileInputRef} type="file" accept=".xlsx" hidden onChange={handleFileChange} />
-          {' '}
-          <button type="button" onClick={() => setStartOverOpen(true)} disabled={run !== null} title="Empty this week or the whole session and put the calendar back on. It asks what to keep first.">
-            Start over
-          </button>{' '}
-          <button
-            type="button"
-            onClick={() => setAutoOpen(true)}
-            disabled={schedule.bunks.length === 0 || run !== null}
-            title={schedule.bunks.length === 0 ? 'Add bunks on the Build tab first.' : undefined}
-          >
-            {run !== null && <span className="spinner" aria-hidden="true" />}
-            {run !== null ? 'Generating...' : 'Auto generate'}
-          </button>
-          {run && <AutoGenerateProgress progress={run} onStop={() => runRef.current?.stop()} />}
-          {auto && <AutoGenerateStatus weekNumbers={auto.weeks.map((w) => w + 1)} seed={auto.seed} onUndo={undoAutoGenerate} />}
-        </div>
+        <input ref={fileInputRef} type="file" accept=".xlsx" hidden onChange={handleFileChange} />
+        {(weekTabs || run || auto) && (
+          <div className="weekbar">
+            {weekTabs && (
+              <div className="weekbar-row">
+                <label>
+                  Week{' '}
+                  <select value={current} onChange={(e) => switchWeek(Number(e.target.value))}>
+                    {Array.from({ length: WEEK_COUNT }, (_, i) => (
+                      <option key={i} value={i}>
+                        {weekLabel(i)} ({weekDates(template, i + 1)}){isEmpty(weeksState.weeks[i]) ? ' (empty)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setAutoOpen(true)}
+                  disabled={schedule.bunks.length === 0 || run !== null}
+                  title={schedule.bunks.length === 0 ? 'Add bunks on the Setup tab first.' : undefined}
+                >
+                  {run !== null && <span className="spinner" aria-hidden="true" />}
+                  {run !== null ? 'Generating...' : 'Auto generate'}
+                </button>
+                <span className="spacer" />
+                <button type="button" onClick={handleDownload}>
+                  Download {weekLabel(current)} (.xlsx)
+                </button>
+              </div>
+            )}
+            {run && <AutoGenerateProgress progress={run} onStop={() => runRef.current?.stop()} />}
+            {auto && <AutoGenerateStatus weekNumbers={auto.weeks.map((w) => w + 1)} seed={auto.seed} onUndo={undoAutoGenerate} />}
+          </div>
+        )}
 
         {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
         {startOverOpen && <StartOverDialog weekNumber={current + 1} sessionName={template.name} onCancel={() => setStartOverOpen(false)} onStartOver={startOver} />}
@@ -448,41 +410,38 @@ export default function App() {
           />
         )}
 
+        {view === 'setup' && (
+          <SetupView
+            template={template}
+            templates={SESSION_TEMPLATES}
+            onSession={switchSession}
+            bunks={rosterOf(weeksState)}
+            onBunk={changeBunk}
+            onAddTo={addBunkTo}
+            onRemove={removeBunkEverywhere}
+            onMove={moveBunkEverywhere}
+            onFillBiggest={fillBiggestCamp}
+            problems={checkSettings(settings, weeksState.weeks, template.weeks, calendarFor(template.weeks))}
+            onOpenSettings={() => setView('settings')}
+            onAutoGenerate={() => setAutoOpen(true)}
+            onOpenBuild={() => setView('build')}
+            onUpload={handleUploadClick}
+            onDownloadAll={handleDownloadAll}
+            onStartOver={() => setStartOverOpen(true)}
+            disabled={run !== null}
+          />
+        )}
         {view === 'build' && (
           <fieldset className="readonly" disabled={locked}>
             {locked && <p className="hint">This week is being generated. You can look at it, and change it once the run is over.</p>}
-            <p className="bunkbar">
-              Add a bunk to{' '}
-              {addableVillages(template).map((v) => (
-                <button key={v} type="button" disabled={run !== null} onClick={() => addBunkTo(v)} title={`Adds the next ${villageName(v)} bunk to every week of the session.`}>
-                  {v}
-                </button>
-              ))}{' '}
-              <button type="button" disabled={run !== null} onClick={fillBiggestCamp}>
-                Fill in the biggest camp ({biggestCampSize(template)} bunks, {MAX_CAMPERS_PER_BUNK} campers each)
-              </button>{' '}
-              <span className="muted">A bunk added here goes into every week of the session.</span>
-            </p>
             <BuildGrid
               bunks={schedule.bunks}
               onCell={setCell}
-              onBunk={setBunkField}
-              onAdd={addBunk}
-              onRemove={removeBunk}
-              onMove={moveBunk}
               onFillSlots={fillSlots}
               onClear={clearPeriods}
               onRemoveMarks={removeMarks}
               dayLabels={dayLabels(template, current + 1)}
-              usePreviousWeek={
-                current > 0
-                  ? {
-                      label: `Use ${weekLabel(current - 1)}'s bunks`,
-                      disabled: !previousWeek || previousWeek.bunks.length === 0,
-                      onClick: useLastWeekBunks,
-                    }
-                  : undefined
-              }
+              onOpenSetup={() => setView('setup')}
             />
             {/* <DayDetails days={schedule.days} onDay={setDayField} /> */}
           </fieldset>
@@ -492,7 +451,8 @@ export default function App() {
         {view === 'settings' && (
           <SettingsView
             settings={settings}
-            villages={[...new Set(schedule.bunks.map((b) => villageOf(b.name)))].filter(Boolean)}
+            // Taste of CSL has a set week of its own: no league, and none of these numbers are its
+            villages={[...new Set(schedule.bunks.filter((b) => !isGuest(b.name)).map((b) => villageOf(b.name)))].filter(Boolean)}
             onChange={setSettings}
             onReset={() => setSettings(null)}
             disabled={run !== null}

@@ -40,7 +40,11 @@ export default function HelpPanel({ onClose }: Props) {
         <h3>The tabs</h3>
         <ul>
           <li>
-            <strong>Build</strong> is where the schedule is entered and changed.
+            <strong>Setup</strong> is where a session starts: which session it is, its bunks, and its files. What is set there is set for
+            the whole session.
+          </li>
+          <li>
+            <strong>Build</strong> is where the periods of one week are entered and changed.
           </li>
           <li>
             <strong>Schedule</strong> is the finished grid, ready to print. Bunks doing the same thing in the same period are merged into one
@@ -59,27 +63,27 @@ export default function HelpPanel({ onClose }: Props) {
           </li>
         </ul>
 
-        <h3>Building a week</h3>
+        <h3>Setting up and building a session</h3>
         <ol>
           <li>
-            Pick the session at the top: Session 1 (four weeks) or Session 2 (three weeks, with Color War). Each keeps its own bunks,
-            schedule and settings, and starts with its bunks and its calendar already in: opening day, the trips and Tiyuls, village day,
-            Mass Program or Color War, Visitor&apos;s Day. The weeks and days carry this summer&apos;s dates.
-          </li>
-          <li>Pick the week.</li>
-          <li>
-            On the Build tab, check the bunks: name, grades and number of campers. Keep each village together in the list. Bunks named TC1,
-            TC2 and so on are Taste of CSL: they are in camp for week 1 of Session 2 only, their week is set, and nobody shares an area
-            with them. The buttons after <strong>Add a bunk to</strong> add the next bunk of a village to every week, and{' '}
-            <strong>Fill in the biggest camp</strong> brings every village up to its most bunks. The camp has 27 cabins, so no week
-            holds more than 27 bunks.
+            On the Setup tab, pick the session: Session 1 (four weeks) or Session 2 (three weeks, with Color War). Each keeps its own
+            bunks, schedule and settings, and starts with its bunks and its calendar already in: opening day, the trips and Tiyuls,
+            village day, Mass Program or Color War, Visitor&apos;s Day. The weeks and days carry this summer&apos;s dates.
           </li>
           <li>
-            Move anything on the calendar that is different this year. On the Settings tab, under Session calendar, each line says what,
-            who, which week, which day and when. You can also enter a trip by hand on the Build tab, and it stays where you put it.
+            Still on Setup, check the bunks, village by village: name, grades and number of campers. <strong>Add a bunk</strong> adds the
+            next bunk of that village, and <strong>Fill in the biggest camp</strong> brings every village up to its most bunks. A bunk
+            added, changed or removed there is added, changed or removed in every week. The camp has 27 cabins, so a session holds no
+            more than 27 bunks. Bunks named TC1, TC2 and so on are Taste of CSL: they are in camp for week 1 of Session 2 only, their
+            week is set, and nobody shares an area with them.
           </li>
           <li>
-            Press <strong>Auto generate</strong>. Choose this week or the whole session. For each week you can leave it as it is, keep what
+            Look at the numbers. Setup says whether they add up for these bunks, and the Settings tab has every number. Move anything on
+            the calendar that is different this year: on the Settings tab, under Session calendar, each line says what, who, which week,
+            which day and when. You can also enter a trip by hand on the Build tab, and it stays where you put it.
+          </li>
+          <li>
+            Press <strong>Auto generate</strong>, on Setup or in the bar over the Build tab. Choose this week or the whole session. For each week you can leave it as it is, keep what
             is there and fill the gaps, or clear it and build it again.
           </li>
           <li>
@@ -100,7 +104,7 @@ export default function HelpPanel({ onClose }: Props) {
           <li>Click any period on the Build tab to pick an activity, or type one that is not on the list.</li>
           <li>Hobbies fill the whole camp, and a league fills its whole village, when you pick them for one bunk.</li>
           <li>
-            <strong>Set a whole period at once</strong> puts one activity in for everyone or for one village. Use it for an all-camp event.
+            <strong>Set a whole period</strong> puts one activity in for everyone or for one village. Use it for an all-camp event.
           </li>
           <li>
             <strong>Clear</strong> empties part of the schedule in one go: everything or one program area, for everyone, one village or one
@@ -108,7 +112,7 @@ export default function HelpPanel({ onClose }: Props) {
             yellow so it is plain what still needs filling. Then press Auto generate and choose to keep what is there and fill the gaps.
           </li>
           <li>
-            <strong>Start over</strong>, in the bar under the tabs, empties this week or the whole session and puts the session calendar
+            <strong>Start over</strong>, at the bottom of the Setup tab, empties this week or the whole session and puts the session calendar
             back on. It asks first what to keep: your bunks, and for a whole session your settings. It says what will happen before it
             does anything, and it cannot be undone.
           </li>

@@ -47,7 +47,7 @@ export default function SharingSettings({ settings, bunks, onChange, disabled, o
           </select>
         </label>{' '}
         <label>
-          Paired villages (O with C, S with M):{' '}
+          Paired villages (Onondaga with Cayuga, Seneca with Mohawk):{' '}
           <select aria-label="Sharing across villages" value={sharing.across ? 'yes' : 'no'} disabled={disabled} onChange={(e) => set({ across: e.target.value === 'yes' })}>
             <option value="yes">may mix</option>
             <option value="no">never mix</option>

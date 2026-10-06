@@ -15,19 +15,19 @@ describe('slotUsage', () => {
     expect(slotUsage(bunks, 0, bunks[1].id).get('Pool')).toBe('(O1)');
   });
 
-  it('uses just the letter when a whole village has it', () => {
+  it('uses the village name when a whole village has it', () => {
     const bunks = [bunk('O1', { 0: 'Pool' }), bunk('O2', { 0: 'Pool' }), bunk('S1'), bunk('S2'), bunk('M1')];
-    expect(slotUsage(bunks, 0, bunks[2].id).get('Pool')).toBe('(O)');
+    expect(slotUsage(bunks, 0, bunks[2].id).get('Pool')).toBe('(Onondaga)');
   });
 
   it("counts the rest of the current bunk's own village as a whole village", () => {
     const bunks = [bunk('O1', { 0: 'Pool' }), bunk('O2', { 0: 'Pool' }), bunk('O3'), bunk('S1')];
-    expect(slotUsage(bunks, 0, bunks[2].id).get('Pool')).toBe('(O)');
+    expect(slotUsage(bunks, 0, bunks[2].id).get('Pool')).toBe('(Onondaga)');
   });
 
-  it('mixes letters and bunk names, and says all when every other bunk has it', () => {
+  it('mixes village names and bunk names, and says all when every other bunk has it', () => {
     const bunks = [bunk('O1', { 0: 'Pool' }), bunk('O2', { 0: 'Pool' }), bunk('S1', { 0: 'Pool' }), bunk('S2'), bunk('M1')];
-    expect(slotUsage(bunks, 0, bunks[4].id).get('Pool')).toBe('(O, S1)');
+    expect(slotUsage(bunks, 0, bunks[4].id).get('Pool')).toBe('(Onondaga, S1)');
 
     const everyone = [bunk('O1', { 0: 'AM Hobbies' }), bunk('S1', { 0: 'AM Hobbies' }), bunk('M1')];
     expect(slotUsage(everyone, 0, everyone[2].id).get('AM Hobbies')).toBe('(all)');

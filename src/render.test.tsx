@@ -44,7 +44,7 @@ describe('rendering', () => {
       <BuildGrid bunks={bunks} onCell={noop} onBunk={noop} onAdd={noop} onRemove={noop} onMove={noop} onFillSlots={noop} onClear={noop} onRemoveMarks={noop} />,
     );
     for (const label of ['Clear what', 'Clear for', 'Clear day', 'Clear periods']) expect(html).toContain(`aria-label="${label}"`);
-    for (const option of ['everything', 'Waterfront', 'O village', 'the whole week', 'All day', 'Morning (periods 1-2)']) expect(html).toContain(`>${option}</option>`);
+    for (const option of ['everything', 'Waterfront', 'Onondaga', 'the whole week', 'All day', 'Morning (periods 1-2)']) expect(html).toContain(`>${option}</option>`);
     expect(html).toContain('>O1</option>'); // a single bunk can be picked
     expect(html).not.toContain('Remove the yellow marks'); // nothing is marked yet
     expect(html).not.toContain('class="cleared"');
@@ -103,12 +103,14 @@ describe('Auto generate UI', () => {
     expect(html).toContain('It reads the other weeks you have loaded');
     expect(html).toContain('The session calendar');
     expect(html).not.toContain('Session 2 (3 weeks');
-    // the page itself offers both sessions with this summer's dates, and each week and day carries its date
+    // the page opens on Setup the first time, which offers both sessions with this summer's dates
     const page = renderToStaticMarkup(<App />);
-    expect(page).toContain('Session 1 (4 weeks): June 27 to July 23, 2027');
-    expect(page).toContain('Session 2 (3 weeks, with Color War): July 26 to August 15, 2027');
-    expect(page).toContain('Week 1 (6.27 to 7.2)');
-    expect(page).toContain('Sunday 6.27');
+    expect(page).toMatch(/aria-pressed="true"[^>]*>Setup<\/button>/);
+    expect(page).toContain('<strong>Session 1 (4 weeks)</strong><span>June 27 to July 23, 2027</span>');
+    expect(page).toContain('<strong>Session 2 (3 weeks, with Color War)</strong><span>July 26 to August 15, 2027</span>');
+    // the week picker and the week's file are on the tabs that show a week, not here
+    expect(page).not.toContain('Week 1 (6.27 to 7.2)');
+    expect(page).not.toContain('Download Week 1');
     // one way to start again, and none of the old reset buttons
     expect(page).toMatch(/>\s*Start over\s*<\/button>/);
     for (const gone of ['Reset to sample', 'Clear all activities', 'Reset Week', 'Start this session over']) expect(page).not.toContain(gone);
@@ -157,7 +159,7 @@ describe('Auto generate UI', () => {
   it('has a "?" in the header that opens the how-to, written plainly and without long dashes', () => {
     expect(renderToStaticMarkup(<App />)).toContain('aria-label="How to use this page"');
     const html = renderToStaticMarkup(<HelpPanel onClose={noop} />);
-    for (const heading of ['How to use this page', 'The tabs', 'Building a week', 'Changing things by hand', 'Settings', 'Saving, sharing and printing', 'Good to know']) {
+    for (const heading of ['How to use this page', 'The tabs', 'Setting up and building a session', 'Changing things by hand', 'Settings', 'Saving, sharing and printing', 'Good to know']) {
       expect(html).toContain(`>${heading}</h`);
     }
     // the rules that are always kept are not listed for now

@@ -1,4 +1,4 @@
-import { villageOf } from './autofill';
+import { villageOf, villageName } from './autofill';
 import type { Bunk } from './types';
 
 /**
@@ -27,7 +27,7 @@ export function slotUsage(bunks: Bunk[], slot: number, currentBunkId: string): M
       const villageOthers = others.filter((o) => villageOf(o.name) === village);
       const villageHave = have.filter((h) => villageOf(h.name) === village);
       if (villageHave.length === villageOthers.length) {
-        parts.push(village);
+        parts.push(villageName(village));
         doneVillages.add(village);
       } else {
         parts.push(b.name.trim());

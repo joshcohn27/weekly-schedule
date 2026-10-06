@@ -7,6 +7,7 @@ import { bigVillageIn, usesBigVillageSettings, withBigVillageSettings, coreOf, w
 import CalendarSettings from './CalendarSettings';
 import CoreRows, { LastWeekSwitch } from './CoreSettings';
 import type { SessionTemplate } from '../autogen/sessionCalendar';
+import { villageName } from '../autofill';
 import Info, { HINT } from './Info';
 
 interface Props {
@@ -37,7 +38,7 @@ export const FIXED_RULES = [
   'No Waterfront until the swim test is done: in week 1, never on Sunday morning and never before the village has swum. Mohawk swims its test during General Swim on the first day, so its Waterfront starts on the second.',
   'Athletics and A&C stay within two of each other for each bunk over the session.',
   'No Music or Judaics period while any village is at Shabbat Prep: those specialists run it.',
-  'The pool: one group at a time, O and C never together, Tusc always together, and S with M only at the same age.',
+  'The pool: one group at a time, Onondaga and Cayuga never together, Tusc always together, and Seneca with Mohawk only at the same age.',
 ];
 
 /**
@@ -158,7 +159,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
             </tr>
           </thead>
           <tbody>
-            <CoreRows settings={settings} onChange={onChange} disabled={disabled} villages={villages} />
+            <CoreRows settings={settings} onChange={onChange} disabled={disabled} villages={villages} sessionWeeks={calendar?.template.weeks} />
             {settingAreas(settings).map((area) => {
               const a = settings.areas[area];
               return (
@@ -178,7 +179,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                     <td className="by-village">
                       {villages.map((v) => (
                         <label key={v}>
-                          {v} {number(area, `times for village ${v}`, a.villages?.[v] ?? a.min, 0, 12, (n) => set(area, { villages: { ...a.villages, [v]: n } }))}
+                          {villageName(v)} {number(area, `times for village ${v}`, a.villages?.[v] ?? a.min, 0, 12, (n) => set(area, { villages: { ...a.villages, [v]: n } }))}
                         </label>
                       ))}{' '}
                       a session, exactly
@@ -281,7 +282,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
       </p>
       {bigVillage && !suggested && (
         <p className="hint big-villages">
-          Village {bigVillage} has six or more bunks. With that many the usual numbers leave too few places, and weeks come back with
+          {villageName(bigVillage)} has six or more bunks. With that many the usual numbers leave too few places, and weeks come back with
           empty periods. The suggested settings: 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day at every area,
           and any two bunks of a village within a grade may share (not only the ones next to each other in the list).{' '}
           <button type="button" disabled={disabled || suggested} onClick={useSuggested}>

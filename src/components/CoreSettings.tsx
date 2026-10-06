@@ -12,6 +12,7 @@ import {
   type SharedNumbers,
   leagueOf,
 } from '../autogen/settings';
+import { villageName } from '../autofill';
 import Info, { HINT } from './Info';
 
 interface Props {
@@ -20,6 +21,8 @@ interface Props {
   disabled?: boolean;
   /** Village letters in the roster: league is set village by village. */
   villages?: string[];
+  /** How many weeks the session has: Shabbat is set for those weeks only. */
+  sessionWeeks?: number;
 }
 
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
@@ -35,7 +38,7 @@ const SHARED: { key: SharedKey; name: string; area: string; atOnce: number[] }[]
  * The rows of the settings table for Waterfront, league, the pool, Athletics, A&C, Music and Time with UH. They sit in
  * the same table as every other program area. Who swims together at the pool is not here: those rules are fixed.
  */
-export default function CoreRows({ settings, onChange, disabled, villages = [] }: Props) {
+export default function CoreRows({ settings, onChange, disabled, villages = [], sessionWeeks = 4 }: Props) {
   const core = coreOf(settings);
   const set = (patch: Partial<Core>) => onChange(withCore(settings, { ...core, ...patch }));
   const setShared = (key: SharedKey, patch: Partial<SharedNumbers>) => set({ [key]: { ...core[key], ...patch } } as Partial<Core>);
@@ -116,7 +119,7 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
             ? number('League times a week', core.leaguePerWeek, 0, 3, (n) => set({ leaguePerWeek: n }))
             : villages.map((v) => (
                 <label key={v}>
-                  {v}{' '}
+                  {villageName(v)}{' '}
                   {number(`League times a week for village ${v}`, leagueOf(settings, v), 0, 3, (n) => set({ leagueByVillage: { ...core.leagueByVillage, [v]: n } }))}
                 </label>
               ))}{' '}
@@ -166,7 +169,7 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
           <Info text="The Friday afternoon double is always there in a village's Shabbat week. The number is how many single periods it gets on top, earlier in the week (0 to 2; two are never on days next to each other). Shabbat Prep is run by the Music and Judaics specialists, so no bunk has Music or Judaics while a village is at Shabbat Prep. Villages that share a week prepare together." />
           <div className="shabbat-weeks">
             Who has Shabbat each week:
-            {shabbatWeeksOf(settings).map((picked, i) => (
+            {shabbatWeeksOf(settings).slice(0, sessionWeeks).map((picked, i) => (
               <span key={i} className="by-village">
                 <strong>Week {i + 1}</strong>
                 {(villages.length ? villages : ['O', 'C', 'S', 'M', 'T']).map((v) => (
@@ -178,7 +181,7 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
                       disabled={disabled}
                       onChange={(e) => onChange(withShabbatWeek(settings, i + 1, e.target.checked ? [...picked, v] : picked.filter((x) => x !== v)))}
                     />{' '}
-                    {v}
+                    {villageName(v)}
                   </label>
                 ))}
                 <label>

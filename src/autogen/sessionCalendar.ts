@@ -151,14 +151,14 @@ export const SESSION_2: SessionTemplate = {
   ],
   // a shorter session: Yoga once (twice at the most) and Dance one fewer for everybody
   // Tusc is the same campers as Session 1: Ceramics once is plenty, and one more ropes, High (three in the summer)
-  // A shorter session with Color War in it: the numbers are the ones that fit. Ceramics once for everybody, Judaics and
-  // Israel once (twice at the most), ropes once, league twice a week.
+  // A shorter session with Color War in it: the numbers are the ones that fit. Ceramics once for the older villages and
+  // not at all for Onondaga and Cayuga, Judaics and Israel once (twice at the most), ropes once, league twice a week.
   numbers: {
     Yoga: { min: 1, max: 2 },
     Judaics: { min: 1, max: 2 },
     'Israel Education': { min: 1, max: 2 },
     Dance: { min: 1, villages: { O: 2, S: 2, C: 1, T: 1, M: 1 } },
-    Ceramics: { min: 1, villages: { O: 1, C: 1, S: 1, M: 1, T: 1 } },
+    Ceramics: { min: 1, villages: { O: 0, C: 0, S: 1, M: 1, T: 1 } },
   },
   core: { ropesPerSession: 1, leaguePerWeek: 2 },
   villageTargets: { Ropes: { T: 1 } },

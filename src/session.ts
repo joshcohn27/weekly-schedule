@@ -166,3 +166,40 @@ export function startedOver(state: WeeksState, how: StartOver): WeeksState {
   const { settings: _old, ...rest } = state;
   return { ...rest, weeks: applyCalendar(weeks, t.events), ...(isDefaultSettings(settings) ? {} : { settings }) };
 }
+
+/** The bunks of the session, as the Setup tab lists them: the first week that has any (Taste of CSL is in week 1 only). */
+export function rosterOf(state: WeeksState): Schedule['bunks'] {
+  const t = templateOf(state.session);
+  return state.weeks.slice(0, t.weeks).find((w) => w && w.bunks.length > 0)?.bunks ?? [];
+}
+
+/** Apply a change to one bunk of the roster in every week it is in. The other weeks know the bunk by its name. */
+function inEveryWeek(state: WeeksState, id: string, change: (bunks: Schedule['bunks'], at: number) => Schedule['bunks']): WeeksState {
+  const t = templateOf(state.session);
+  const roster = rosterOf(state);
+  const name = roster.find((b) => b.id === id)?.name.trim() ?? '';
+  const weeks = state.weeks.map((w, i) => {
+    if (!w || i >= t.weeks) return w;
+    const byId = w.bunks.findIndex((b) => b.id === id);
+    const at = byId >= 0 ? byId : name ? w.bunks.findIndex((b) => b.name.trim() === name) : -1;
+    return at < 0 ? w : { ...w, bunks: change(w.bunks, at) };
+  });
+  return { ...state, weeks };
+}
+
+/** A bunk's name, grades or camper count, changed in every week of the session. */
+export const withBunkChanged = (state: WeeksState, id: string, field: 'name' | 'grades' | 'count', value: string): WeeksState =>
+  inEveryWeek(state, id, (bunks, at) => bunks.map((b, i) => (i === at ? { ...b, [field]: value } : b)));
+
+/** A bunk taken out of every week of the session, with everything on its rows. */
+export const withBunkRemoved = (state: WeeksState, id: string): WeeksState => inEveryWeek(state, id, (bunks, at) => bunks.filter((_, i) => i !== at));
+
+/** A bunk moved one place up or down the list in every week of the session. */
+export const withBunkMoved = (state: WeeksState, id: string, direction: -1 | 1): WeeksState =>
+  inEveryWeek(state, id, (bunks, at) => {
+    const to = at + direction;
+    if (to < 0 || to >= bunks.length) return bunks;
+    const next = [...bunks];
+    [next[at], next[to]] = [next[to], next[at]];
+    return next;
+  });

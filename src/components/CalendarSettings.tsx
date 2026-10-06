@@ -1,4 +1,4 @@
-import { GUEST_VILLAGE } from '../autofill';
+import { GUEST_VILLAGE, villageName } from '../autofill';
 import { TRIP_LABELS } from '../autogen/config';
 import { CAMP, dateOf, shortDate, type CalendarEvent, type SessionTemplate } from '../autogen/sessionCalendar';
 import type { Settings } from '../autogen/settings';
@@ -27,7 +27,7 @@ const WHEN: { value: string; label: string; periods: number[] }[] = [
 const whenOf = (periods: number[]): string => WHEN.find((w) => w.periods.join() === periods.join())?.value ?? 'all';
 
 /** What an event's "who" reads as. */
-const whoName = (who: string): string => (who === CAMP ? 'Whole camp' : who === GUEST_VILLAGE ? 'Taste of CSL' : who.length === 1 ? `Village ${who}` : who);
+const whoName = (who: string): string => (who === CAMP ? 'Whole camp' : who === GUEST_VILLAGE ? 'Taste of CSL' : who.length === 1 ? villageName(who) : who);
 
 /**
  * The session calendar on the Settings tab: when Mass Program is, when village day is, where each trip goes, and anything
@@ -38,11 +38,16 @@ export default function CalendarSettings({ settings, template, villages, onChang
   const events = settings.calendar ?? template.events;
   const set = (next: CalendarEvent[]) => onChange({ ...settings, calendar: next });
   const patch = (index: number, change: Partial<CalendarEvent>) => set(events.map((e, i) => (i === index ? { ...e, ...change } : e)));
-  const whoChoices = [...new Set([CAMP, ...villages, ...events.map((e) => e.who)])];
+  // Taste of CSL's week is set: its lines stay on the calendar and are not listed or changed here
+  const isTaste = (who: string): boolean => who.startsWith(GUEST_VILLAGE);
+  const whoChoices = [...new Set([CAMP, ...villages, ...events.map((e) => e.who)])].filter((w) => !isTaste(w));
   const labels = [...new Set([...TRIP_LABELS, ...events.map((e) => e.label)])];
   const weeks = Array.from({ length: template.weeks }, (_, i) => i + 1);
   // in the order they happen
-  const order = events.map((e, i) => ({ e, i })).sort((x, y) => x.e.week - y.e.week || x.e.day - y.e.day || x.e.periods[0] - y.e.periods[0] || x.i - y.i);
+  const order = events
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => !isTaste(e.who))
+    .sort((x, y) => x.e.week - y.e.week || x.e.day - y.e.day || x.e.periods[0] - y.e.periods[0] || x.i - y.i);
 
   return (
     <>
@@ -51,6 +56,7 @@ export default function CalendarSettings({ settings, template, villages, onChang
         Everything that is not a period: trips, Tiyuls, village day, Mass Program, Color War, Visitor&apos;s Day. Auto generate puts these on
         the schedule first and builds the periods around them. This starts as {template.name} was in 2026, on this summer&apos;s dates. Change
         a line to move it, and what you set here is where it goes from then on.
+        {events.some((e) => isTaste(e.who)) && ' Taste of CSL has a set week of its own, which is not listed here.'}
       </p>
       <div className="scroll">
         <table border={1} className="calendar-settings">
