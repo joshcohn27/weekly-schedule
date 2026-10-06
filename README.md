@@ -196,8 +196,8 @@ in memory only, and goes away when you edit a cell or upload a file.
 The **Settings** tab holds the numbers Auto generate works with, one row per program area (Judaics, Israel, Teva,
 Ceramics, Yoga, Dance):
 
-- **Times per bunk per session, at least and at most.** "At least" is what every bunk is given. When "at most" is
-  higher, the extra visit only fills a period that would otherwise be Athletics or A&C. Dance is set village by village.
+- **Times per bunk per session: exactly, or a range.** "Exactly 2" gives every bunk two. "From 2 to 3" gives every
+  bunk two, and a third only fills a period that would otherwise be Athletics or A&C. Dance is set village by village.
 - **Bunks at once** (1 or 2) and **bunks of one village in a day.**
 
 Whatever periods these areas do not use become Athletics, A&C or Time with UH. So raising a number means less of
@@ -220,7 +220,7 @@ cut to 1 and no third Ceramics, for example, a run tried for its full time and d
   people, not by bunks.
 - **Shabbat Prep:** which village or villages have Shabbat in each week (or No Shabbat), and how many single periods (0 to 2) a village gets earlier in its Shabbat week on top of the Friday afternoon double, which is always there. Music and Judaics never have a period while a village is at Shabbat Prep, because their specialists run it; villages that share a week prepare together. The extra periods go where the fewest other bunks are free, and in a week with Shabbat Prep a bunk whose Music cannot fit goes without it that week.
 - **Athletics and A&C:** the most a week, bunks at once, bunks of one village in a day.
-- **Music:** times a week and the most. **Time with UH:** at least and at most a session.
+- **Music:** times a week and the most. **Time with UH:** exactly, or a range, a session.
 - **Trips** have no numbers: a Tiyul or a bike trip is entered by hand.
 
 "A week" is a rough number, the average over the session; a short week gets fewer. Each number on the page is
@@ -235,7 +235,7 @@ the session, and it starts off.
 table, choose its numbers and press Add. It becomes an activity you can pick on the Build tab, a column on the
 Tracking tab and a tab in the specialist schedules, and Auto generate gives it to every bunk as single periods, like
 the rarer areas that come with the app. Up to six can be added, each with a Remove button. To stop using an area
-that comes with the app, set both of its numbers to 0. Every period an added area takes is one fewer Athletics or
+that comes with the app, set it to exactly 0. Every period an added area takes is one fewer Athletics or
 A&C; every area taken away is that many more.
 
 **Who may share a period.** Three basic choices: inside a village, only the bunk next in the list or any bunk of the

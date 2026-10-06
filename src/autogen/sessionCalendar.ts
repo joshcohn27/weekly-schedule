@@ -58,6 +58,8 @@ export interface SessionTemplate {
   ropesStartHigh?: string[];
   /** Where this session's numbers differ from the app's own: times a session for an area, or for each village (Dance). */
   numbers?: Record<string, { min?: number; max?: number; villages?: Record<string, number> }>;
+  /** Where this session's main numbers differ: ropes a session, league a week. */
+  core?: { ropesPerSession?: number; leaguePerWeek?: number };
 }
 
 /** The date of a day of a session: the Sunday of the week opening day falls in is day 0 of week 1. */
@@ -148,9 +150,18 @@ export const SESSION_2: SessionTemplate = {
     camp('Tusc Triathlon', 3, THU, PM),
   ],
   // a shorter session: Yoga once (twice at the most) and Dance one fewer for everybody
-  numbers: { Yoga: { min: 1, max: 2 }, Dance: { min: 1, villages: { O: 2, S: 2, C: 1, T: 1, M: 1 } } },
   // Tusc is the same campers as Session 1: Ceramics once is plenty, and one more ropes, High (three in the summer)
-  villageTargets: { Ceramics: { T: 1 }, Ropes: { T: 1 } },
+  // A shorter session with Color War in it: the numbers are the ones that fit. Ceramics once for everybody, Judaics and
+  // Israel once (twice at the most), ropes once, league twice a week.
+  numbers: {
+    Yoga: { min: 1, max: 2 },
+    Judaics: { min: 1, max: 2 },
+    'Israel Education': { min: 1, max: 2 },
+    Dance: { min: 1, villages: { O: 2, S: 2, C: 1, T: 1, M: 1 } },
+    Ceramics: { min: 1, villages: { O: 1, C: 1, S: 1, M: 1, T: 1 } },
+  },
+  core: { ropesPerSession: 1, leaguePerWeek: 2 },
+  villageTargets: { Ropes: { T: 1 } },
   ropesStartHigh: ['T'],
   // 3 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL (4) for week 1: its cabins are Onondaga's and Cayuga's
   // the camp has 27 cabins in all, and Taste of CSL's come out of Onondaga's and Cayuga's

@@ -162,6 +162,7 @@ const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: Cor
   { label: 'Ropes, times a session', get: (c) => c.ropesPerSession, set: (c, n) => (c.ropesPerSession = n as number) },
   { label: 'Ropes, most campers at once', get: (c) => c.ropesMaxCampers, set: (c, n) => (c.ropesMaxCampers = n as number) },
   { label: 'Yoga, most campers at once', get: (c) => c.yogaMaxCampers, set: (c, n) => (c.yogaMaxCampers = n as number) },
+  { label: 'Ceramics, most campers at once', get: (c) => c.ceramicsMaxCampers, set: (c, n) => (c.ceramicsMaxCampers = n as number) },
   { label: 'Pool, times a week', get: (c) => c.poolPerWeek, set: (c, n) => (c.poolPerWeek = n as number) },
   { label: 'Pool, lessons alone for an O or C bunk', get: (c) => c.poolLessons, set: (c, n) => (c.poolLessons = n as number) },
   { label: 'Pool, most campers at once', get: (c) => c.poolMaxCampers, set: (c, n) => (c.poolMaxCampers = n as number) },

@@ -5,6 +5,24 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.7.1 (October 5, 2026)
+
+- **Exactly, or a range.** Each program area's row on the Settings tab now starts with a choice: "exactly 2 a session", or
+  "from 2 to 3 a session". Time with UH has it too. The numbers themselves have not changed, and neither has how a
+  schedule is generated: "exactly" is what both numbers the same always meant.
+- The Settings tab no longer says "Will come up short" when a village is only a period or two short of what the numbers
+  ask for, which is what a lot of league does. It still says so from three periods up.
+- **Ceramics** is set village by village, like Dance: Onondaga and Cayuga once a session, Seneca, Mohawk and Tusc twice.
+  It goes by campers, like ropes and Yoga: at most 16 at once.
+- **Teva** is from 1 to 3 a session (it was exactly 3).
+- **The numbers the app starts with fit the biggest camp**, so there is no separate set of settings for big villages to
+  switch on: 4 bunks at once at Athletics, 3 bunks of a village a day at every area, and any two bunks of a village
+  within a grade may share. Schedules saved with the old starting numbers are moved to these.
+- **Session 2 starts with numbers that fit it**: ropes once, league twice a week, Ceramics once for every village, and
+  Judaics and Israel from 1 to 2. Its Settings tab no longer opens with warnings.
+- The Settings check leaves Taste of CSL out of its counts, and counts Yoga and Ceramics by how many bunks really fit
+  under their camper limits.
+
 ## 1.7.0 (October 5, 2026)
 
 - **Start over.** One button in the bar under the tabs replaces four: Reset Week, Clear all activities, Reset to sample

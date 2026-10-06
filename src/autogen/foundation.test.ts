@@ -165,10 +165,11 @@ describe('who may share a period and an area', () => {
     expect(level('T1', 'S3', 'Athletics')).toBe(0);
   });
 
-  it('Athletics: any two or three bunks on any visit, never four', () => {
+  it('Athletics: up to four bunks on any visit, never five', () => {
     expect(problems('Athletics', ['O1', 'S1', 'T1'])).toEqual([]);
     expect(problems('Athletics', ['C2', 'C3'], [1, 2])).toEqual([]);
-    expect(problems('Athletics', ['O1', 'O2', 'S1', 'T1'])).toEqual(['H14']);
+    expect(problems('Athletics', ['O1', 'O2', 'S1', 'T1'])).toEqual([]);
+    expect(problems('Athletics', ['O1', 'O2', 'S1', 'T1', 'M1'])).toEqual(['H14']);
   });
 
   it('A&C: a pair that may share or three of the same age, always on the same visit', () => {
@@ -208,7 +209,7 @@ describe('who may share a period and an area', () => {
     // the limit starts at 30 campers, and every bunk in this roster has 12
     expect(problems('Ropes', ['O1', 'O2'])).toEqual([]); // 24 campers
     expect(problems('Ropes', ['O1', 'C1'])).toEqual(['H13']); // two villages
-    expect(problems('Ropes', ['O1', 'O3'])).toEqual(['H13']); // not next to each other
+    expect(problems('Ropes', ['O1', 'O5'])).toEqual(['H13']); // two grades apart: they may not share
     expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1])).toEqual(['H14']); // 36 campers
     expect(problems('Ropes', ['O1', 'O2'], [1, 2])).toEqual(['H5']); // still on the same visit
     // it is the number of campers that counts, not the number of bunks

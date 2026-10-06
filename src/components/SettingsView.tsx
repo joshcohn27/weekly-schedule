@@ -74,6 +74,33 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
       }}
     />
   );
+  // how often: "exactly" is both numbers the same, "from _ to _" is a range
+  const often = (label: string, value: { min: number; max: number }, input: (label: string, value: number, change: (n: number) => void) => JSX.Element, change: (next: { min: number; max: number }) => void) => {
+    const exact = value.min === value.max;
+    return (
+      <>
+        <select
+          aria-label={`${label} exactly or a range`}
+          value={exact ? 'exactly' : 'range'}
+          disabled={disabled}
+          onChange={(e) => change(e.target.value === 'exactly' ? { min: value.min, max: value.min } : { min: value.min, max: value.min + 1 })}
+        >
+          <option value="exactly">exactly</option>
+          <option value="range">from</option>
+        </select>{' '}
+        {exact ? (
+          <>
+            {input('exactly', value.min, (n) => change({ min: n, max: n }))} a session <Info text={HINT.exactly} />
+          </>
+        ) : (
+          <>
+            {input('at least', value.min, (n) => change({ min: n, max: Math.max(n + 1, value.max) }))} to{' '}
+            {input('at most', value.max, (n) => change({ max: n, min: Math.min(n, value.min) }))} a session <Info text={HINT.atMost} />
+          </>
+        )}
+      </>
+    );
+  };
   const number = (area: string, label: string, value: number, least: number, most: number, change: (n: number) => void) => (
     <input
       type="number"
@@ -158,16 +185,17 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                     </td>
                   ) : (
                     <td>
-                      at least {number(area, 'at least', a.min, 0, 12, (n) => set(area, { min: n, max: Math.max(n, a.max) }))} a session, at most{' '}
-                      {number(area, 'at most', a.max, 0, 12, (n) => set(area, { max: n, min: Math.min(n, a.min) }))} <Info text={HINT.atMost} />
+                      {often(nameOf(area), a, (label, value, change) => number(area, label, value, 0, 12, change), (next) => set(area, next))}
                     </td>
                   )}
-                  {area === 'Yoga' ? (
+                  {area === 'Yoga' || area === 'Ceramics' ? (
                     <td colSpan={2}>
                       At most{' '}
-                      {number(area, 'most campers at once', coreOf(settings).yogaMaxCampers, 5, 200, (n) => onChange(withCore(settings, { ...coreOf(settings), yogaMaxCampers: n })))}{' '}
+                      {area === 'Yoga'
+                        ? number(area, 'most campers at once', coreOf(settings).yogaMaxCampers, 5, 200, (n) => onChange(withCore(settings, { ...coreOf(settings), yogaMaxCampers: n })))
+                        : number(area, 'most campers at once', coreOf(settings).ceramicsMaxCampers, 5, 200, (n) => onChange(withCore(settings, { ...coreOf(settings), ceramicsMaxCampers: n })))}{' '}
                       campers at once{' '}
-                      <Info text="Yoga goes by people, not by bunks, the way Ropes does: bunks that are next to each other in a village go together as long as their campers add up to no more than this. A bunk bigger than the number goes alone." />
+                      <Info text={`${area} goes by people, not by bunks, the way Ropes does: bunks that are next to each other in a village go together as long as their campers add up to no more than this. A bunk bigger than the number goes alone.`} />
                     </td>
                   ) : (
                     <>
@@ -208,8 +236,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                 />
               </th>
               <td>
-                at least {draftNumber('at least', draft.min, 0, 12, (n) => setDraft({ ...draft, min: n, max: Math.max(n, draft.max) }))} a session, at most{' '}
-                {draftNumber('at most', draft.max, 0, 12, (n) => setDraft({ ...draft, max: n, min: Math.min(n, draft.min) }))}
+                {often('New program area', draft, (label, value, change) => draftNumber(label, value, 0, 12, change), (next) => setDraft({ ...draft, ...next }))}
               </td>
               <td>
                 <select aria-label="New program area bunks at once" value={draft.atOnce} disabled={disabled} onChange={(e) => setDraft({ ...draft, atOnce: Number(e.target.value) })}>
@@ -233,11 +260,12 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
       <p className="hint">
         To add a program area (archery, martial arts), type its name in the last row, choose its numbers and press Add. It becomes an
         activity you can pick on the Build tab, a column on the Tracking tab and a tab in the specialist schedules, and Auto generate
-        gives it to every bunk as single periods. To stop using an area that comes with the app, set both of its numbers to 0.
+        gives it to every bunk as single periods. To stop using an area that comes with the app, set it to exactly 0.
       </p>
       <p className="hint">
-        The first number is what every bunk is given. "At most" is how far the area may go to fill a period that would otherwise be
-        Athletics or A&C, so the extra shows up in crowded weeks and not for everyone. "A week" is the average over the session: a
+        "Exactly" gives every bunk that many. "From _ to _" gives every bunk the first number, and the area may go as far as the second
+        to fill a period that would otherwise be Athletics or A&C, so the extra shows up in crowded weeks and not for everyone. When
+        the calendar leaves a bunk too few periods for everything, it ends short of something either way. "A week" is the average over the session: a
         short week, or one with a trip in it, gets fewer. Dance is set village by village. Athletics and A&C are whatever periods the
         other areas leave, up to their weekly number, so raising another area means less of them and lowering one means more.
       </p>
@@ -251,7 +279,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
           Reset to the default settings
         </button>
       </p>
-      {bigVillage && (
+      {bigVillage && !suggested && (
         <p className="hint big-villages">
           Village {bigVillage} has six or more bunks. With that many the usual numbers leave too few places, and weeks come back with
           empty periods. The suggested settings: 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day at every area,

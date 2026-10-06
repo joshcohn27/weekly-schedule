@@ -17,6 +17,7 @@ import {
   BY_CAMPERS_DAY_CAP,
   ROPES_START_HIGH,
   VILLAGE_TARGETS,
+  AREA_BY_VILLAGE,
   BY_CAMPERS_SLOT_CAP,
   CAMPER_CAP,
   VISIT,
@@ -75,10 +76,16 @@ export interface Settings {
  * 2: Judaics and Yoga take two bunks at once (two of a village a day). Settings saved before that still hold the old one
  * and one for them, so those two numbers are moved up when such settings are read.
  * 3: Yoga takes 20 campers at once, not 22. Settings saved with the old 22 are moved to 20.
+ * 4: Ceramics is exactly twice (it was 2 to 3) and goes by campers; Teva is 1 to 3 (it was exactly 3). Settings saved with
+ *    the old numbers, which were the app's and not a choice, are moved to the new ones. The numbers a camp of 27 bunks
+ *    needs are the starting ones: 4 at once at Athletics and 3 bunks of a village a day everywhere (they were 3 and 2), and
+ *    any two bunks of a village may share. Saved 3 and 2 are moved up the same way.
  */
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 /** What Yoga's camper limit started at before settings version 3. */
 const OLD_YOGA_CAMPERS = 22;
+/** What Ceramics and Teva started at before settings version 4. */
+const OLD_NUMBERS: Record<string, { min: number; max: number }> = { Ceramics: { min: 2, max: 3 }, Teva: { min: 3, max: 3 } };
 
 /** An area that bunks may share: how many at once, how many of one village in a day, and (Athletics, A&C) how many times a bunk may have it in a week. */
 export interface SharedNumbers {
@@ -107,6 +114,8 @@ export interface CoreSettings {
   ropesMaxCampers: number;
   /** Yoga goes by campers: two bunks have it together only when they have no more campers between them than this. */
   yogaMaxCampers: number;
+  /** Ceramics goes by campers too. */
+  ceramicsMaxCampers: number;
   /** The pool: swims a week, how many of an O or C bunk's first swims are lessons alone, and the most campers in the water at once. */
   poolPerWeek: number;
   poolLessons: number;
@@ -139,6 +148,7 @@ const CORE_LIMITS = {
   ropesPerSession: [0, 2],
   ropesMaxCampers: [5, 200],
   yogaMaxCampers: [5, 200],
+  ceramicsMaxCampers: [5, 200],
   poolPerWeek: [0, 1],
   poolLessons: [0, 4],
   poolMaxCampers: [10, 500],
@@ -184,6 +194,7 @@ function readCore(): CoreSettings {
     ropesPerSession: SESSION_TARGETS.Ropes,
     ropesMaxCampers: ROPES_MAX_CAMPERS,
     yogaMaxCampers: CAMPER_CAP.Yoga,
+    ceramicsMaxCampers: CAMPER_CAP.Ceramics,
     poolPerWeek: POOL_TARGETS.O?.perWeek ?? 1,
     poolLessons: POOL_LESSONS,
     poolMaxCampers: POOL_MAX_CAMPERS,
@@ -355,11 +366,13 @@ function readConfig(): Settings {
     const dance = area === 'Dance';
     const min = dance ? DANCE_TARGETS[OTHER] : SESSION_TARGETS[area];
     const byCampers = CAMPER_CAP[area] !== undefined; // the check reads such an area as about two bunks at a time
-    areas[area] = { min, max: Math.max(min, SESSION_FILLER_MAX[area] ?? min), atOnce: byCampers ? 2 : SLOT_CAP[area], villagePerDay: byCampers ? 2 : DAY_CAP[area] };
+    areas[area] = { min, max: Math.max(min, SESSION_FILLER_MAX[area] ?? min), atOnce: byCampers ? 2 : SLOT_CAP[area], villagePerDay: byCampers ? 3 : DAY_CAP[area] };
     if (dance) {
       const villages = { ...DANCE_TARGETS };
       delete villages[OTHER];
       areas[area].villages = villages;
+    } else if (AREA_BY_VILLAGE[area]) {
+      areas[area].villages = { ...AREA_BY_VILLAGE[area] };
     }
   }
   return { areas, v: SETTINGS_VERSION };
@@ -372,6 +385,19 @@ const whole = (v: unknown, least: number, most: number, fallback: number): numbe
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
   return Number.isFinite(n) ? Math.min(most, Math.max(least, Math.round(n))) : fallback;
 };
+
+/** Core numbers saved before settings version 4: the app's old 3 at once at Athletics and 2 bunks of a village a day follow the app to 4 and 3. */
+function broughtUp(core: unknown, saved: number): unknown {
+  if (saved >= 4 || !core || typeof core !== 'object') return core;
+  const out = JSON.parse(JSON.stringify(core)) as Record<string, Partial<SharedNumbers> | undefined>;
+  for (const key of ['athletics', 'ac', 'music', 'uh']) {
+    const n = out[key];
+    if (!n || typeof n !== 'object') continue;
+    if (Number(n.villagePerDay) < 3) n.villagePerDay = 3;
+    if (key === 'athletics' && Number(n.atOnce) === 3) n.atOnce = 4;
+  }
+  return out;
+}
 
 /** Accepts whatever was saved or uploaded and returns valid settings: anything missing or out of range falls back to the default. */
 export function normalizeSettings(raw: unknown): Settings {
@@ -395,7 +421,7 @@ export function normalizeSettings(raw: unknown): Settings {
   if (sharing) out.sharing = sharing;
   const givenCore = (raw as { core?: { yogaMaxCampers?: unknown } | null }).core;
   // saved while Yoga started at 22 campers: that was the app's number, not a choice, so it follows the app to 20
-  const core = normalizeCore(saved < 3 && givenCore && Number(givenCore.yogaMaxCampers) === OLD_YOGA_CAMPERS ? { ...givenCore, yogaMaxCampers: defaultCore().yogaMaxCampers } : givenCore);
+  const core = normalizeCore(broughtUp(saved < 3 && givenCore && Number(givenCore.yogaMaxCampers) === OLD_YOGA_CAMPERS ? { ...givenCore, yogaMaxCampers: defaultCore().yogaMaxCampers } : givenCore, saved));
   if (core) out.core = core;
   const visits = normalizeVisits((raw as { visits?: unknown }).visits);
   if (visits) out.visits = visits;
@@ -411,6 +437,13 @@ export function normalizeSettings(raw: unknown): Settings {
         if (letter && Number.isFinite(Number(n))) (kept[area] ??= {})[letter] = Math.max(0, Math.min(12, Math.round(Number(n))));
       }
     }
+    // an area that is now set village by village on the page: its saved numbers move there
+    for (const area of Object.keys(kept)) {
+      const villages = out.areas[area]?.villages;
+      if (!villages) continue;
+      Object.assign(villages, kept[area]);
+      delete kept[area];
+    }
     if (Object.keys(kept).length) out.villageTargets = kept;
   }
   const high = (raw as { ropesStartHigh?: unknown }).ropesStartHigh;
@@ -419,12 +452,17 @@ export function normalizeSettings(raw: unknown): Settings {
     const g = given[area];
     if (!g || typeof g !== 'object') continue;
     const d = out.areas[area];
-    d.min = whole(g.min, 0, 12, d.min);
-    d.max = Math.max(d.min, whole(g.max, 0, 12, d.max));
+    // saved under the app's old numbers for this area: they follow the app to the new ones
+    const old = saved < 4 ? OLD_NUMBERS[area] : undefined;
+    if (!(old && Number(g.min) === old.min && Number(g.max) === old.max)) {
+      d.min = whole(g.min, 0, 12, d.min);
+      d.max = Math.max(d.min, whole(g.max, 0, 12, d.max));
+    }
     d.atOnce = whole(g.atOnce, 1, 2, d.atOnce);
     d.villagePerDay = whole(g.villagePerDay, 1, 6, d.villagePerDay);
     // saved before two bunks could be at Judaics or Yoga together: the old one and one become the new two and two
     if (older && OPENED_UP.includes(area) && d.atOnce === 1 && d.villagePerDay === 1) Object.assign(d, { atOnce: 2, villagePerDay: 2 });
+    if (saved < 4 && d.villagePerDay < 3) d.villagePerDay = 3; // the app's old 2 (1 for Ceramics) follows the app to 3
     if (d.villages && g.villages && typeof g.villages === 'object') {
       const villages: Record<string, number> = {};
       for (const [letter, n] of Object.entries(g.villages)) {
@@ -473,6 +511,7 @@ export function applySettings(settings?: Settings | null): void {
   const s = normalizeSettings(settings ?? null);
   const filler: Record<string, number> = {};
   const hardMax: Record<string, number> = {};
+  const byVillage: Record<string, Record<string, number>> = {};
   // the added areas: each is an activity of its own, planned as single periods like the rarer areas that come with the app
   const custom = s.custom ?? [];
   for (const old of inForce) {
@@ -492,8 +531,13 @@ export function applySettings(settings?: Settings | null): void {
   resetAreaBits();
   for (const area of settingAreas(s)) {
     const a = s.areas[area];
-    if (a.villages) {
+    if (a.villages && area === 'Dance') {
       replace(DANCE_TARGETS, { ...a.villages, [OTHER]: a.min });
+      hardMax[area] = Math.max(a.min, ...Object.values(a.villages));
+    } else if (a.villages) {
+      // set village by village, exactly: a village not listed gets the plain number
+      SESSION_TARGETS[area] = a.min;
+      byVillage[area] = { ...a.villages };
       hardMax[area] = Math.max(a.min, ...Object.values(a.villages));
     } else {
       SESSION_TARGETS[area] = a.min;
@@ -514,6 +558,7 @@ export function applySettings(settings?: Settings | null): void {
   SESSION_TARGETS.Ropes = core.ropesPerSession;
   setRopesMax(core.ropesMaxCampers);
   CAMPER_CAP.Yoga = core.yogaMaxCampers;
+  CAMPER_CAP.Ceramics = core.ceramicsMaxCampers;
   CALENDAR.hobbySessions = core.hobbySessions;
   CALENDAR.shabbatPrep = core.shabbatPrep;
   CALENDAR.shabbatPrepExtra = core.shabbatPrepExtra;
@@ -534,6 +579,7 @@ export function applySettings(settings?: Settings | null): void {
   SESSION_CALENDAR.events = s.calendar ?? null;
   for (const key of Object.keys(VILLAGE_TARGETS)) delete VILLAGE_TARGETS[key];
   Object.assign(VILLAGE_TARGETS, JSON.parse(JSON.stringify(s.villageTargets ?? {})));
+  for (const [area, villages] of Object.entries(byVillage)) VILLAGE_TARGETS[area] = { ...(VILLAGE_TARGETS[area] ?? {}), ...villages };
   ROPES_START_HIGH.length = 0;
   ROPES_START_HIGH.push(...(s.ropesStartHigh ?? []));
   const visits = visitsOf(s);
@@ -556,7 +602,8 @@ export function templateSettings(template: SessionTemplate): Settings {
     a.max = Math.max(a.min, n.max ?? Math.min(a.max, a.min));
     if (n.villages && a.villages) a.villages = { ...n.villages };
   }
-  return normalizeSettings({ ...s, villageTargets: template.villageTargets, ropesStartHigh: template.ropesStartHigh });
+  const core = template.core ? { ...defaultCore(), ...template.core } : undefined;
+  return normalizeSettings({ ...s, ...(core ? { core } : {}), villageTargets: template.villageTargets, ropesStartHigh: template.ropesStartHigh });
 }
 
 /** Does some village have six bunks or more? The usual numbers then leave too few places. */

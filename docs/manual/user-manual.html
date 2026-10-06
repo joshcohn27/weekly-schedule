@@ -45,7 +45,7 @@
   <h1>Weekly Period Schedule Builder</h1>
   <div class="sub">User's Manual</div>
   <img src="screenshots/13-schedule-tab-week-2.png" alt="A finished week on the Schedule tab">
-  <div class="ver">For version 1.7.0 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
+  <div class="ver">For version 1.7.1 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
 </section>
 
 <h1>Quick Start</h1>
@@ -334,7 +334,7 @@
 <table>
   <tr><th>It says</th><th>It means</th></tr>
   <tr><td>These settings add up: the periods fit.</td><td>Nothing to do.</td></tr>
-  <tr><td>Will come up short.</td><td>A schedule comes out, but the calendar leaves less room than the numbers ask for, so some bunks will end the session short of a few visits. Nothing has to change. Lower a number if you would rather choose what gives way.</td></tr>
+  <tr><td>Will come up short.</td><td>A schedule comes out, but the calendar leaves less room than the numbers ask for, so some bunks will end the session short of a few visits. Nothing has to change. Lower a number if you would rather choose what gives way. A village that is only a period or two short, which is what a lot of league does, is not mentioned.</td></tr>
   <tr><td>Unlikely to work.</td><td>It adds up on paper, but settings this tight did not generate when they were tried. It says what to try.</td></tr>
   <tr><td>Not possible.</td><td>The periods do not add up. It says what to try.</td></tr>
 </table>
@@ -354,8 +354,8 @@
   <tr><td>Who has Shabbat each week</td><td>Tick the village or villages for each week, or No Shabbat.</td><td>Week 1 Mohawk, week 2 Onondaga and Cayuga, week 3 Seneca and Tusc</td><td>This summer's turns are different.</td></tr>
   <tr><td>Athletics and A&amp;C, at most _ a week</td><td>The most of each a bunk has in a week. They fill whatever periods the other areas leave.</td><td>3</td><td>Rarely.</td></tr>
   <tr><td>Music, at least _ a week, at most _</td><td>The weekly Music, and how far it may go to fill a period.</td><td>1 and 2</td><td>The Music specialist is part time.</td></tr>
-  <tr><td>Time with UH, at least _ a session, at most _</td><td>Time with the Unit Head: what every bunk gets, and how far it may go to fill a period.</td><td>1 and 3</td><td>Unit heads want more time with bunks.</td></tr>
-  <tr><td>Judaics, Israel, Teva, Ceramics, Yoga: at least _ a session, at most _</td><td>"At least" is what every bunk is given. "At most" is how far it may go to fill a period that would otherwise be Athletics or A&amp;C.</td><td>Judaics 2 and 3. Israel 2 and 2. Teva 3 and 3. Ceramics 2 and 3. Yoga 2 and 3.</td><td>A specialist is hired, leaves, or is part time. To stop using an area, set both to 0.</td></tr>
+  <tr><td>Time with UH, exactly _ a session, or from _ to _</td><td>Time with the Unit Head: what every bunk gets, and with a range, how far it may go to fill a period.</td><td>From 1 to 3</td><td>Unit heads want more time with bunks.</td></tr>
+  <tr><td>Judaics, Israel, Teva, Ceramics, Yoga: exactly _ a session, or from _ to _</td><td>Pick "exactly" to give every bunk that many and no more. Pick "from" for a range: every bunk is given the first number, and the area may go as far as the second to fill a period that would otherwise be Athletics or A&amp;C. When the calendar leaves a bunk too few periods for everything, it ends short of something either way.</td><td>Judaics from 2 to 3. Israel exactly 2. Teva exactly 3. Ceramics from 2 to 3. Yoga from 2 to 3.</td><td>A specialist is hired, leaves, or is part time. To stop using an area, set it to exactly 0.</td></tr>
   <tr><td>Dance, by village, a session, exactly</td><td>Dance is set village by village.</td><td>O 3, C 2, S 3, M 1, T 2</td><td>A village wants more or less Dance.</td></tr>
   <tr><td>Bunks at once</td><td>How many bunks an area takes in one period.</td><td>Athletics 3, A&amp;C 3, Ceramics 1, the others 2</td><td>A second specialist, or a bigger space.</td></tr>
   <tr><td>Yoga, at most _ campers at once</td><td>Yoga goes by campers, like ropes: neighbours in a village go together up to this many.</td><td>20</td><td>The Yoga space holds more or fewer.</td></tr>
@@ -363,7 +363,7 @@
   <tr><td>Same visit number</td><td>Ticked: bunks that share a period there must be on the same visit. Unticked: any visit will do.</td><td>Ticked for everything except Athletics and Time with UH</td><td>An area where it does not matter who has been before.</td></tr>
   <tr><td>In the last week of the session, bunks that share a period may be one visit apart</td><td>A little slack in the last week, when there is the least room to line bunks up.</td><td>Off</td><td>The last week keeps coming back with gaps.</td></tr>
 </table>
-<p class="small">Session 2 starts with two numbers lower than Session 1: Yoga is at least 1 and at most 2, and Dance is one fewer for every village. In Session 2 Tusc also gets Ceramics once and one ropes block, High Ropes, because it is the same campers as Session 1. Those two Tusc numbers come with the session and are not on the Settings tab.</p>
+<p class="small">Session 2 starts with two numbers lower than Session 1: Yoga is from 1 to 2, and Dance is one fewer for every village. In Session 2 Tusc also gets Ceramics once and one ropes block, High Ropes, because it is the same campers as Session 1. Those two Tusc numbers come with the session and are not on the Settings tab.</p>
 <h2>Add or remove a program area</h2>
 <p>When someone is hired for something new, such as archery or martial arts, type its name in the last row of the table, choose its numbers, and press <span class="ui">Add</span>. It becomes an activity you can pick on the Build tab, a column on the Tracking tab, a tab in the specialist schedules, and Auto generate gives it to every bunk as single periods. Up to six can be added. An added area has a <span class="ui">Remove</span> button beside its name. To stop using an area that came with the app, set both its numbers to 0.</p>
 <h2>Who may share a period</h2>
@@ -432,7 +432,7 @@
 <p>The camp has one ropes course, and one group is there in a half-day. A session only has so many half-days, so there is a limit to how many groups can go, however the schedule is arranged. When the bunks and the ropes settings ask for more than that, the Settings tab says so at the top: "Ropes will not come out for everyone", or "Ropes is not possible for everyone", with the number of half-days and the number of groups. It also says what to try: usually more campers at once at ropes, so more bunks go together.</p>
 <p>When ropes does fit, every bunk gets it as often as the setting says. When it does not, everyone gets a first turn before anyone gets a second. Session 1 as it starts fits. Session 2 does not: it is three weeks with Color War in it, and has about 17 half-days for about 22 groups. The biggest Session 1 camp, 27 bunks at 15 campers each, does not fit at 30 campers at once either; at 45 it does.</p>
 <h3>The Settings tab says "Not possible" or "Unlikely to work".</h3>
-<p>The numbers ask for more than there are periods or places. The message says what to try, usually a lower "at least", or two bunks at once.</p>
+<p>The numbers ask for more than there are periods or places. The message says what to try, usually a lower number, or two bunks at once.</p>
 <h3>It is taking a long time.</h3>
 <p>A week is never worked on for more than 45 seconds, so a four-week session cannot take more than about three minutes. If it is slow every time, close other programs, or other browser tabs with this page open. <span class="ui">Stop</span> keeps the weeks that are done.</p>
 <h3>A bunk ended up in the wrong village.</h3>

@@ -245,15 +245,14 @@ describe('validateWeek', () => {
     expect(has(state(both), 1, 'H14')).toBe(false);
     expect(has(state(both), 1, 'H13')).toBe(false);
     const four = sampleSchedule();
-    put(four, ['O1', 'C1', 'S1', 'M1'], [S(1, 0)], 'Athletics');
+    put(four, ['O1', 'C1', 'S1', 'M1', 'T1'], [S(1, 0)], 'Athletics'); // four at the most
     expect(has(state(four), 1, 'H14')).toBe(true);
     const three = sampleSchedule();
     put(three, ['O1', 'C1', 'S1'], [S(1, 0)], 'Athletics'); // any three bunks may be at Athletics
     expect(has(state(three), 1, 'H14')).toBe(false);
     expect(has(state(three), 1, 'H13')).toBe(false);
     const day = sampleSchedule();
-    put(day, ['O1'], [S(1, 0)], 'Ceramics');
-    put(day, ['O2'], [S(1, 2)], 'Ceramics'); // two O bunks at Ceramics in one day, and the most is 1
+    ['O1', 'O2', 'O3', 'O4'].forEach((name, k) => put(day, [name], [S(1, k)], 'Teva')); // four O bunks at Teva in one day, and the most is 3
     expect(has(state(day), 1, 'H15')).toBe(true);
     const uh = sampleSchedule();
     for (const d of [0, 1, 2, 3]) put(uh, ['O1'], [S(d, 0)], 'Time with UH');

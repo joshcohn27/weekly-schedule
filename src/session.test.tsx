@@ -10,7 +10,7 @@ import TrackingView from './components/TrackingView';
 import { checkSettings } from './autogen/feasibility';
 import { generateRun } from './autogen/session';
 import { ropesOutlook } from './autogen/ropesRoom';
-import { applySettings, bigVillageIn, usesBigVillageSettings, withBigVillageSettings } from './autogen/settings';
+import { applySettings, bigVillageIn, coreOf, defaultCore, sharingOf, usesBigVillageSettings, withBigVillageSettings, withCore } from './autogen/settings';
 import { slotAt } from './autogen/history';
 import { sessionTargetOf } from './autogen/planner';
 import { validateWeek } from './autogen/validate';
@@ -59,8 +59,13 @@ describe('starting a session from its template', () => {
     expect(checkSettings(templateSettings(SESSION_1), one.weeks, 4, SESSION_1.events)).toEqual([]);
     const two = startSession(SESSION_2);
     applySettings(templateSettings(SESSION_2));
-    const found = checkSettings(templateSettings(SESSION_2), two.weeks, 3, SESSION_2.events);
-    expect(found.length).toBeGreaterThan(0);
+    // Session 2 starts with numbers that fit it: ropes once, league twice a week, Ceramics once
+    expect(checkSettings(templateSettings(SESSION_2), two.weeks, 3, SESSION_2.events)).toEqual([]);
+    // asked for what Session 1 has, it is told what will come up short
+    const asked = withCore(templateSettings(SESSION_2), { ...coreOf(templateSettings(SESSION_2)), ropesPerSession: 2, leaguePerWeek: 3 });
+    applySettings(asked);
+    const found = checkSettings(asked, two.weeks, 3, SESSION_2.events);
+    expect(found.length).toBeGreaterThan(1);
     // everything the calendar squeezes is "will come up short"; ropes is the one thing it calls not possible, because one
     // group goes at a time and the session has fewer half-days than these bunks need
     const ropes = found.filter((p) => p.text.startsWith('Ropes'));
@@ -69,7 +74,7 @@ describe('starting a session from its template', () => {
     expect(ropes[0].text).toContain('one group is at ropes in a half-day');
     expect(ropes[0].fix).toContain('campers at once at ropes');
     expect(found.filter((p) => !p.text.startsWith('Ropes')).every((p) => p.level === 'short')).toBe(true);
-    const html = renderToStaticMarkup(createElement(SettingsView, { settings: templateSettings(SESSION_2), villages: ['O'], onChange: noop, onReset: noop, problems: found }));
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: asked, villages: ['O'], onChange: noop, onReset: noop, problems: found }));
     expect(html).toContain('Will come up short.');
     expect((html.match(/Not possible\./g) ?? []).length).toBe(1);
     // Session 1 as it starts has room for everyone's ropes; its biggest camp does not, and the page says so
@@ -163,21 +168,26 @@ describe('starting a session from its template', () => {
   it('offers suggested settings when a village has six bunks, and never applies them by itself', () => {
     const six = ['O1', 'O2', 'O3', 'O4', 'O5', 'O6'].map((n) => newBunk(n, '5th', '10'));
     let next: ReturnType<typeof defaultSettings> | null = null;
-    const html = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: (s) => (next = s), onReset: noop, bunks: six }));
+    // the numbers the app starts with fit a big village, so the offer is only for settings that were lowered
+    const lowered = withCore(defaultSettings(), { ...defaultCore(), athletics: { ...defaultCore().athletics, atOnce: 3 } });
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: lowered, villages: ['O'], onChange: (s) => (next = s), onReset: noop, bunks: six }));
     expect(html).toContain('Use the suggested settings');
     expect(next).toBeNull();
-    expect(renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop, bunks: six.slice(0, 5) }))).not.toContain('suggested settings');
+    expect(renderToStaticMarkup(createElement(SettingsView, { settings: lowered, villages: ['O'], onChange: noop, onReset: noop, bunks: six.slice(0, 5) }))).not.toContain('suggested settings');
+    expect(renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop, bunks: six }))).not.toContain('suggested settings');
   });
 
-  it('Tusc in Session 2: Ceramics once and one ropes, High, because it is the same campers as Session 1', () => {
+  it('Session 2: Ceramics once and one ropes for everybody, and for Tusc that ropes is High, because it is the same campers as Session 1', () => {
     const two = templateSettings(SESSION_2);
-    expect(two.villageTargets).toEqual({ Ceramics: { T: 1 }, Ropes: { T: 1 } });
+    expect(two.villageTargets).toEqual({ Ropes: { T: 1 } });
+    expect(two.areas.Ceramics.villages).toEqual({ O: 1, C: 1, S: 1, M: 1, T: 1 });
+    expect(coreOf(two)).toMatchObject({ ropesPerSession: 1, leaguePerWeek: 2 });
     expect(two.ropesStartHigh).toEqual(['T']);
     applySettings(two);
     expect(sessionTargetOf('T', 3, 'Ceramics')).toBe(1);
-    expect(sessionTargetOf('O', 3, 'Ceramics')).toBe(2);
+    expect(sessionTargetOf('S', 3, 'Ceramics')).toBe(1);
     expect(sessionTargetOf('T', 3, 'Ropes')).toBe(1);
-    expect(sessionTargetOf('S', 3, 'Ropes')).toBe(2);
+    expect(sessionTargetOf('S', 3, 'Ropes')).toBe(1);
     // a first ropes block for Tusc is High Ropes in this session, and Low Ropes for everybody else
     const week = startSession(SESSION_2).weeks[1] as Schedule;
     const put = (name: string, label: string) => {
@@ -193,6 +203,7 @@ describe('starting a session from its template', () => {
     expect(validateWeek({ current: 1, weeks: [null, week, null, null] }, 2, 3).filter((v) => v.rule === 'H6').map((v) => v.bunk)).toEqual(['T1']);
     applySettings();
     expect(sessionTargetOf('T', 4, 'Ropes')).toBe(2); // Session 1: low, then high
+    expect([sessionTargetOf('O', 4, 'Ceramics'), sessionTargetOf('S', 4, 'Ceramics')]).toEqual([1, 2]); // Session 1: the younger villages once, the older twice
     expect(templateSettings(SESSION_1).villageTargets).toBeUndefined();
   });
 
@@ -200,13 +211,15 @@ describe('starting a session from its template', () => {
     expect(bigVillageIn(['O1', 'O2', 'O3', 'O4', 'O5', 'C1'])).toBeUndefined();
     expect(bigVillageIn(['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'O1'])).toBe('C');
     expect(bigVillageIn(['TC1', 'TC2', 'TC3', 'TC4', 'TC5', 'TC6', 'T1'])).toBeUndefined(); // Taste of CSL is not Tusc
-    expect(usesBigVillageSettings(defaultSettings())).toBe(false);
-    const big = withBigVillageSettings(defaultSettings());
+    expect(usesBigVillageSettings(defaultSettings())).toBe(true); // the numbers the app starts with are the ones a big village needs
+    const lowered = withCore(defaultSettings(), { ...defaultCore(), athletics: { ...defaultCore().athletics, atOnce: 3 } });
+    expect(usesBigVillageSettings(lowered)).toBe(false);
+    const big = withBigVillageSettings(lowered);
     expect(usesBigVillageSettings(big)).toBe(true);
-    expect(big.core?.athletics).toMatchObject({ atOnce: 4, villagePerDay: 3 });
+    expect(coreOf(big).athletics).toMatchObject({ atOnce: 4, villagePerDay: 3 });
     expect(big.areas.Ceramics).toMatchObject({ atOnce: 2, villagePerDay: 3 });
     expect(big.areas.Teva.villagePerDay).toBe(3);
-    expect(big.sharing?.within).toBe('village');
+    expect(sharingOf(big).within).toBe('village');
     expect(big.areas.Teva.min).toBe(defaultSettings().areas.Teva.min); // how often is not touched
     // the dialog offers them, ticked, when a village has six bunks and they are not in use
     const offered = renderToStaticMarkup(createElement(AutoGenerateDialog, { weekNumber: 1, hasActivities: false, bigVillage: 'C', onCancel: noop, onGenerate: noop }));

@@ -1,4 +1,4 @@
-import { villageOf } from '../autofill';
+import { isGuest, villageOf } from '../autofill';
 import type { Schedule } from '../types';
 import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, SHABBAT_PREP_STAFF, TIYUL_WEEKS, TRIP_LABELS, hobbyWeeks, shabbatFor, type SessionWeeks } from './config';
 import { CAMP, type CalendarEvent } from './sessionCalendar';
@@ -37,11 +37,18 @@ const COMFORTABLE = 0.7;
  */
 const ONE_AT_A_TIME_SHARE = 0.75;
 
+/**
+ * A village that is this many periods short of what the numbers ask for, or more, is told so. A period or two is what a
+ * heavy league or a trip does to any session, and it is not worth a message.
+ */
+const SHORT_WORTH_SAYING = 3;
+
 const nameOf = (area: string): string => (area === 'Israel Education' ? 'Israel' : area);
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export function checkSettings(settings: Settings, weeks: (Schedule | null)[], sessionWeeks: SessionWeeks = 4, calendar: readonly CalendarEvent[] | null = null): SettingsProblem[] {
-  const roster = weeks.find((w) => w && w.bunks.length > 0)?.bunks ?? [];
+  // Taste of CSL has a set week of its own: it is not given these numbers
+  const roster = (weeks.find((w) => w && w.bunks.length > 0)?.bunks ?? []).filter((b) => !isGuest(b.name));
   if (roster.length === 0) return [];
   const out: SettingsProblem[] = [];
   const four = sessionWeeks === 4;
@@ -66,29 +73,44 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
 
   // 1. An area can only hold so many bunks in a session: (bunks at once) x (periods).
   const areas = settingAreas(settings);
+  // an area that goes by campers takes one bunk, and two where neighbours in a village fit under its limit together
+  const camperLimit: Record<string, number> = { Yoga: prepCore.yogaMaxCampers, Ceramics: prepCore.ceramicsMaxCampers };
+  const neighbours: number[] = [];
+  for (const v of villages) {
+    const members = roster.filter((b) => villageOf(b.name) === v);
+    for (let k = 0; k + 1 < members.length; k++) neighbours.push((Number(members[k].count) || 0) + (Number(members[k + 1].count) || 0));
+  }
+  const atOnceFor = (area: string): number => {
+    const limit = camperLimit[area];
+    if (limit === undefined) return settings.areas[area].atOnce;
+    return 1 + (neighbours.length ? neighbours.filter((n) => n <= limit).length / neighbours.length : 0);
+  };
   for (const area of areas) {
-    const a = settings.areas[area];
+    const byCampers = camperLimit[area] !== undefined;
+    const a = { ...settings.areas[area], atOnce: atOnceFor(area) };
     const visits = villages.reduce((sum, v) => sum + membersOf(v) * timesFor(area, v), 0);
-    const room = (periods - (SHABBAT_PREP_STAFF.includes(area) ? prepPeriods : 0)) * a.atOnce;
+    const room = Math.floor((periods - (SHABBAT_PREP_STAFF.includes(area) ? prepPeriods : 0)) * a.atOnce);
+    const more = byCampers ? ', or more campers at once' : a.atOnce === 1 ? ', or 2 bunks at once' : '';
+    const atATime = byCampers ? `at most ${camperLimit[area]} campers` : plural(a.atOnce, 'bunk');
     const most = Math.floor((room * ONE_AT_A_TIME_SHARE) / roster.length);
     if (calendar && visits > room * ONE_AT_A_TIME_SHARE) {
       // with the calendar in, Auto generate gives as many as fit instead of failing: say so, plainly
       out.push({
         level: 'short',
         text: `${nameOf(area)} is set to ${visits} visits in the session and has about ${Math.floor(room * ONE_AT_A_TIME_SHARE)} places it can really use, so some bunks will get fewer.`,
-        fix: `To give everyone the same, try at most ${Math.max(0, most)} per bunk${a.atOnce === 1 ? ', or 2 bunks at once' : ''}.`,
+        fix: `To give everyone the same, try at most ${Math.max(0, most)} per bunk${more}.`,
       });
     } else if (visits > room) {
       out.push({
         level: 'no',
-        text: `${nameOf(area)} is set to ${visits} visits in the session, and with ${plural(a.atOnce, 'bunk')} at a time there are only ${room} places.`,
-        fix: `Try at most ${most} per bunk${a.atOnce === 1 ? ', or 2 bunks at once' : ''}.`,
+        text: `${nameOf(area)} is set to ${visits} visits in the session, and with ${atATime} at a time there are only ${room} places.`,
+        fix: `Try at most ${most} per bunk${more}.`,
       });
     } else if (visits > room * ONE_AT_A_TIME_SHARE) {
       out.push({
         level: 'unlikely',
         text: `${nameOf(area)} is set to ${visits} visits in the session out of ${room} places, which leaves almost no choice of when.`,
-        fix: `Try at most ${most} per bunk${a.atOnce === 1 ? ', or 2 bunks at once' : ''}.`,
+        fix: `Try at most ${most} per bunk${more}.`,
       });
     }
     // 2. A village can only send so many bunks to an area in a day.
@@ -157,7 +179,7 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
         worst.level === 'no'
           ? `A schedule is not possible with these settings: each village ${worst.v} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill, and they can hold about ${worst.room}.`
           : `A schedule is unlikely with these settings: each village ${worst.v} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill. They can hold about ${worst.room}, and it stops generating well before that.`,
-      fix: `Try giving each bunk about ${worst.over} more ${worst.over === 1 ? 'visit' : 'visits'} a session: raise "at least" or "at most" on ${flexibleNames.join(', ')}, or Dance for village ${worst.v}; or more Waterfront or league a week.`,
+      fix: `Try giving each bunk about ${worst.over} more ${worst.over === 1 ? 'visit' : 'visits'} a session: raise the numbers on ${flexibleNames.join(', ')}, or Dance for village ${worst.v}; or more Waterfront or league a week.`,
     });
   }
   // Ropes: one group a half-day in the whole camp, so a session only has room for so many
@@ -169,12 +191,12 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
       fix: ropes.campersToFit ? `Try at most ${ropes.campersToFit} campers at once at ropes, so more bunks go together, or fewer times a session.` : 'Try fewer ropes a session.',
     });
   }
-  if (shortest) {
+  if (shortest && Math.ceil(-shortest.by) >= SHORT_WORTH_SAYING) {
     const by = Math.ceil(-shortest.by);
     out.push({
       level: 'short',
       text: `With this session's calendar a village ${shortest.v} bunk has about ${by} fewer periods than these numbers ask for, so bunks will end the session short of a few visits. Auto generate fits in as many as it can.`,
-      fix: 'Nothing has to change. To choose what gives way yourself, lower "at least" on the areas that matter least, or Waterfront or league.',
+      fix: 'Nothing has to change. To choose what gives way yourself, lower the numbers on the areas that matter least, or Waterfront or league.',
     });
   }
   return out;

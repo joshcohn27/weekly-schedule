@@ -63,10 +63,29 @@ export default function CoreRows({ settings, onChange, disabled, villages = [] }
       );
     }
     if (key === 'uh') {
+      const exact = core.uhMin === core.uhMax;
       return (
         <>
-          at least {number('Time with UH at least a session', core.uhMin, 0, 3, (n) => set({ uhMin: n, uhMax: Math.max(n, core.uhMax) }))} a session, at most{' '}
-          {number('Time with UH at most a session', core.uhMax, 0, 6, (n) => set({ uhMax: n, uhMin: Math.min(n, core.uhMin) }))} <Info text={HINT.atMost} />
+          <select
+            aria-label="Time with UH exactly or a range"
+            value={exact ? 'exactly' : 'range'}
+            disabled={disabled}
+            onChange={(e) => set(e.target.value === 'exactly' ? { uhMax: core.uhMin } : { uhMax: core.uhMin + 1 })}
+          >
+            <option value="exactly">exactly</option>
+            <option value="range">from</option>
+          </select>{' '}
+          {exact ? (
+            <>
+              {number('Time with UH exactly a session', core.uhMin, 0, 3, (n) => set({ uhMin: n, uhMax: n }))} a session <Info text={HINT.exactly} />
+            </>
+          ) : (
+            <>
+              {number('Time with UH at least a session', core.uhMin, 0, 3, (n) => set({ uhMin: n, uhMax: Math.max(n + 1, core.uhMax) }))} to{' '}
+              {number('Time with UH at most a session', core.uhMax, 0, 6, (n) => set({ uhMax: n, uhMin: Math.min(n, core.uhMin) }))} a session{' '}
+              <Info text={HINT.atMost} />
+            </>
+          )}
         </>
       );
     }

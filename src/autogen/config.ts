@@ -17,7 +17,7 @@ export const SESSION_TARGETS: Record<string, number> = {
   Ropes: 2,
   Judaics: 2,
   'Israel Education': 2,
-  Teva: 3,
+  Teva: 1,
   Ceramics: 2,
   Yoga: 2,
   'TW UH': 1,
@@ -27,16 +27,21 @@ export const SESSION_TARGETS: Record<string, number> = {
  * (Tusc in Session 2: Ceramics once and ropes once, because it had its fill in Session 1.) Such a village gets no extra
  * visit as a filler either. The settings overwrite it in place.
  */
-export const VILLAGE_TARGETS: Record<string, Record<string, number>> = {};
+export const VILLAGE_TARGETS: Record<string, Record<string, number>> = { Ceramics: { O: 1, C: 1, S: 2, M: 2, T: 2 } };
+/**
+ * The areas (besides Dance) that are set village by village on the Settings tab, with the numbers they start at. Ceramics
+ * has five wheels: the younger villages go once a session and the older ones twice.
+ */
+export const AREA_BY_VILLAGE: Record<string, Record<string, number>> = { Ceramics: { O: 1, C: 1, S: 2, M: 2, T: 2 } };
 /** Villages whose first ropes of this session is High Ropes: they did Low Ropes in the session before. */
 export const ROPES_START_HIGH: string[] = [];
 /**
  * Areas a bunk may have once more than its target, to fill a period that would otherwise be Athletics or A&C: the most
  * per session. They are one bunk at a time, so asking every bunk for a third would use up nearly every period they have.
  */
-export const SESSION_FILLER_MAX: Record<string, number> = { Yoga: 3, Ceramics: 3, Judaics: 3 };
+export const SESSION_FILLER_MAX: Record<string, number> = { Yoga: 3, Teva: 3, Judaics: 3 };
 /** H7: the most of each of these a bunk may have in a session. */
-export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2, Teva: 3, Ceramics: 3, Yoga: 3, Dance: 3 };
+export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2, Teva: 3, Ceramics: 2, Yoga: 3, Dance: 3 };
 /** Dance blocks per session for each village letter. '*' is a village not listed. */
 export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1, '*': 2 };
 /**
@@ -142,19 +147,19 @@ export interface Sharing {
   pairs: Record<string, boolean>;
 }
 /** The sharing in force. settings.ts overwrites it in place; this is the default. */
-export const SHARING: Sharing = { within: 'next', across: true, grades: 'one', pairs: {} };
+export const SHARING: Sharing = { within: 'village', across: true, grades: 'one', pairs: {} };
 
 /** Areas where an O bunk may share with a C bunk, or an S bunk with an M bunk. Pool is S with M only. */
 export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Israel Education', 'Pool'];
 /** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Time with UH takes two bunks of one village. Ropes goes by campers (ROPES_MAX_CAMPERS), not by this. */
 export const SLOT_CAP: Record<string, number> = {
-  Athletics: 3,
+  Athletics: 4,
   'A&C': 3,
   Music: 2,
   Teva: 2,
   Dance: 2,
   Yoga: 8, // not the limit at Yoga: that is CAMPER_CAP.Yoga, a number of campers
-  Ceramics: 1,
+  Ceramics: 8, // not the limit at Ceramics: that is CAMPER_CAP.Ceramics, a number of campers
   Judaics: 2, // two bunks of one village
   'Israel Education': 2,
   'TW UH': 2,
@@ -162,22 +167,22 @@ export const SLOT_CAP: Record<string, number> = {
 };
 /** H15: most bunks of one village at this area in one day. */
 export const DAY_CAP: Record<string, number> = {
-  Athletics: 2,
-  'A&C': 2,
-  Music: 2,
-  Teva: 2,
-  Dance: 2,
+  Athletics: 3,
+  'A&C': 3,
+  Music: 3,
+  Teva: 3,
+  Dance: 3,
   Yoga: 6, // Yoga goes by campers, so a village is not held to a number of bunks a day
-  Ceramics: 1,
-  Judaics: 2,
-  'Israel Education': 2,
-  'TW UH': 2,
+  Ceramics: 6, // by campers, like Yoga
+  Judaics: 3,
+  'Israel Education': 3,
+  'TW UH': 3,
 };
 /**
  * Areas that go by campers, the way Ropes does: bunks next to each other in a village share a period as long as they have no
  * more campers between them than this. It is a setting. (Ropes has its own number, ROPES_MAX_CAMPERS.)
  */
-export const CAMPER_CAP: Record<string, number> = { Yoga: 20 };
+export const CAMPER_CAP: Record<string, number> = { Yoga: 20, Ceramics: 16 };
 /** What SLOT_CAP and DAY_CAP hold for such an area: high enough never to be the limit. */
 export const BY_CAMPERS_SLOT_CAP = 8;
 export const BY_CAMPERS_DAY_CAP = 6;
