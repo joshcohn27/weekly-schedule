@@ -44,8 +44,23 @@ export const FULL_WEEK_OPEN = 15;
 /** The last week of a 4-week session is short to begin with (about ten open periods): it counts as cut short below this. */
 export const FULL_LAST_WEEK_OPEN = 8;
 export const isShortWeek = (open: number, lastWeek: boolean): boolean => open < (lastWeek ? FULL_LAST_WEEK_OPEN : FULL_WEEK_OPEN);
-/** The camp has one ropes course, one group a half-day: no more than this share of a week's half-days is planned for it. */
-export const ROPES_HALF_DAY_SHARE = 0.7;
+/**
+ * The camp has one ropes course, one group a half-day. The generator sets these for the session in hand (index.ts), from
+ * whether ropes for everyone fits in the session at all (ropesRoom.ts):
+ *  - it fits: every half-day may be planned for ropes (ROPES_HALF_DAY_SHARE 1), and ropes takes its half-days before
+ *    Waterfront and league. Measured in the browser: every bunk then gets its ropes.
+ *  - it does not fit (ROPES_TIGHT): ROPES_SHARE_WHEN_TIGHT of the half-days are planned, so the rest of the schedule still
+ *    comes out, and nobody goes a second time while somebody has not been at all. The Settings tab says it does not fit.
+ */
+export const ROPES_SHARE_WHEN_TIGHT = 0.8;
+export let ROPES_TIGHT = false;
+export const setRopesTight = (on: boolean): void => {
+  ROPES_TIGHT = on;
+};
+export let ROPES_HALF_DAY_SHARE = 1;
+export const setRopesShare = (share: number): void => {
+  ROPES_HALF_DAY_SHARE = share;
+};
 /** Open periods a bunk has in a session with nothing on the calendar: ordinary weeks, and the short last week of a 4-week session. */
 export const ordinarySessionOpen = (sessionWeeks: number): number => (sessionWeeks === 4 ? 3 * ORDINARY_OPEN + 10 : sessionWeeks * ORDINARY_OPEN);
 /**
@@ -59,3 +74,8 @@ export const SQUEEZED_SHARE = 0.9;
  * bunks swimming alone, there may not be a period for everyone.
  */
 export const swimIsOptional = (open: number, lastWeek: boolean): boolean => lastWeek || isShortWeek(open, lastWeek);
+/** Ropes takes its half-days before Waterfront and league are placed. */
+export let ROPES_FIRST = true;
+export const setRopesFirst = (on: boolean): void => {
+  ROPES_FIRST = on;
+};

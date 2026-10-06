@@ -8,6 +8,8 @@ import { placeExtraPool, placeExtraVillageBlocks, placeLeague, placePool, placeR
 import { TOKEN_AREAS, TOKEN_LABEL, planWeek, sessionTargetOf } from './planner';
 import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
+import { ROPES_FIRST, ROPES_SHARE_WHEN_TIGHT, setRopesFirst, setRopesShare, setRopesTight } from './weekRoom';
+import { ropesOutlook } from './ropesRoom';
 import { MOHAWK_SWIM_NOTE, firstDayOf, setFirstDay } from './share';
 import { buildRoster, type Roster } from './roster';
 import { softScore } from './score';
@@ -111,6 +113,7 @@ class WeekSearch {
   private readonly stretch: number;
   private readonly guests: string[][];
   private readonly heldEmpty: boolean[][];
+  private readonly ropesFit: boolean;
 
   constructor(private readonly opts: AutoGenOptions, defaultMaxMs: number) {
     this.maxMs = opts.maxMs ?? defaultMaxMs;
@@ -133,6 +136,8 @@ class WeekSearch {
     // trips are expected to be there; anything else that was filled in by hand may put a target out of reach
     this.stretch = this.start.some((row) => row.some((label) => label !== '' && !TRIP_LABELS.includes(label))) ? BUILD_AROUND_STRETCH : 0;
     this.lastWeek = this.sessionWeeks === 4 && opts.weekIndex === 4;
+    // does ropes for everyone fit in this session? Then every half-day is held for it; if not, it gets what it can
+    this.ropesFit = ropesOutlook(opts.weeks.weeks, this.sessionWeeks).fits;
     if (!this.source) this.done = true;
   }
 
@@ -148,6 +153,13 @@ class WeekSearch {
     const { opts, roster, hist, start, locked, lastWeek, sessionWeeks, stretch } = this;
     setVisitWeek(opts.weekIndex >= sessionWeeks, sessionWeeks === 4 && opts.weekIndex === 4);
     setFirstDay(opts.weekIndex === 1 ? firstDayOf(start) : 0);
+    setRopesTight(!this.ropesFit);
+    // Ropes takes its half-days before Waterfront. The one case it does not: a 4-week session where ropes is short and a
+    // village has six bunks, whose three ropes groups would leave the village no half-day together for Waterfront.
+    // (Measured in the browser: with ropes first that camp came back with empty periods every time; the 3-week session
+    // with six-bunk villages did better with ropes first, which is what keeps every bunk from going without.)
+    setRopesFirst(this.ropesFit || this.sessionWeeks !== 4 || !this.roster.villages.some((v) => this.roster.byVillage[v].length >= 6));
+    setRopesShare(this.ropesFit ? 1 : ROPES_SHARE_WHEN_TIGHT);
     const roundSeed = round === 0 ? opts.seed : (opts.seed + round * 0x632be5ab) | 0;
     const calendar = planCalendar(
       {
@@ -189,11 +201,14 @@ class WeekSearch {
       };
       placeCalendar(c);
       const plan = planWeek(c);
+      // The camp has one ropes course, one group a half-day, so over a session nearly every half-day is spoken for: ropes
+      // takes its half-days first, and Waterfront and league go around it.
+      if (ROPES_FIRST) placeRopes(c, plan);
       placeWaterfront(c, plan);
       placeLeague(c);
       placeTri(c);
       placeShabbatExtras(c);
-      placeRopes(c, plan);
+      if (!ROPES_FIRST) placeRopes(c, plan);
       placePool(c, plan);
       placeExtraPool(c, plan);
       placeExtraVillageBlocks(c, plan);

@@ -2,6 +2,7 @@ import { villageOf } from '../autofill';
 import type { Schedule } from '../types';
 import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, SHABBAT_PREP_STAFF, TIYUL_WEEKS, TRIP_LABELS, hobbyWeeks, shabbatFor, type SessionWeeks } from './config';
 import { CAMP, type CalendarEvent } from './sessionCalendar';
+import { ropesOutlook } from './ropesRoom';
 import { coreOf, settingAreas, type Settings } from './settings';
 
 /**
@@ -157,6 +158,15 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
           ? `A schedule is not possible with these settings: each village ${worst.v} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill, and they can hold about ${worst.room}.`
           : `A schedule is unlikely with these settings: each village ${worst.v} bunk would have about ${worst.leftover} periods in the session that only Athletics and A&C can fill. They can hold about ${worst.room}, and it stops generating well before that.`,
       fix: `Try giving each bunk about ${worst.over} more ${worst.over === 1 ? 'visit' : 'visits'} a session: raise "at least" or "at most" on ${flexibleNames.join(', ')}, or Dance for village ${worst.v}; or more Waterfront or league a week.`,
+    });
+  }
+  // Ropes: one group a half-day in the whole camp, so a session only has room for so many
+  const ropes = ropesOutlook(weeks, sessionWeeks, core.ropesMaxCampers);
+  if (core.ropesPerSession > 0 && !ropes.fits) {
+    out.push({
+      level: ropes.groups > ropes.halfDays ? 'no' : 'short',
+      text: `Ropes ${ropes.groups > ropes.halfDays ? 'is not possible for everyone' : 'will not come out for everyone'}: one group is at ropes in a half-day, the session has about ${ropes.halfDays} half-days for it, and with at most ${core.ropesMaxCampers} campers at once these bunks need ${ropes.groups}. Some bunks will get ropes fewer times than the number set.`,
+      fix: ropes.campersToFit ? `Try at most ${ropes.campersToFit} campers at once at ropes, so more bunks go together, or fewer times a session.` : 'Try fewer ropes a session.',
     });
   }
   if (shortest) {

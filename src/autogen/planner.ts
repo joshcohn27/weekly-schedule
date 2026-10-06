@@ -27,7 +27,7 @@ import { blocksOf, isBuiltWeek } from './history';
 import { ropeGroups } from './groups';
 import { weightedSample } from './rng';
 import type { Ctx } from './state';
-import { ROPES_HALF_DAY_SHARE, TOO_SHORT_FOR_WEEKLY, leagueWant, openPeriods, waterfrontWant } from './weekRoom';
+import { ROPES_HALF_DAY_SHARE, ROPES_TIGHT, TOO_SHORT_FOR_WEEKLY, leagueWant, openPeriods, waterfrontWant } from './weekRoom';
 import { shuffle } from './rng';
 
 /** The areas planned as single periods, a count per bunk. The Settings tab can add to them (see settings.ts). */
@@ -286,8 +286,20 @@ export function planWeek(c: Ctx): Plan {
   // in it. The groups beyond what this week can hold go another week (the ones that cannot wait keep their place).
   let halfDays = 0;
   for (const day of c.days) for (const half of [0, 2]) if (c.grid.some((row) => row[day * 4 + half] === '' && row[day * 4 + half + 1] === '')) halfDays++;
-  const going = shuffle(c.rng, groups.filter((g) => plan.Ropes[g[0]] > 0)).sort((x, y) => mins.Ropes[y[0]] - mins.Ropes[x[0]]);
-  for (const g of going.slice(Math.max(0, Math.floor(halfDays * ROPES_HALF_DAY_SHARE)))) if (mins.Ropes[g[0]] === 0) plan.Ropes[g[0]] = 0;
+  const room = Math.max(0, Math.round(halfDays * ROPES_HALF_DAY_SHARE));
+  const had = (g: number[]): number => counted(c, inWeek, g[0], 'Ropes');
+  if (!ROPES_TIGHT) {
+    const going = shuffle(c.rng, groups.filter((g) => plan.Ropes[g[0]] > 0)).sort((x, y) => mins.Ropes[y[0]] - mins.Ropes[x[0]]);
+    for (const g of going.slice(room)) if (mins.Ropes[g[0]] === 0) plan.Ropes[g[0]] = 0;
+  } else {
+    // Ropes for everyone does not fit in this session, so nobody goes a second time while somebody has not been at all:
+    // the groups that have been the fewest times take this week's half-days, whatever the draw said.
+    const order = shuffle(c.rng, groups).sort((x, y) => had(x) - had(y) || plan.Ropes[y[0]] - plan.Ropes[x[0]]);
+    order.forEach((g, i) => {
+      plan.Ropes[g[0]] = i < room ? 1 : 0;
+      mins.Ropes[g[0]] = Math.min(mins.Ropes[g[0]], plan.Ropes[g[0]]);
+    });
+  }
   for (const g of groups) {
     for (const member of g.slice(1)) {
       plan.Ropes[member] = plan.Ropes[g[0]];

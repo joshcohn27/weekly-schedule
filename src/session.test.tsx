@@ -8,6 +8,8 @@ import CalendarSettings from './components/CalendarSettings';
 import SettingsView from './components/SettingsView';
 import TrackingView from './components/TrackingView';
 import { checkSettings } from './autogen/feasibility';
+import { generateRun } from './autogen/session';
+import { ropesOutlook } from './autogen/ropesRoom';
 import { applySettings, bigVillageIn, usesBigVillageSettings, withBigVillageSettings } from './autogen/settings';
 import { slotAt } from './autogen/history';
 import { sessionTargetOf } from './autogen/planner';
@@ -50,7 +52,7 @@ describe('starting a session from its template', () => {
     expect(templateOf(undefined)).toBe(SESSION_1); // a schedule from before sessions were told apart
   });
 
-  it('the settings check knows the calendar: Session 1 adds up, Session 2 is told it will come up short, never that it is impossible', () => {
+  it('the settings check knows the calendar: Session 1 adds up, Session 2 is told what will come up short, and that ropes for everyone does not fit', () => {
     const one = startSession(SESSION_1);
     applySettings(templateSettings(SESSION_1));
     expect(checkSettings(templateSettings(SESSION_1), one.weeks, 4, SESSION_1.events)).toEqual([]);
@@ -58,10 +60,24 @@ describe('starting a session from its template', () => {
     applySettings(templateSettings(SESSION_2));
     const found = checkSettings(templateSettings(SESSION_2), two.weeks, 3, SESSION_2.events);
     expect(found.length).toBeGreaterThan(0);
-    expect(found.every((p) => p.level === 'short')).toBe(true);
+    // everything the calendar squeezes is "will come up short"; ropes is the one thing it calls not possible, because one
+    // group goes at a time and the session has fewer half-days than these bunks need
+    const ropes = found.filter((p) => p.text.startsWith('Ropes'));
+    expect(ropes).toHaveLength(1);
+    expect(ropes[0].level).toBe('no');
+    expect(ropes[0].text).toContain('one group is at ropes in a half-day');
+    expect(ropes[0].fix).toContain('campers at once at ropes');
+    expect(found.filter((p) => !p.text.startsWith('Ropes')).every((p) => p.level === 'short')).toBe(true);
     const html = renderToStaticMarkup(createElement(SettingsView, { settings: templateSettings(SESSION_2), villages: ['O'], onChange: noop, onReset: noop, problems: found }));
     expect(html).toContain('Will come up short.');
-    expect(html).not.toContain('Not possible.');
+    expect((html.match(/Not possible\./g) ?? []).length).toBe(1);
+    // Session 1 as it starts has room for everyone's ropes; its biggest camp does not, and the page says so
+    applySettings(templateSettings(SESSION_1));
+    expect(ropesOutlook(one.weeks, 4)).toMatchObject({ halfDays: 28, groups: 24, fits: true });
+    const big = withBiggestCamp(one);
+    applySettings(withBigVillageSettings(templateSettings(SESSION_1)));
+    expect(ropesOutlook(big.weeks, 4)).toMatchObject({ halfDays: 28, groups: 28, fits: false, campersToFit: 45 });
+    expect(checkSettings(withBigVillageSettings(templateSettings(SESSION_1)), big.weeks, 4, SESSION_1.events).some((p) => p.text.startsWith('Ropes will not come out for everyone'))).toBe(true);
     applySettings();
   });
 
@@ -71,6 +87,26 @@ describe('starting a session from its template', () => {
     expect(html).toContain('class="tracking-grid"');
     expect(html).not.toContain('pair-hover'); // nothing is lit until the pointer is on a box
   });
+
+  it('when ropes for everyone fits, a generated session gives every bunk its ropes', async () => {
+    const start = startSession(SESSION_1);
+    expect(ropesOutlook(start.weeks, 4).fits).toBe(true);
+    const run = await generateRun({
+      weeks: start.weeks,
+      steps: [0, 1, 2, 3].map((index) => ({ index, mode: 'fill-empty' as const })),
+      roster: (start.weeks[0] as Schedule).bunks,
+      sessionWeeks: 4,
+      keepTrips: true,
+      useOtherWeeks: true,
+      seed: 7,
+      calendar: true,
+      maxWeekMs: 120_000,
+      maxMsPerTry: 40_000,
+    });
+    const ropes: Record<string, number> = {};
+    for (const w of run?.weeks ?? []) for (const b of w?.bunks ?? []) ropes[b.name] = (ropes[b.name] ?? 0) + b.slots.filter((l) => l === 'Low Ropes' || l === 'High Ropes').length / 2;
+    expect(Object.values(ropes).filter((n) => n < 2)).toEqual([]);
+  }, 600_000);
 
   it('offers suggested settings when a village has six bunks, and never applies them by itself', () => {
     const six = ['O1', 'O2', 'O3', 'O4', 'O5', 'O6'].map((n) => newBunk(n, '5th', '10'));

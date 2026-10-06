@@ -168,6 +168,12 @@ found is handed over with the periods that break a rule emptied and marked yello
 (`src/autogen/tidy.ts`). That is what happens with a roster or settings that are too tight to fit, for example six
 bunks in every village. It never shows warnings; the browser console has the details.
 
+**Ropes.** One group is at ropes in a half-day, so a session has room for only so many (`src/autogen/ropesRoom.ts` counts
+the half-days and the groups). When everyone's ropes fits, every half-day may be used and ropes is placed before
+Waterfront, and every bunk gets its ropes. When it does not fit, the Settings tab says so with the numbers and what to
+try, four fifths of the half-days are used so the rest of the schedule still comes out, and nobody goes a second time
+while somebody has not been at all.
+
 **Six bunks in a village.** The biggest Session 1 camp is 5 Onondaga, 6 Cayuga, 6 Seneca, 6 Mohawk and 4 Tusc (27
 bunks). The usual numbers do not fit that many, so the Auto generate dialog then offers the settings for big villages,
 ticked: 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day at every area, and any two bunks of a

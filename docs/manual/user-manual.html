@@ -45,7 +45,7 @@
   <h1>Weekly Period Schedule Builder</h1>
   <div class="sub">User's Manual</div>
   <img src="screenshots/13-schedule-tab-week-2.png" alt="A finished week on the Schedule tab">
-  <div class="ver">For version 1.6.3 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
+  <div class="ver">For version 1.6.4 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
 </section>
 
 <h1>Quick Start</h1>
@@ -340,7 +340,7 @@
   <tr><td>Lessons alone, the first _ swims</td><td>How many of an Onondaga or Cayuga bunk's first swims are one bunk alone.</td><td>2</td><td>More or fewer lessons this year.</td></tr>
   <tr><td>Pool, most campers at once</td><td>The most campers in the water together, unless it is one whole village.</td><td>80</td><td>Fewer lifeguards.</td></tr>
   <tr><td>Ropes, exactly _ a session</td><td>Ropes blocks each bunk gets. Low first, then High, each a double period.</td><td>2</td><td>The course is closed for part of the session.</td></tr>
-  <tr><td>Ropes, at most _ campers at once</td><td>Bunks next to each other in a village go together up to this many campers.</td><td>30</td><td>Fewer staff at ropes.</td></tr>
+  <tr><td>Ropes, at most _ campers at once</td><td>Bunks next to each other in a village go together up to this many campers. One group is at ropes in a half-day, so this number decides how many bunks can have ropes in a session.</td><td>30</td><td>The Settings tab says ropes does not fit for everyone: raise it so more bunks go together.</td></tr>
   <tr><td>Hobbies, exactly _ sessions in the whole session</td><td>Hobby half-days for the whole camp, in total. Every week gets its Friday morning first, then a midweek one, then Sunday mornings.</td><td>7</td><td>More or fewer hobby days.</td></tr>
   <tr><td>Shabbat Prep, exactly _ more single periods</td><td>Single periods of Shabbat Prep earlier in a village's Shabbat week, on top of the Friday afternoon double.</td><td>1</td><td>A village needs more or less time to prepare.</td></tr>
   <tr><td>Who has Shabbat each week</td><td>Tick the village or villages for each week, or No Shabbat.</td><td>Week 1 Mohawk, week 2 Onondaga and Cayuga, week 3 Seneca and Tusc</td><td>This summer's turns are different.</td></tr>
@@ -423,6 +423,9 @@
 <p>The app could not find a version of that week that keeps every rule inside 45 seconds, so it emptied the periods that broke one. Fill them by hand, press Auto generate again for another try, or loosen a setting. If a village has six bunks, use the settings for big villages.</p>
 <h3>The Settings tab says "Will come up short".</h3>
 <p>That is information, not an error. The calendar leaves less room than the numbers ask for, so some bunks will end the session a visit or two short of something. Auto generate fits in as many as it can. Session 2 says this from the start, because it is short and Color War takes two days.</p>
+<h3>Not every bunk got ropes twice.</h3>
+<p>The camp has one ropes course, and one group is there in a half-day. A session only has so many half-days, so there is a limit to how many groups can go, however the schedule is arranged. When the bunks and the ropes settings ask for more than that, the Settings tab says so at the top: "Ropes will not come out for everyone", or "Ropes is not possible for everyone", with the number of half-days and the number of groups. It also says what to try: usually more campers at once at ropes, so more bunks go together.</p>
+<p>When ropes does fit, every bunk gets it as often as the setting says. When it does not, everyone gets a first turn before anyone gets a second. Session 1 as it starts fits. Session 2 does not: it is three weeks with Color War in it, and has about 17 half-days for about 22 groups. The biggest Session 1 camp, 27 bunks at 15 campers each, does not fit at 30 campers at once either; at 45 it does.</p>
 <h3>The Settings tab says "Not possible" or "Unlikely to work".</h3>
 <p>The numbers ask for more than there are periods or places. The message says what to try, usually a lower "at least", or two bunks at once.</p>
 <h3>It is taking a long time.</h3>
