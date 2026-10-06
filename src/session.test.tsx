@@ -6,6 +6,7 @@ import { SESSION_1, SESSION_2 } from './autogen/sessionCalendar';
 import { defaultSettings, normalizeSettings, templateSettings } from './autogen/settings';
 import CalendarSettings from './components/CalendarSettings';
 import SettingsView from './components/SettingsView';
+import TrackingView from './components/TrackingView';
 import { checkSettings } from './autogen/feasibility';
 import { applySettings, bigVillageIn, usesBigVillageSettings, withBigVillageSettings } from './autogen/settings';
 import { slotAt } from './autogen/history';
@@ -62,6 +63,13 @@ describe('starting a session from its template', () => {
     expect(html).toContain('Will come up short.');
     expect(html).not.toContain('Not possible.');
     applySettings();
+  });
+
+  it('the tracking grid is marked up for the same pointer highlighting as the sharing grid', () => {
+    const week = startSession(SESSION_1).weeks[0] as Schedule;
+    const html = renderToStaticMarkup(createElement(TrackingView, { bunks: week.bunks, weekLabel: 'Week 1', schedules: [week] }));
+    expect(html).toContain('class="tracking-grid"');
+    expect(html).not.toContain('pair-hover'); // nothing is lit until the pointer is on a box
   });
 
   it('offers suggested settings when a village has six bunks, and never applies them by itself', () => {

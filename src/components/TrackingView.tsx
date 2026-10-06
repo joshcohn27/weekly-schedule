@@ -15,6 +15,11 @@ export default function TrackingView({ bunks, weekLabel, schedules }: Props) {
   const weekResult = useMemo(() => computeTracking(bunks), [bunks]);
   const sessionResult = useMemo(() => computeSessionTracking(schedules), [schedules]);
   const result = mode === 'week' ? weekResult : sessionResult;
+  // the box the pointer is on: its bunk and its program area light up, and a faint band runs from each of them to the box
+  const [hover, setHover] = useState<[number, number] | null>(null);
+  const mark = (row: number, col: number): string | undefined =>
+    !hover ? undefined : hover[0] === row && hover[1] === col ? 'pair-here' : (row === hover[0] && col < hover[1]) || (col === hover[1] && row < hover[0]) ? 'pair-line' : undefined;
+  const classes = (...names: (string | undefined)[]): string | undefined => names.filter(Boolean).join(' ') || undefined;
 
   return (
     <section>
@@ -29,28 +34,32 @@ export default function TrackingView({ bunks, weekLabel, schedules }: Props) {
         </button>
       </div>
       <div className="scroll">
-        <table border={1}>
+        <table border={1} className="tracking-grid" onMouseLeave={() => setHover(null)}>
           <thead>
             <tr>
               <th>Bunk</th>
-              {result.areas.map((a) => (
-                <th key={a}>{a}</th>
+              {result.areas.map((a, i) => (
+                <th key={a} className={hover?.[1] === i ? 'pair-hover' : undefined}>
+                  {a}
+                </th>
               ))}
-              <th>Total</th>
+              <th className={hover?.[1] === result.areas.length ? 'pair-hover' : undefined}>Total</th>
             </tr>
           </thead>
           <tbody>
-            {result.rows.map((r) => (
+            {result.rows.map((r, row) => (
               <tr key={r.bunk.id}>
-                <th scope="row" data-village={r.bunk.name.trim().charAt(0).toUpperCase()}>
+                <th scope="row" data-village={r.bunk.name.trim().charAt(0).toUpperCase()} className={hover?.[0] === row ? 'pair-hover' : undefined}>
                   {r.bunk.name}
                 </th>
                 {r.counts.map((n, i) => (
-                  <td key={result.areas[i]} className={n === 0 ? 'zero' : undefined}>
+                  <td key={result.areas[i]} className={classes(n === 0 ? 'zero' : undefined, mark(row, i))} onMouseEnter={() => setHover([row, i])}>
                     {n === 0 ? '-' : n}
                   </td>
                 ))}
-                <td>{r.total}</td>
+                <td className={mark(row, result.areas.length)} onMouseEnter={() => setHover([row, result.areas.length])}>
+                  {r.total}
+                </td>
               </tr>
             ))}
           </tbody>
