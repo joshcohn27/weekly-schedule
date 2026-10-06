@@ -45,7 +45,7 @@
   <h1>Weekly Period Schedule Builder</h1>
   <div class="sub">User's Manual</div>
   <img src="screenshots/13-schedule-tab-week-2.png" alt="A finished week on the Schedule tab">
-  <div class="ver">For version 1.6.4 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
+  <div class="ver">For version 1.7.0 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
 </section>
 
 <h1>Quick Start</h1>
@@ -100,7 +100,6 @@
 <ul>
   <li><span class="ui">?</span> beside the title opens <span class="ui">How to use this page</span>, a short guide.</li>
   <li><span class="ui">Session:</span> chooses Session 1 or Session 2. Each shows its dates.</li>
-  <li><span class="ui">Start this session over</span> throws away the session on screen and starts it again from its own bunks, calendar and numbers. It asks first.</li>
   <li>The five tabs: <span class="ui">Build</span>, <span class="ui">Schedule</span>, <span class="ui">Tracking</span>, <span class="ui">Specialists</span>, <span class="ui">Settings</span>.</li>
 </ul>
 <h2>The week bar</h2>
@@ -111,7 +110,7 @@
   <li><span class="ui">Download all weeks (.xlsx)</span> saves every week of the session in one file.</li>
   <li><span class="ui">Specialist schedules (.xlsx)</span> saves a file with one tab for each program area.</li>
   <li><span class="ui">Upload</span> loads a file that was downloaded from this app.</li>
-  <li><span class="ui">Reset Week N</span> empties the week on screen: its bunks and its activities.</li>
+  <li><span class="ui">Start over</span> empties this week or the whole session and puts the session calendar back on. It asks what to keep first. See "Start over" in chapter 3.</li>
   <li><span class="ui">Auto generate</span> builds the periods for you.</li>
 </ul>
 <h2>Build</h2>
@@ -165,6 +164,15 @@
 <p>The Clear tool empties part of the week in one go: everything or one program area, for all bunks, one village or one bunk, on one day or the whole week, all day or one part of it. For example: Waterfront, for all bunks, on Tuesday, because of weather. It tells you how many periods it will empty and asks first.</p>
 <p>The emptied periods turn <b>yellow</b> on the Build and Schedule tabs, so it is plain what still needs filling. A yellow period goes back to normal as soon as something is put in it. <span class="ui">Remove the yellow marks</span> takes the marks away and leaves the periods empty.</p>
 <figure><img src="screenshots/17-yellow-cleared-periods.png" alt="Yellow, cleared periods"><figcaption>After clearing Waterfront on Tuesday: the emptied periods are yellow.</figcaption></figure>
+<h2>Start over</h2>
+<p><span class="ui">Start over</span>, in the week bar, is the one way to wipe the slate. It opens a box that asks two things and then tells you, in words, exactly what will happen.</p>
+<ul>
+  <li><b>What should start over?</b> <span class="ui">Just Week N</span>, or <span class="ui">The whole session</span>.</li>
+  <li><b>What should be kept?</b> <span class="ui">Keep my bunks (names, grades, camper counts)</span>, ticked to start with. For the whole session there is also <span class="ui">Keep my settings</span>, ticked to start with.</li>
+</ul>
+<p>Either way every period is emptied and the session calendar is put back on: opening day, the trips and Tiyuls, village day, Mass Program or Color War. With <span class="ui">Keep my bunks</span> unticked, the bunks go back to the ones the session starts with. With <span class="ui">Keep my settings</span> unticked, the Settings tab goes back to the session's own numbers and calendar. Starting one week over never touches the other weeks or the settings.</p>
+<figure><img src="screenshots/23-start-over.png" alt="The Start over box"><figcaption>The Start over box says what will happen before it does anything.</figcaption></figure>
+<div class="warn">Start over cannot be undone. Download all weeks first if there is anything on the page you might want again.</div>
 <h2>Build around what you entered</h2>
 <p>Anything you put in by hand can be kept while the app fills the rest. Enter what you want fixed, press <span class="ui">Auto generate</span>, and choose <span class="ui">Keep what is there and build around it</span>. Only the empty periods are filled. This is also how you refill yellow periods after a Clear.</p>
 
@@ -260,7 +268,7 @@
 <p>A whole session usually takes a few seconds to half a minute. In our own tests on one computer, four runs of Session 1 took 5, 5, 16 and 33 seconds, and four runs of Session 2 took 6, 6, 17 and 26 seconds. A slower computer will take longer.</p>
 <p>The app tries a week several ways at once. If none comes out right it tries again, without saying anything except "try 2" in the panel. A try lasts 15 seconds at most, and a week is never worked on for more than 45 seconds in all.</p>
 <h2>When a week will not come out</h2>
-<p>If 45 seconds pass and no version of a week keeps every rule, the app hands back the best one it found, with the periods that broke a rule <b>emptied and marked yellow</b>. Nothing on the week breaks a rule. Fill the yellow periods by hand, or change a setting and generate again.</p>
+<p>If 45 seconds pass and no version of a week keeps every rule, the app hands back the best one it found. The periods that broke a rule are emptied and given another activity where one fits; the ones nothing fits in are left <b>empty and marked yellow</b>. Nothing on the week breaks a rule. Fill the yellow periods by hand, or change a setting and generate again.</p>
 <h2>Afterwards</h2>
 <figure class="strip"><img src="screenshots/11-after-a-run-undo.png" alt="After a run"><figcaption>After a run: what was generated, and Undo.</figcaption></figure>
 <ul>
@@ -378,7 +386,7 @@
 </ul>
 <p>In our tests, six whole sessions with that 27-bunk camp at 15 campers a bunk and these settings all came out complete, in 5 to 30 seconds each. With the usual numbers the same camp came back with empty periods in weeks 1 and 2. With full bunks only one fits at Yoga at a time, so expect bunks to end the session short on Yoga.</p>
 <h2>Reset to the default settings</h2>
-<p><span class="ui">Reset to the default settings</span> puts every number back to what the session starts with. It does not touch the schedule.</p>
+<p><span class="ui">Reset to the default settings</span> puts every number back to what the session starts with. It does not touch the schedule. To put the schedule back as well, use <span class="ui">Start over</span>.</p>
 
 <h1>8. Saving, sharing and printing</h1>
 <h2>Download</h2>
@@ -404,10 +412,7 @@
 <p>Each of these asks before it acts, except where noted. None of them can be taken back afterwards. <b>Download all weeks first</b> if there is anything on the page you might want again.</p>
 <table>
   <tr><th style="width:30%">Button</th><th>What it does</th></tr>
-  <tr><td>Start this session over</td><td>Throws away the session's bunks, schedule and settings, and starts it again from its template.</td></tr>
-  <tr><td>Reset Week N</td><td>Removes every bunk and every activity from the week on screen.</td></tr>
-  <tr><td>Clear all activities (bottom of the page)</td><td>Empties every period of the week on screen. Bunks stay. The calendar items on that week go too.</td></tr>
-  <tr><td>Reset to sample (bottom of the page)</td><td>Replaces the week on screen with a sample set of bunks and no activities.</td></tr>
+  <tr><td>Start over</td><td>Empties every period of the week on screen, or of the whole session, and puts the session calendar back on. Depending on what you untick, it also puts the session's own bunks and settings back. It tells you what it will do and asks first.</td></tr>
   <tr><td>Remove, at the end of a bunk's row</td><td>Deletes the bunk and its whole row. It does not ask first.</td></tr>
   <tr><td>Clear, on the Build tab</td><td>Empties the periods you described. They are marked yellow, so you can see where, but what was in them is gone.</td></tr>
   <tr><td>Upload</td><td>Overwrites the weeks that are in the file, and the settings if the file has them.</td></tr>

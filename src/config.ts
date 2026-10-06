@@ -7,7 +7,7 @@ export const WEEK_COUNT = 4;
  * The first number is the app itself, the second goes up when a feature is added (2 is Auto generate), and the third
  * goes up for a fix.
  */
-export const APP_VERSION = '1.6.4';
+export const APP_VERSION = '1.7.0';
 /** Where the Contact support links go. */
 export const SUPPORT_EMAIL = 'joshcohn27@gmail.com';
 export const SUPPORT_LINK = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Weekly Period Schedule Builder')}`;

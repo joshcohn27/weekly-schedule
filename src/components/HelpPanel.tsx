@@ -70,7 +70,9 @@ export default function HelpPanel({ onClose }: Props) {
           <li>
             On the Build tab, check the bunks: name, grades and number of campers. Keep each village together in the list. Bunks named TC1,
             TC2 and so on are Taste of CSL: they are in camp for week 1 of Session 2 only, their week is set, and nobody shares an area
-            with them.
+            with them. The buttons after <strong>Add a bunk to</strong> add the next bunk of a village to every week, and{' '}
+            <strong>Fill in the biggest camp</strong> brings every village up to its most bunks. The camp has 27 cabins, so no week
+            holds more than 27 bunks.
           </li>
           <li>
             Move anything on the calendar that is different this year. On the Settings tab, under Session calendar, each line says what,
@@ -104,6 +106,11 @@ export default function HelpPanel({ onClose }: Props) {
             <strong>Clear</strong> empties part of the schedule in one go: everything or one program area, for everyone, one village or one
             bunk, on one day or the whole week. For example, Waterfront for everyone on Tuesday because of weather. The emptied periods turn
             yellow so it is plain what still needs filling. Then press Auto generate and choose to keep what is there and fill the gaps.
+          </li>
+          <li>
+            <strong>Start over</strong>, in the bar under the tabs, empties this week or the whole session and puts the session calendar
+            back on. It asks first what to keep: your bunks, and for a whole session your settings. It says what will happen before it
+            does anything, and it cannot be undone.
           </li>
         </ul>
 
@@ -145,6 +152,8 @@ export default function HelpPanel({ onClose }: Props) {
           </li>
           <li>
             The page checks the numbers as you change them. If a schedule cannot be built with them, it says so and says what to try.
+            One group is at ropes in a half-day, so it also says when ropes cannot come out for every bunk, and how many campers at
+            once would make it fit.
           </li>
           <li>
             Whatever periods the program areas do not use become Athletics, A&amp;C or Time with the Unit Head. So adding an area means less

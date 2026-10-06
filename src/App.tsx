@@ -4,6 +4,7 @@ import AutoGenerateProgress, { type RunProgress } from './components/AutoGenerat
 import AutoGenerateStatus from './components/AutoGenerateStatus';
 import BuildGrid from './components/BuildGrid';
 import HelpPanel from './components/HelpPanel';
+import StartOverDialog, { type StartOverChoice } from './components/StartOverDialog';
 // import DayDetails from './components/DayDetails';
 import ScheduleView from './components/ScheduleView';
 import SettingsView from './components/SettingsView';
@@ -18,8 +19,8 @@ import { applySettings, bigVillageIn, isDefaultSettings, normalizeSettings, temp
 import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } from './clear';
 import { APP_VERSION, SUPPORT_LINK } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
-import { emptySchedule, newBunk, sampleSchedule } from './sample';
-import { MAX_BUNKS_IN_CAMP, MAX_CAMPERS_PER_BUNK, addableVillages, biggestCampSize, datesOf, dayLabels, pastDaysOf, startSession, withBiggestCamp, withBunkAdded, templateOf, weekDates, withCalendar, type SessionId } from './session';
+import { emptySchedule, newBunk } from './sample';
+import { MAX_BUNKS_IN_CAMP, MAX_CAMPERS_PER_BUNK, addableVillages, biggestCampSize, datesOf, dayLabels, pastDaysOf, startSession, startedOver, withBiggestCamp, withBunkAdded, templateOf, weekDates, withCalendar, type SessionId } from './session';
 import { SESSION_TEMPLATES, calendarFor } from './autogen/sessionCalendar';
 import { isFirstVisit, loadSession, loadWeeks, markHelpSeen, saveSession, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
@@ -45,6 +46,7 @@ export default function App() {
   const [view, setView] = useState<View>('build');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [autoOpen, setAutoOpen] = useState(false);
+  const [startOverOpen, setStartOverOpen] = useState(false);
   // the how-to opens by itself the very first time the page is opened in this browser, and only then
   const [helpOpen, setHelpOpen] = useState(isFirstVisit);
   useEffect(() => {
@@ -84,11 +86,12 @@ export default function App() {
     setAuto(null);
     setWeeksState(loadSession(id) ?? startSession(templateOf(id)));
   };
-  /** Throw this session's schedule away and start it again from its template. */
-  const startOver = () => {
-    if (!window.confirm(`Start ${template.name} over? Its bunks, its schedule and its settings go back to the way the session starts. This cannot be undone.`)) return;
+  /** Start the week on screen, or the whole session, over: what the Start over dialog asked for. */
+  const startOver = (how: StartOverChoice) => {
+    setStartOverOpen(false);
     setAuto(null);
-    setWeeksState(startSession(template));
+    setWeeksState((ws) => startedOver(ws, how));
+    setView('build');
   };
   // Setting up: a bunk added with one click goes into every week of the session, and the biggest camp can be filled in at once
   const addBunkTo = (village: string) => {
@@ -224,22 +227,6 @@ export default function App() {
   // const setDayField = useCallback((index: number, field: keyof DayInfo, value: string) => {
   //   updateCurrentSchedule((s) => ({ ...s, days: s.days.map((d, i) => (i === index ? { ...d, [field]: value } : d)) }));
   // }, [updateCurrentSchedule]);
-
-  const resetToSample = () => {
-    if (window.confirm(`Replace ${weekLabel(current)} with the sample schedule?`)) updateCurrentSchedule(() => sampleSchedule());
-  };
-
-  const clearActivities = () => {
-    if (window.confirm('Clear every activity? Bunks stay.')) {
-      updateCurrentSchedule((s) => ({ ...s, bunks: s.bunks.map((b) => ({ ...b, slots: b.slots.map(() => '') })) }));
-    }
-  };
-
-  const resetWeek = () => {
-    if (window.confirm(`Reset ${weekLabel(current)}? This clears all bunks and activities for this week.`)) {
-      updateCurrentSchedule(() => emptySchedule());
-    }
-  };
 
   const useLastWeekBunks = () => {
     if (!previousWeek || previousWeek.bunks.length === 0) return;
@@ -393,9 +380,6 @@ export default function App() {
               ))}
             </select>
           </label>{' '}
-          <button type="button" onClick={startOver} disabled={run !== null} title="Back to this session's own bunks, calendar and numbers.">
-            Start this session over
-          </button>{' '}
           <span className="muted">Each session keeps its own bunks, schedule and settings.</span>
         </p>
         <nav>
@@ -433,8 +417,8 @@ export default function App() {
           </button>
           <input ref={fileInputRef} type="file" accept=".xlsx" hidden onChange={handleFileChange} />
           {' '}
-          <button type="button" onClick={resetWeek} disabled={locked}>
-            Reset {weekLabel(current)}
+          <button type="button" onClick={() => setStartOverOpen(true)} disabled={run !== null} title="Empty this week or the whole session and put the calendar back on. It asks what to keep first.">
+            Start over
           </button>{' '}
           <button
             type="button"
@@ -450,6 +434,7 @@ export default function App() {
         </div>
 
         {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+        {startOverOpen && <StartOverDialog weekNumber={current + 1} sessionName={template.name} onCancel={() => setStartOverOpen(false)} onStartOver={startOver} />}
         {autoOpen && (
           <AutoGenerateDialog
             weekNumber={current + 1}
@@ -520,12 +505,6 @@ export default function App() {
       </main>
 
       <footer>
-        <button type="button" onClick={clearActivities} disabled={locked}>
-          Clear all activities
-        </button>{' '}
-        <button type="button" onClick={resetToSample} disabled={locked}>
-          Reset to sample
-        </button>{' '}
         <a className="support" href={SUPPORT_LINK}>
           Contact support
         </a>{' '}

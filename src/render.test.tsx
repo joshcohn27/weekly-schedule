@@ -109,7 +109,9 @@ describe('Auto generate UI', () => {
     expect(page).toContain('Session 2 (3 weeks, with Color War): July 26 to August 15, 2027');
     expect(page).toContain('Week 1 (6.27 to 7.2)');
     expect(page).toContain('Sunday 6.27');
-    expect(page).toContain('Start this session over');
+    // one way to start again, and none of the old reset buttons
+    expect(page).toMatch(/>\s*Start over\s*<\/button>/);
+    for (const gone of ['Reset to sample', 'Clear all activities', 'Reset Week', 'Start this session over']) expect(page).not.toContain(gone);
     expect(html).toContain('Generate');
     expect(html).not.toContain('already has activities');
     expect(html).not.toContain('already has activities');

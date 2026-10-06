@@ -35,9 +35,9 @@ next to the title opens it any time. It is a plain how-to for the whole page: th
 things by hand, the rules that are always kept, the settings, and saving and printing. It is written for someone who
 has not seen the page before.
 
-- **Weeks:** the week bar above the tabs switches between Week 1-4. Weeks 2-4 start blank. "Reset Week N" blanks
-  the selected week. On Weeks 2-4, "Use Week N-1's bunks" (next to "Add bunk") copies the previous week's roster
-  with blank activities.
+- **Weeks:** the week bar under the tabs switches between the weeks of the session, each with its dates. **Start over**
+  empties this week or the whole session and puts the session calendar back on; it asks what to keep (your bunks, and
+  for a whole session your settings) and says what will happen before it does anything.
 - **Default roster:** Week 1 starts with O1-O5, C1-C4, S1-S5, M1-M4, T1-T4 (see `sampleSchedule()` in
   `src/sample.ts`). "Reset to sample" in the footer restores it for the selected week.
 - **Villages** are the first letter of the bunk name (O, C, S, M, T). Keep that convention: colours, village
@@ -93,7 +93,7 @@ replaces whatever was in the cells it fills, without asking.
 Pick the session at the top of the page: **Session 1** (4 weeks, June 27 to July 23, 2027) or **Session 2** (3 weeks,
 with Color War, July 26 to August 15, 2027). Each keeps its own bunks, schedule and settings, so switching does not
 lose the other. A session starts from its template (`src/autogen/sessionCalendar.ts`): its bunks, its numbers, and its
-calendar already on the schedule. **Start this session over** goes back to that. On the Build tab, **Add a bunk to**
+calendar already on the schedule. **Start over** (week bar), with nothing kept, goes back to that. On the Build tab, **Add a bunk to**
 O, C, S, M or T adds the next bunk of that village to every week, and **Fill in the biggest camp** brings every village
 up to its most bunks at 15 campers each, a round number to plan with that nothing enforces. The camp has 27 cabins, so
 no week holds more than 27 bunks: 5, 6, 6, 6 and 4 in Session 1, and in Session 2 four Taste of CSL bunks whose cabins

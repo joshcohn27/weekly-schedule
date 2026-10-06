@@ -1,5 +1,6 @@
 import { GUEST_VILLAGE, isGuest, villageOf } from './autofill';
 import { SESSION_1, SESSION_TEMPLATES, applyCalendar, calendarFor, dateOf, shortDate, type SessionTemplate } from './autogen/sessionCalendar';
+import { emptyDay } from './sample';
 import { isDefaultSettings, templateSettings } from './autogen/settings';
 import { DAYS, WEEK_COUNT } from './config';
 import { emptySchedule, newBunk } from './sample';
@@ -134,3 +135,34 @@ export function withBiggestCamp(state: WeeksState): WeeksState {
 export const biggestCampSize = (t: SessionTemplate): number => Object.values(t.most).reduce((a, b) => a + b, 0);
 /** The villages a bunk can be added to with one click, in order. */
 export const addableVillages = (t: SessionTemplate): string[] => VILLAGE_ORDER.filter((v) => t.most[v] !== undefined);
+
+/** What starting over covers and what it keeps (the Start over dialog). */
+export interface StartOver {
+  scope: 'week' | 'session';
+  keepBunks: boolean;
+  keepSettings: boolean;
+}
+
+/**
+ * Start a week, or the whole session, over: every period emptied and the session calendar put back on. The bunks stay
+ * (names, grades, camper counts) when that is asked for, and otherwise go back to the ones the session starts with. A
+ * week never touches the settings; the whole session keeps them or goes back to its own, as asked. Day details stay.
+ */
+export function startedOver(state: WeeksState, how: StartOver): WeeksState {
+  const t = templateOf(state.session);
+  const own = (i: number): Schedule['bunks'] => t.roster.filter(([name]) => i === 0 || !isGuest(name)).map(([name, grades, count]) => newBunk(name, grades, count));
+  const fresh = (w: Schedule | null, i: number): Schedule => ({
+    bunks: how.keepBunks && w && w.bunks.length > 0 ? w.bunks.map((b) => newBunk(b.name, b.grades, b.count)) : own(i),
+    days: w?.days ?? DAYS.map(emptyDay),
+  });
+  if (how.scope === 'week') {
+    const at = state.current;
+    const weeks = state.weeks.map((w, i) => (i === at ? fresh(w, i) : w));
+    return { ...state, weeks: applyCalendar(weeks, calendarFor(t.weeks), new Set([at])) };
+  }
+  const weeks = state.weeks.map((w, i) => (i < t.weeks ? fresh(w, i) : null));
+  if (how.keepSettings) return { ...state, weeks: applyCalendar(weeks, calendarFor(t.weeks)) };
+  const settings = templateSettings(t);
+  const { settings: _old, ...rest } = state;
+  return { ...rest, weeks: applyCalendar(weeks, t.events), ...(isDefaultSettings(settings) ? {} : { settings }) };
+}

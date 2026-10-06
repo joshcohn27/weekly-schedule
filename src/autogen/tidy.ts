@@ -7,6 +7,8 @@ import { validateWeek, type Violation } from './validate';
 
 /** How many ways of emptying a period are tried each time round. */
 const TRY_AT_ONCE = 24;
+/** What an emptied period may be given back: single periods, the common ones first. */
+const REFILL = ['Athletics', 'A&C', 'Music', 'Time with UH', 'Teva', 'Dance', 'Israel', 'Yoga', 'Ceramics', 'Judaics'];
 /** Rules about too many bunks in one place: emptying one period may leave the group still too big. */
 const CROWD_RULES = ['H13', 'H14', 'H15', 'H10'];
 /** The most times round: a week is never far from clean when it gets here. */
@@ -16,7 +18,8 @@ const MAX_PASSES = 80;
  * A week that ran out of time with a rule still broken is handed back clean instead: the periods that break a rule are
  * emptied, as few as it takes, and left marked (yellow) for a person to fill. Nothing that was on the week before it was
  * generated is touched: the calendar and whatever was entered by hand stay. What comes back has nothing in it that breaks
- * a rule; it has some periods with nothing in them, and may still be short of something it should have.
+ * a rule. A period that was emptied is given another activity where one fits, so only the periods nothing fits in are left
+ * empty; the week may still be short of something it should have.
  *
  * `weeks` is the session with this week in its place, `before` is the week as it was before generating.
  */
@@ -103,6 +106,26 @@ export function tidyWeek(schedule: Schedule, before: Schedule | null, weeks: Wee
       break;
     }
     if (!done) break;
+  }
+
+  // Then put something back in each period that was emptied, where anything fits: the first single-period activity that
+  // breaks no rule there. What is left empty after this has nothing that fits, and is marked for a person to fill.
+  let left = broken().length;
+  for (let k = 0; k < grid.length; k++) {
+    for (const x of [...emptied[k]].sort((a, b) => a - b)) {
+      if (grid[k][x] !== '') continue;
+      // rotate the list by bunk and period, so the same activity is not tried first everywhere
+      const from = (k * 7 + x) % REFILL.length;
+      for (let i = 0; i < REFILL.length; i++) {
+        grid[k][x] = REFILL[(from + i) % REFILL.length];
+        const now = broken().length;
+        if (now <= left) {
+          left = now;
+          break;
+        }
+        grid[k][x] = '';
+      }
+    }
   }
 
   return {

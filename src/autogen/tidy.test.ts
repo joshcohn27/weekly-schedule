@@ -35,9 +35,14 @@ describe('a week that ran out of time comes back keeping the rules', () => {
     expect(left.filter((v) => !/missing|swims 0 times|should have Shabbat Prep/.test(v.message))).toEqual([]);
     const row = (name: string) => tidy.bunks.find((b) => b.name === name)!;
     expect(row('O1').slots[slotAt(1, 0)]).toBe('Ceramics'); // it was there before: never touched
-    expect(row('O2').slots[slotAt(1, 0)]).toBe('');
-    expect(row('O3').slots[slotAt(1, 0)]).toBe('');
-    expect(row('O2').cleared).toContain(slotAt(1, 0)); // shown yellow, to be filled by hand
+    // O2 and O3 were at Ceramics with O1: neither is any more. A period that was emptied is given something else that
+    // breaks no rule where anything fits, and is left empty and marked yellow only where nothing does.
+    for (const name of ['O2', 'O3']) {
+      const now = row(name).slots[slotAt(1, 0)];
+      expect(now).not.toBe('Ceramics');
+      if (now === '') expect(row(name).cleared).toContain(slotAt(1, 0));
+      else expect(row(name).cleared ?? []).not.toContain(slotAt(1, 0));
+    }
     expect(row('C1').slots.filter((l) => l === 'Athletics')).toHaveLength(1);
     expect(row('S1').slots.includes('Waterfront')).toBe(false); // the whole block, for everyone who had it
     expect(row('S2').slots.includes('Waterfront')).toBe(false);
