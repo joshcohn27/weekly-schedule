@@ -61,6 +61,8 @@ const USUAL_GRADES: Record<string, string[]> = {
   M: ['7th', '7th/8th', '8th', '8th/9th', '9th', '9th'],
   T: ['10th'],
 };
+/** The camp has this many cabins: no week can have more bunks than this, Taste of CSL included. */
+export const MAX_BUNKS_IN_CAMP = 27;
 /** Campers a bunk is given when the biggest camp is filled in: a round number to plan with, not a limit anywhere. */
 export const MAX_CAMPERS_PER_BUNK = 15;
 const gradeFor = (village: string, position: number): string => {
@@ -98,6 +100,8 @@ const inWeek = (village: string, index: number): boolean => village !== GUEST_VI
  */
 export function withBunkAdded(state: WeeksState, village: string, count = ''): WeeksState {
   const t = templateOf(state.session);
+  // no room: some week the bunk would go into is already at the most the camp holds
+  if (state.weeks.some((w, i) => i < t.weeks && inWeek(village, i) && (w?.bunks.length ?? 0) >= MAX_BUNKS_IN_CAMP)) return state;
   const weeks = state.weeks.map((w, i) => (i < t.weeks && inWeek(village, i) ? addTo(w ?? emptySchedule(), village, count) : w));
   return withCalendar({ ...state, weeks });
 }

@@ -67,10 +67,10 @@ describe('specialist schedules', () => {
     expect(grids.map((g) => g.week)).toEqual([1, 2]);
     expect(grids[0].cells).toHaveLength(4);
     expect(grids[0].cells[0]).toHaveLength(6);
-    expect(grids[0].cells[0][0]).toEqual([{ who: 'O village', detail: '1st visit, 22 campers' }]); // Sunday period 1
+    expect(grids[0].cells[0][0]).toEqual([{ who: 'Onondaga', detail: '1st visit, 22 campers' }]); // Sunday period 1
     expect(grids[0].cells[1][2]).toEqual([{ who: 'O1', detail: '2nd visit, 10 campers' }]); // Tuesday period 2
     expect(grids[0].cells[0][1]).toEqual([]);
-    expect(grids[1].cells[0][1]).toEqual([{ who: 'O village', detail: 'O1 3rd, O2 2nd, 22 campers' }]); // on different visits
+    expect(grids[1].cells[0][1]).toEqual([{ who: 'Onondaga', detail: 'O1 3rd, O2 2nd, 22 campers' }]); // on different visits
     // a double period is written in both of its periods, with the activity named when it is not the area's own name
     const ropes = specialistWeeks(of('Ropes')!, weeks);
     expect(ropes[0].cells[0][1]).toEqual([{ who: 'Low Ropes: C1', detail: '1st visit, 9 campers' }]);
@@ -83,14 +83,14 @@ describe('specialist schedules', () => {
     expect(specialistRows(of('A&C')!, weeks)).toEqual([
       ['Week 1'],
       DAY_ROW,
-      period(1, { 0: 'O village (1st visit, 22 campers)' }),
+      period(1, { 0: 'Onondaga (1st visit, 22 campers)' }),
       period(2, { 2: 'O1 (2nd visit, 10 campers)' }),
       period(3),
       period(4),
       [],
       ['Week 2'],
       DAY_ROW,
-      period(1, { 1: 'O village (O1 3rd, O2 2nd, 22 campers)' }),
+      period(1, { 1: 'Onondaga (O1 3rd, O2 2nd, 22 campers)' }),
       period(2),
       period(3),
       period(4),
@@ -100,8 +100,8 @@ describe('specialist schedules', () => {
       DAY_ROW,
       period(1),
       period(2),
-      period(3, { 1: 'O village (1st visit, 22 campers)' }),
-      period(4, { 1: 'O village (1st visit, 22 campers)' }),
+      period(3, { 1: 'Onondaga (1st visit, 22 campers)' }),
+      period(4, { 1: 'Onondaga (1st visit, 22 campers)' }),
     ]);
   });
 
@@ -122,8 +122,8 @@ describe('specialist schedules', () => {
     const rows: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets['A&C'], { header: 1 });
     expect(rows[0]).toEqual(['Week 1']);
     expect(rows[1].slice(1)).toEqual(['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
-    expect(rows[2].slice(0, 2)).toEqual(['Period 1', 'O village (1st visit, 22 campers)']);
-    expect(rows[9][2]).toBe('O village (O1 3rd, O2 2nd, 22 campers)'); // week 2, Monday period 1
+    expect(rows[2].slice(0, 2)).toEqual(['Period 1', 'Onondaga (1st visit, 22 campers)']);
+    expect(rows[9][2]).toBe('Onondaga (O1 3rd, O2 2nd, 22 campers)'); // week 2, Monday period 1
     expect(parseUploadedWorkbook(wb)).toEqual([]);
     expect(buildSpecialistWorkbook([null]).SheetNames).toEqual(['Specialists']);
   });
@@ -135,7 +135,7 @@ describe('specialist schedules', () => {
     // the first area with anything is shown to start with: Waterfront, one week, a double period in two boxes
     expect(html).toContain('Waterfront, Week 1');
     expect((html.match(/<table/g) ?? []).length).toBe(1);
-    expect((html.match(/<strong>O village<\/strong><span>1st visit, 22 campers<\/span>/g) ?? []).length).toBe(2);
+    expect((html.match(/<strong>Onondaga<\/strong><span>1st visit, 22 campers<\/span>/g) ?? []).length).toBe(2);
     expect(html).toContain('>Print</button>');
     expect(html).toContain('Download all areas (.xlsx)');
     expect(renderToStaticMarkup(createElement(SpecialistView, { weeks: [null], onDownload: () => {} }))).toContain('Nothing is scheduled yet.');

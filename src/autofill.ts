@@ -10,6 +10,10 @@ export const villageOf = (name: string): string => (isGuest(name) ? GUEST_VILLAG
  * Waterfront. They are a village of their own, "TC", and not part of Tusc although the name starts with a T.
  */
 export const GUEST_VILLAGE = 'TC';
+
+/** What each village is called. A village whose letter is not here is "X village". */
+export const VILLAGE_NAMES: Record<string, string> = { O: 'Onondaga', C: 'Cayuga', S: 'Seneca', M: 'Mohawk', T: 'Tusc', TC: 'Taste' };
+export const villageName = (village: string): string => VILLAGE_NAMES[village] ?? `${village} village`;
 export function isGuest(name: string): boolean {
   return /^TC\s*\d*$/i.test(name.trim());
 }

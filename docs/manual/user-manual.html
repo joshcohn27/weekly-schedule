@@ -45,7 +45,7 @@
   <h1>Weekly Period Schedule Builder</h1>
   <div class="sub">User's Manual</div>
   <img src="screenshots/13-schedule-tab-week-2.png" alt="A finished week on the Schedule tab">
-  <div class="ver">For version 1.6.0 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
+  <div class="ver">For version 1.6.1 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
 </section>
 
 <h1>Quick Start</h1>
@@ -125,7 +125,7 @@
 <p>How many times each bunk has each program area, for the week on screen and for the whole session. This is the place to check that things are fair. The last row, <span class="ui">All bunks</span>, adds everything up.</p>
 <figure class="tall"><img src="screenshots/15-tracking-tab.png" alt="The Tracking tab"><figcaption>The Tracking tab after a whole session was generated.</figcaption></figure>
 <h2>Specialists</h2>
-<p>The schedule from one program area's side. Pick the area, and each week is a grid with days across and periods down. Each box says who comes, which visit it is for them in that area (counted from the start of the session), and how many campers. Print it for the specialist.</p>
+<p>The schedule from one program area's side. Pick the area, and each week is a grid with days across and periods down. Each box says who comes, which visit it is for them in that area (counted from the start of the session), and how many campers. When a whole village comes it is written by name: Onondaga, Cayuga, Seneca, Mohawk, Tusc or Taste. Print it for the specialist.</p>
 <figure><img src="screenshots/16-specialists-tab.png" alt="The Specialists tab"><figcaption>The Specialists tab.</figcaption></figure>
 <h2>Settings</h2>
 <p>The numbers Auto generate works with: how often each program area happens, how many bunks it takes at once, who may share a period, and the session calendar. Chapter 7 lists every setting.</p>
@@ -143,7 +143,8 @@
 </ul>
 <h3>Add bunks quickly</h3>
 <p>Above the grid, after <span class="ui">Add a bunk to</span>, there is a button for each village: <span class="ui">O</span>, <span class="ui">C</span>, <span class="ui">S</span>, <span class="ui">M</span>, <span class="ui">T</span>, and in Session 2 <span class="ui">TC</span>. One click adds the next bunk of that village (after O5 comes O6) <b>to every week of the session</b>, in its place in the list, with a starting grade and with the calendar already on its row. Type its camper count afterwards.</p>
-<p><span class="ui">Fill in the biggest camp (27 bunks, 15 campers each)</span> brings every village up to its most bunks in every week: 5 Onondaga, 6 Cayuga, 6 Seneca, 6 Mohawk and 4 Tusc, and in Session 2 four Taste of CSL bunks in week 1 as well. It also sets every bunk to 15 campers. The 15 is only a round number to plan with; nothing holds a bunk to it, and you can type the real counts over it. Bunks that are already there keep everything on their rows. It asks first.</p>
+<p><b>The camp has 27 cabins</b>, so no week can have more than 27 bunks, Taste of CSL included. The add buttons stop there and say so.</p>
+<p><span class="ui">Fill in the biggest camp (27 bunks, 15 campers each)</span> brings every village up to its most bunks in every week. In Session 1 that is 5 Onondaga, 6 Cayuga, 6 Seneca, 6 Mohawk and 4 Tusc. In Session 2 it is 4 Taste of CSL, 3 Onondaga, 4 Cayuga, 6 Seneca, 6 Mohawk and 4 Tusc, because Taste of CSL's cabins come out of Onondaga's and Cayuga's. It also sets every bunk to 15 campers. The 15 is only a round number to plan with; nothing holds a bunk to it, and you can type the real counts over it. Bunks that are already there keep everything on their rows. It asks first.</p>
 <h2>Fill a period by hand</h2>
 <p>Click a period's box and pick an activity from the list, or type to search. Activities are grouped by program area.</p>
 <figure><img src="screenshots/05-activity-picker-open.png" alt="The activity list, open"><figcaption>The activity list, open. Typing narrows it.</figcaption></figure>
@@ -174,7 +175,7 @@
   <tr><td>Length</td><td>4 weeks</td><td>3 weeks</td></tr>
   <tr><td>Dates, summer 2027</td><td>June 27 to July 23</td><td>July 26 to August 15</td></tr>
   <tr><td>Opening day</td><td>Sunday June 27. No periods; they start Monday.</td><td>Monday July 26. No periods; they start Tuesday.</td></tr>
-  <tr><td>Bunks it starts with</td><td>5 Onondaga, 4 Cayuga, 5 Seneca, 4 Mohawk, 4 Tusc</td><td>4 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL (TC1 to TC4) in week 1</td></tr>
+  <tr><td>Bunks it starts with</td><td>5 Onondaga, 4 Cayuga, 5 Seneca, 4 Mohawk, 4 Tusc</td><td>3 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL (TC1 to TC4) in week 1</td></tr>
   <tr><td>Special to it</td><td>Visitor's Day, Mass Program, village day on the last Sunday, the three-day Tusc bike trip, Hobby Culmination and Packing Time</td><td>Color War, the Tusc Triathlon, village day for everyone including Tusc</td></tr>
 </table>
 <p>Each session keeps its own bunks, schedule and settings. A session you have never opened starts from its template: its bunks, its numbers, and its calendar already on the schedule. The grades and camper counts it starts with are placeholders: change them to this summer's.</p>
@@ -221,7 +222,8 @@
   <li>Their week is set, copied from 2026. The first half of the TC bunks follows one schedule and the second half the other; the two differ only on Tuesday afternoon.</li>
   <li>Auto generate leaves their week exactly as it is.</li>
   <li>Nobody else is put at a program area in a period Taste of CSL has it. They may all be there together.</li>
-  <li>They are a village of their own. They are not part of Tusc, even though the name starts with a T.</li>
+  <li>They are a village of their own, called Taste. They are not part of Tusc, even though the name starts with a T.</li>
+  <li>Their cabins come out of Onondaga's and Cayuga's, which is why those two villages start smaller in Session 2.</li>
   <li>You can have more or fewer than four. Add or remove TC bunks on the Build tab in week 1.</li>
 </ul>
 <figure class="tall"><img src="screenshots/22-session-2-week-1-as-it-starts.png" alt="Session 2, week 1"><figcaption>Session 2, week 1, as the session starts: no periods Sunday, Opening Day Monday, Taste of CSL's week filled in, Tusc on its trip Tuesday.</figcaption></figure>
@@ -452,7 +454,7 @@
   <li><b>Tusc's own Session 2 numbers</b> (Ceramics once, one High Ropes) come with the session and are not on the Settings tab.</li>
   <li><b>A hand-entered period is trusted.</b> When building around what you entered, the app does not check your own entries against the sharing rules.</li>
   <li><b>Undo</b> only covers the last Auto generate, and only until you change something.</li>
-  <li><b>A much bigger camp may not fit.</b> Beyond six bunks in a village, expect yellow periods.</li>
+  <li><b>27 bunks is the most.</b> The camp has 27 cabins. Beyond six bunks in a village, expect yellow periods.</li>
 </ul>
 
 <h1 class="flow">12. Glossary</h1>

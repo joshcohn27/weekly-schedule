@@ -152,11 +152,12 @@ export const SESSION_2: SessionTemplate = {
   // Tusc is the same campers as Session 1: Ceramics once is plenty, and one more ropes, High (three in the summer)
   villageTargets: { Ceramics: { T: 1 }, Ropes: { T: 1 } },
   ropesStartHigh: ['T'],
-  // 4 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL for week 1
-  most: { TC: 4, O: 5, C: 6, S: 6, M: 6, T: 4 },
+  // 3 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL (4) for week 1: its cabins are Onondaga's and Cayuga's
+  // the camp has 27 cabins in all, and Taste of CSL's come out of Onondaga's and Cayuga's
+  most: { TC: 4, O: 3, C: 4, S: 6, M: 6, T: 4 },
   roster: [
     ['TC1', '3rd', '11'], ['TC2', '3rd', '11'], ['TC3', '3rd', '12'], ['TC4', '3rd', '12'],
-    ['O1', '4th', '11'], ['O2', '4th/5th', '12'], ['O3', '5th/6th', '9'], ['O4', '6th', '13'],
+    ['O1', '4th', '11'], ['O2', '4th/5th', '12'], ['O3', '5th/6th', '9'],
     ['C1', '4th', '12'], ['C2', '4th/5th', '8'], ['C3', '5th/6th', '13'], ['C4', '6th', '11'],
     ['S1', '7th', '10'], ['S2', '7th/8th', '14'], ['S3', '8th', '12'], ['S4', '8th/9th', '9'], ['S5', '9th', '13'],
     ['M1', '7th', '11'], ['M2', '7th/8th', '13'], ['M3', '8th', '10'], ['M4', '8th/9th', '12'], ['M5', '9th', '9'],

@@ -95,7 +95,10 @@ with Color War, July 26 to August 15, 2027). Each keeps its own bunks, schedule 
 lose the other. A session starts from its template (`src/autogen/sessionCalendar.ts`): its bunks, its numbers, and its
 calendar already on the schedule. **Start this session over** goes back to that. On the Build tab, **Add a bunk to**
 O, C, S, M or T adds the next bunk of that village to every week, and **Fill in the biggest camp** brings every village
-up to its most bunks (5, 6, 6, 6 and 4) at 15 campers each, a round number to plan with that nothing enforces. The week dropdown and the day
+up to its most bunks at 15 campers each, a round number to plan with that nothing enforces. The camp has 27 cabins, so
+no week holds more than 27 bunks: 5, 6, 6, 6 and 4 in Session 1, and in Session 2 four Taste of CSL bunks whose cabins
+come out of Onondaga's and Cayuga's (3 and 4), with 6 Seneca, 6 Mohawk and 4 Tusc. On the specialist schedules a whole
+village is written by name (Onondaga, Cayuga, Seneca, Mohawk, Tusc, Taste). The week dropdown and the day
 headings carry the dates.
 
 **The session calendar** is everything that is not a period: opening day, the Tiyuls, the Tusc bike trips, village day

@@ -1,4 +1,4 @@
-import { villageOf } from './autofill';
+import { villageName, villageOf } from './autofill';
 import { AREAS, DAYS, PERIODS_PER_DAY, areaOf } from './config';
 import type { Schedule } from './types';
 
@@ -80,7 +80,7 @@ export const ordinal = (n: number): string => ORDINALS[n] ?? `${n}th`;
 export const periodText = (b: Pick<SpecialistBlock, 'period' | 'length'>): string =>
   b.length > 1 ? `Periods ${b.period + 1}-${b.period + b.length}` : `Period ${b.period + 1}`;
 
-/** "O1, O2", or "O village" when every bunk of a village (of two or more) is there. `roster` is every bunk name of the week. */
+/** "O1, O2", or the village by name ("Onondaga") when every bunk of a village (of two or more) is there. `roster` is every bunk name of the week. */
 export function bunksText(block: SpecialistBlock, roster: string[]): string {
   const here = block.bunks.map((b) => b.name);
   const out: string[] = [];
@@ -90,7 +90,7 @@ export function bunksText(block: SpecialistBlock, roster: string[]): string {
     if (done.has(v)) continue;
     const all = roster.filter((n) => villageOf(n) === v);
     if (all.length > 1 && all.every((n) => here.includes(n))) {
-      out.push(`${v} village`);
+      out.push(villageName(v));
       done.add(v);
     } else out.push(name);
   }
@@ -110,7 +110,7 @@ export const campersText = (block: SpecialistBlock): number | '' =>
 
 /** One block as it is written in a grid cell: who comes, and under it which visit it is and how many campers. */
 export interface SpecialistCell {
-  /** "O1, O2" or "O village", with the activity in front when it is not simply the area's name ("Low Ropes: C1, C2"). */
+  /** "O1, O2" or "Onondaga", with the activity in front when it is not simply the area's name ("Low Ropes: C1, C2"). */
   who: string;
   /** "2nd visit, 22 campers", or "O1 3rd, O2 2nd, 22 campers" when the bunks are on different visits. */
   detail: string;

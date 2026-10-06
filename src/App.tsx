@@ -9,7 +9,7 @@ import ScheduleView from './components/ScheduleView';
 import SettingsView from './components/SettingsView';
 import SpecialistView from './components/SpecialistView';
 import TrackingView from './components/TrackingView';
-import { bunkIdsForLabel, slotsForLabel, villageOf } from './autofill';
+import { bunkIdsForLabel, slotsForLabel, villageName, villageOf } from './autofill';
 import { BUILT_WEEK_MAX_EMPTY } from './autogen/config';
 import { isBuiltWeek } from './autogen/history';
 import { startRun } from './autogen/background';
@@ -19,7 +19,7 @@ import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } 
 import { APP_VERSION, SUPPORT_LINK } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule, newBunk, sampleSchedule } from './sample';
-import { MAX_CAMPERS_PER_BUNK, addableVillages, biggestCampSize, datesOf, dayLabels, pastDaysOf, startSession, withBiggestCamp, withBunkAdded, templateOf, weekDates, withCalendar, type SessionId } from './session';
+import { MAX_BUNKS_IN_CAMP, MAX_CAMPERS_PER_BUNK, addableVillages, biggestCampSize, datesOf, dayLabels, pastDaysOf, startSession, withBiggestCamp, withBunkAdded, templateOf, weekDates, withCalendar, type SessionId } from './session';
 import { SESSION_TEMPLATES, calendarFor } from './autogen/sessionCalendar';
 import { isFirstVisit, loadSession, loadWeeks, markHelpSeen, saveSession, saveWeeks } from './storage';
 import type { Schedule, WeeksState } from './types';
@@ -92,6 +92,10 @@ export default function App() {
   };
   // Setting up: a bunk added with one click goes into every week of the session, and the biggest camp can be filled in at once
   const addBunkTo = (village: string) => {
+    if (withBunkAdded(weeksState, village) === weeksState) {
+      window.alert(`The camp has ${MAX_BUNKS_IN_CAMP} cabins, and a week of this session already has that many bunks. Remove one first.`);
+      return;
+    }
     setAuto(null);
     setWeeksState((ws) => withBunkAdded(ws, village));
   };
@@ -465,7 +469,7 @@ export default function App() {
             <p className="bunkbar">
               Add a bunk to{' '}
               {addableVillages(template).map((v) => (
-                <button key={v} type="button" disabled={run !== null} onClick={() => addBunkTo(v)} title={`Adds the next ${v} bunk to every week of the session.`}>
+                <button key={v} type="button" disabled={run !== null} onClick={() => addBunkTo(v)} title={`Adds the next ${villageName(v)} bunk to every week of the session.`}>
                   {v}
                 </button>
               ))}{' '}
