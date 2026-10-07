@@ -159,8 +159,11 @@ The Excel file carries the session it was saved from and, when it was changed, t
 tab), so an upload comes back into the right session with its calendar.
 
 **While it runs** it works in the background, so the page stays usable: switch tabs and weeks, look at Tracking,
-download. A panel under the week bar shows a progress bar (weeks done out of the total), where each week stands (done,
-working, waiting), the time so far and a **Stop** button. Each week is put on the page as soon as it is done, so you
+download. A panel shows a progress bar, where each week stands (done, working, waiting), the time so far, the most
+time it can still take and a **Stop** button. The bar goes by the clock: a week that is done counts in full, and the
+week being worked on counts by how much of its time limit it has used (the first quarter of the limit, where most
+weeks come out, is given four fifths of the week's stretch). So it moves all the time, jumps ahead when a week comes
+out early, and is full when the run is over. Each week is put on the page as soon as it is done, so you
 can look at weeks 1 and 2 while 3 and 4 are still being worked on. The weeks in the run can be looked at but not
 changed until it is over.
 
@@ -168,10 +171,13 @@ changed until it is over.
 seed and on its own processor core (one fewer than the machine has, six at most), and the first good week is kept. A
 try lasts 15 seconds at most. When none comes out right the week is generated again, without a word; the panel just
 says "try 2". If it fails twice in a whole-session run, the week before it is redone as well, once, because what an
-earlier week used up is the usual reason. A week is never worked on for more than 45 seconds in all: then the best one
-found is handed over with the periods that break a rule emptied and marked yellow, for you to fill by hand
-(`src/autogen/tidy.ts`). That is what happens with a roster or settings that are too tight to fit, for example six
-bunks in every village. It never shows warnings; the browser console has the details.
+earlier week used up is the usual reason. Every week has a time limit, and a bigger camp is given longer
+(`weekBudgetMs` in `src/autogen/config.ts`): 45 seconds up to 21 bunks, and 25 seconds more for each bunk over that, so
+3 minutes 15 seconds a week for 27 bunks. When a week uses up its time, the best one found is handed over with the
+periods that break a rule emptied and marked yellow (`src/autogen/tidy.ts`), and the page says so: **Not fully done**,
+with which weeks and how many empty periods, and a **Keep trying** button that puts those weeks back as they were (with the week before the first of
+them and the ones built after) and generates them again. So a run always ends one of two ways: every week complete, or
+a plain statement of which are not. Which rule stood in the way is in the browser console only.
 
 **Ropes.** One group is at ropes in a half-day, so a session has room for only so many (`src/autogen/ropesRoom.ts` counts
 the half-days and the groups). When everyone's ropes fits, every half-day may be used and ropes is placed before

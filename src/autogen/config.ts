@@ -309,15 +309,22 @@ export const TRIO_AFTER = 64;
 /**
  * In the app a week that does not come out good is thrown away and generated again. One try at a week lasts APP_MAX_MS at
  * most. After APP_BACK_UP_AFTER failed tries the week before it is redone as well, once. A week is never worked on for
- * longer than APP_WEEK_MAX_MS in all: when that is up, the best week found is handed over with the periods that break a
- * rule emptied and marked, so what comes back always keeps the rules. (The user's limits: 15 seconds a week as a rule,
- * 45 at the very most.)
+ * longer than its time limit, weekBudgetMs(): when that is up, the best week found is handed over with the periods that
+ * break a rule emptied and marked, so what comes back always keeps the rules, and the page says the week is not fully done.
  */
 export const APP_MAX_MS = 15000;
 export const APP_BACK_UP_AFTER = 2;
+/** The time limit for a week of an ordinary camp. */
 export const APP_WEEK_MAX_MS = 45000;
-/** A whole run never goes on longer than this, whatever the weeks are doing. */
-export const APP_TOTAL_MAX_MS = 300000;
+/** A camp of more bunks than this is given longer for each week: this much for each bunk over. */
+export const WEEK_BUDGET_FULL_AT = 21;
+export const WEEK_BUDGET_MS_PER_BUNK_OVER = 25000;
+/**
+ * The longest one week may be worked on: 45 seconds up to 21 bunks, and 25 seconds more for each bunk over that (a
+ * 27-bunk camp gets 3 minutes 15 seconds a week). The user's rule: it may take longer for a bigger camp, as long as the
+ * page shows how far along it is.
+ */
+export const weekBudgetMs = (bunks: number): number => APP_WEEK_MAX_MS + Math.max(0, bunks - WEEK_BUDGET_FULL_AT) * WEEK_BUDGET_MS_PER_BUNK_OVER;
 /** The most attempts at one week that run at the same time, each on its own processor core. */
 export const APP_MAX_WORKERS = 6;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */

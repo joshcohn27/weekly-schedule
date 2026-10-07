@@ -426,9 +426,10 @@ footer {
 .autogen-progress progress {
   display: block;
   width: 100%;
-  max-width: 420px;
+  max-width: 720px;
   height: 14px;
   margin: 6px 0;
+  accent-color: var(--forest);
 }
 .autogen-progress ul {
   list-style: none;
@@ -870,4 +871,16 @@ main button.danger {
 main button.danger:hover:not(:disabled) {
   background: #a32020;
   color: #fff;
+}
+
+/* a run that left a week unfinished says so plainly */
+.autogen-status.not-done {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-top: 0;
+  border-left: 5px solid #e0a800;
+  background: #fff8e1;
+}
+.weekbar > .autogen-status.not-done:first-child {
+  padding: 8px 10px;
 }

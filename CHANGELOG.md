@@ -5,6 +5,16 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.9.0 (October 6, 2026)
+
+- **A run ends one of two ways: complete, or "Not fully done".** When a week uses up its time, the page says which
+  week and how many of its periods are empty, in place of saying the weeks were generated. **Keep trying** generates
+  that week again, with the week before it and the ones after it.
+- **A bigger camp is given longer.** Every week has a time limit: 45 seconds up to 21 bunks, and 25 seconds more for
+  each bunk over that (3 minutes 15 seconds a week for 27 bunks). There is no longer a 5 minute limit on a whole run.
+- **A real progress bar.** It goes by the clock against each week's time limit, in a thousand steps where it had one
+  step a week, and the panel says the most time the run can still take.
+
 ## 1.8.1 (October 6, 2026)
 
 - **Never four bunks at Athletics.** Three at once is the most at Athletics and at A&C, as the starting number and as a

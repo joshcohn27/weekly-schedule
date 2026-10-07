@@ -87,16 +87,19 @@ export default function HelpPanel({ onClose }: Props) {
             is there and fill the gaps, or clear it and build it again.
           </li>
           <li>
-            Let it work. A panel shows which weeks are done and how long it has been. You can keep using the page, and each week appears as
-            soon as it is finished. A whole session usually takes under a minute, and a hard one can take a few.
+            Let it work. A panel shows a progress bar, which weeks are done, how long it has been and the most time it can still take.
+            You can keep using the page, and each week appears as soon as it is finished. Every week has a time limit, and a bigger
+            camp is given longer: 45 seconds a week for an ordinary camp, a little over 3 minutes a week for 27 bunks.
           </li>
           <li>
             Look it over, starting with Tracking. Press Auto generate again for a different version, or <strong>Undo</strong> to go back.
           </li>
         </ol>
         <p>
-          A week is only handed over when it keeps every rule. When an attempt does not, the page throws it away and builds it again by
-          itself. That is why some weeks take longer than others.
+          The page tries each week several ways at once and keeps the first one that keeps every rule. That is why some weeks take
+          longer than others. If a week uses up its time, the page says <strong>Not fully done</strong> and how many periods of that
+          week are empty (they are yellow). Everything that is on the schedule still keeps the rules. <strong>Keep trying</strong>{' '}
+          generates that week again, with the week before it and the ones after it.
         </p>
 
         <h3>Changing things by hand</h3>

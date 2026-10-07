@@ -2,7 +2,7 @@ import type { Schedule } from '../types';
 import { APP_MAX_WORKERS } from './config';
 import { isBad, type AutoGenOptions, type AutoGenResult } from './index';
 import { compareQuality } from './quality';
-import { generateRun, type RunOptions, type RunResult } from './session';
+import { generateRun, type RunOptions, type RunResult, type RunTime } from './session';
 import type { Settings } from './settings';
 
 /** What a run is asked to do: everything in RunOptions that the page decides. */
@@ -18,8 +18,8 @@ export interface WeekJobResult {
 }
 
 export interface RunHandlers {
-  /** A week was started. `tries` counts its failed tries so far; a step lower than before means that week is being redone. */
-  onProgress: (step: number, tries: number) => void;
+  /** A try at a week was started. `tries` counts its failed tries so far; a step lower than before means that week is being redone. `time` is how long each week has had and may have. */
+  onProgress: (step: number, tries: number, time: RunTime) => void;
   /** A week is finished and kept. */
   onWeek: (step: number, schedule: Schedule) => void;
   /** The run is over. Not called after stop(). */

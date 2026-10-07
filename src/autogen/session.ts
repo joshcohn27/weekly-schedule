@@ -1,7 +1,7 @@
 import { isGuest } from '../autofill';
 import { emptySchedule, newBunk } from '../sample';
 import type { Bunk, Schedule } from '../types';
-import { APP_BACK_UP_AFTER, APP_MAX_MS, APP_TOTAL_MAX_MS, APP_WEEK_MAX_MS, type SessionWeeks } from './config';
+import { APP_BACK_UP_AFTER, APP_MAX_MS, weekBudgetMs, type SessionWeeks } from './config';
 import { tidyWeek } from './tidy';
 import { isFilledWeek } from './history';
 import { generateWeekAsync, isBad, type AutoGenOptions, type AutoGenResult } from './index';
@@ -34,17 +34,28 @@ export interface RunOptions {
   /** True puts the session calendar on the weeks first. Off until the generator shares a week's numbers out over the days the calendar leaves it. */
   calendar?: boolean;
   signal?: AbortSignal;
-  /** Called each time a week is started. `tries` counts the failed tries at it so far. A step lower than the last one means that week is being redone. */
-  onProgress?: (step: number, tries: number) => void;
+  /**
+   * Called each time a try at a week is started. `tries` counts the failed tries at it so far. A step lower than the last
+   * one means that week is being redone. `time` says how long each week has been worked on and how long it may be.
+   */
+  onProgress?: (step: number, tries: number, time: RunTime) => void;
   /** Called as soon as a week is kept, so it can be shown while the later ones are still being worked on. */
   onWeek?: (step: number, schedule: Schedule) => void;
   /** How one week is generated. Left out, it is generated here; the page passes one that tries several seeds at once. */
   generate?: (options: AutoGenOptions) => Promise<AutoGenResult | null>;
-  /** Longest one try at one week may take, and longest the whole run may take before it settles for its best. */
+  /** Longest one try at one week may take, and longest the whole run may take before it settles for its best (no limit when left out: the weeks have their own). */
   maxMsPerTry?: number;
   maxTotalMs?: number;
-  /** Longest one week may be worked on in all before its best is handed over. */
+  /** Longest one week may be worked on in all before its best is handed over. Left out, it goes by the number of bunks. */
   maxWeekMs?: number;
+}
+
+/** Where a run stands on the clock: one entry for each step. */
+export interface RunTime {
+  /** Milliseconds each week has been worked on, counting every try that is over. */
+  spent: number[];
+  /** The longest each week may be worked on. */
+  budgets: number[];
 }
 
 export interface RunResult {
@@ -61,7 +72,7 @@ export interface RunResult {
  * Generate the weeks one after another, and only keep a week that is good: no rule break and nothing short. A week that is
  * not good is thrown away and generated again with a new seed. When it keeps failing, the week before it (if this run made
  * it) is thrown away and generated again too, because what an earlier week used up is the usual reason a later one cannot be
- * finished. Only when the whole run has gone on longer than maxTotalMs does it settle for the best week it found.
+ * finished. A week that has used up its time limit is handed over as the best week found, and `good` is then false.
  * Resolves to null when the signal aborts it.
  */
 export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
@@ -70,7 +81,7 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
   const settings = opts.calendar && isDefaultSettings(opts.settings) ? templateSettings(templateFor(opts.sessionWeeks)) : opts.settings;
   applySettings(settings);
   const started = performance.now();
-  const maxTotalMs = opts.maxTotalMs ?? APP_TOTAL_MAX_MS;
+  const maxTotalMs = opts.maxTotalMs ?? Infinity;
   const generated = new Set(steps.map((s) => s.index));
   // what each week holds before it is generated: a week that is redone starts from this again
   const blank = opts.weeks.map((w, i) =>
@@ -95,13 +106,14 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
   /** Time spent on each week so far, counting every try at it. */
   const spent = steps.map(() => 0);
   const backedUp = steps.map(() => false);
-  const weekMaxMs = opts.maxWeekMs ?? APP_WEEK_MAX_MS;
+  // every week has a time limit, and a camp of more bunks is given longer
+  const budgets = steps.map(({ index }) => opts.maxWeekMs ?? weekBudgetMs(input[index]?.bunks.length ?? opts.roster.length));
   let tries = 0;
   let n = 0;
   while (n < steps.length) {
     const { index, mode, pastDays } = steps[n];
     working[index] = input[index];
-    opts.onProgress?.(n, fails[n]);
+    opts.onProgress?.(n, fails[n], { spent: [...spent], budgets });
     // starting fresh: the weeks that are not part of this run are hidden from the generator
     const visible = opts.useOtherWeeks ? working : working.map((w, i) => (generated.has(i) ? w : null));
     const began = performance.now();
@@ -114,7 +126,7 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
       seed: (opts.seed + n * 7919 + tries * 104729) | 0,
       keepTrips: opts.keepTrips,
       signal: opts.signal,
-      maxMs: Math.max(50, Math.min(opts.maxMsPerTry ?? APP_MAX_MS, weekMaxMs - spent[n])),
+      maxMs: Math.max(50, Math.min(opts.maxMsPerTry ?? APP_MAX_MS, budgets[n] - spent[n])),
     });
     spent[n] += performance.now() - began;
     tries++;
@@ -135,7 +147,7 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
     const soFar = best[n];
     if (!soFar || compareQuality(result.quality, soFar.quality) < 0) best[n] = result;
     fails[n]++;
-    if (spent[n] >= weekMaxMs || performance.now() - started >= maxTotalMs) {
+    if (spent[n] >= budgets[n] || performance.now() - started >= maxTotalMs) {
       // out of time for this week. A good week it made earlier (before it was redone for the sake of the next one) comes
       // back; otherwise the best it got, with the periods that break a rule emptied so that it keeps the rules.
       const earlier = lastGood[n];
@@ -149,7 +161,7 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
       keep({ ...chosen, schedule });
       continue;
     }
-    if (fails[n] >= APP_BACK_UP_AFTER && n > 0 && !backedUp[n] && spent[n - 1] < weekMaxMs) {
+    if (fails[n] >= APP_BACK_UP_AFTER && n > 0 && !backedUp[n] && spent[n - 1] < budgets[n - 1]) {
       // this week will not come out with the week before it as it is: redo that one as well, once
       backedUp[n] = true;
       fails[n] = 0;
