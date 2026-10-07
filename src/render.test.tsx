@@ -206,7 +206,7 @@ describe('Auto generate UI', () => {
     // the rules that are always kept are not listed for now
     expect(html).not.toContain('The rules that are always kept');
     expect(html).not.toContain('No bunk has the same kind of period two days in a row.');
-    expect(html).toContain('Specialist schedules');
+    expect(html).toContain('Download all areas');
     expect(html).not.toMatch(/—|–/); // no em or en dashes
     expect(html).not.toMatch(/director/i);
     expect(renderToStaticMarkup(<App />)).toMatch(/<footer>.*Version \d+\.\d+\.\d+<.*<\/footer>/s); // and which version this is

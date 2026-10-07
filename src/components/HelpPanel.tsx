@@ -171,12 +171,13 @@ export default function HelpPanel({ onClose }: Props) {
         <h3>Saving, sharing and printing</h3>
         <ul>
           <li>
-            <strong>Download</strong> saves a week, or all weeks, as an Excel file, with the tracking counts and the settings in it.
-            <strong> Upload</strong> loads such a file, on this computer or another.
+            <strong>Download</strong> saves a week (the button in the bar over the week), or all weeks (at the bottom of the Setup tab),
+            as an Excel file, with the tracking counts and the settings in it. <strong>Upload</strong>, also at the bottom of Setup,
+            loads such a file, on this computer or another.
           </li>
           <li>
-            <strong>Specialist schedules</strong> saves a separate Excel file with one tab for each program area, laid out the same way as
-            the Specialists tab: a grid for each week.
+            On the Specialists tab, <strong>Download all areas</strong> saves a separate Excel file with one tab for each program area,
+            laid out the same way as the tab: a grid for each week.
           </li>
           <li>The Schedule tab has a Print button.</li>
         </ul>

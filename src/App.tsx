@@ -94,7 +94,7 @@ export default function App() {
     setAuto(null);
     setWeeksState(loadSession(id) ?? startSession(templateOf(id)));
   };
-  /** Start the week on screen, or the whole session, over: what the Start over dialog asked for. */
+  /** Clear the week on screen or the whole session, or put the session back to its base template: what the Reset box asked for. */
   const startOver = (how: StartOverChoice) => {
     setStartOverOpen(false);
     setAuto(null);

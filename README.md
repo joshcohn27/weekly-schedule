@@ -27,7 +27,7 @@ The build output is the `dist/` folder from `npm run build`.
 
 **Contact support** at the foot of every page (and in the how-to, and beside any settings problem) opens an email to
 joshcohn27@gmail.com. The address is `SUPPORT_EMAIL` in `src/config.ts`. The version number shown beside it
-(1.2.3 now) is `APP_VERSION` in the same file: the first number is the app itself, the second goes up when a feature is
+is `APP_VERSION` in the same file: the first number is the app itself, the second goes up when a feature is
 added (2 is Auto generate), and the third goes up for a fix. What changed in each version is in
 [CHANGELOG.md](CHANGELOG.md).
 
@@ -353,9 +353,8 @@ each limit on shortfalls is one looser.
 - Mohawk and Tusc have the least room (league doubles, Waterfront, trips, a short last week), so they may end the
   session one block short on a rarer area. Check the Tracking tab for the real totals.
 - In the last week Tusc comes back from the bike trip with one free day, so only two of its bunks get Music that week.
-- **A roster with six bunks in each of O, C, S and M does not fit under these limits.** There are more leftover periods
-  than Athletics, A&C and Time with UH can hold, and weeks come back with rule breaks. The limits that would have to
-  give are in `src/autogen/config.ts`: `DAY_CAP` (bunks of one village per day) and `SLOT_CAP` (bunks per period).
+- **The camp holds 27 bunks** (5, 6, 6, 6 and 4 in Session 1). That camp generates with the numbers the app starts
+  with. At 15 campers a bunk it comes up short at Yoga, Ceramics and ropes, and the Settings tab says so.
 - A Waterfront half-day off each week is written but switched off (`WATERFRONT_HALF_DAY_OFF`), because the periods it
   frees made weeks fail to generate.
 
@@ -381,11 +380,15 @@ as `npx vitest run --pool=forks`.
     src/excel.ts           build workbooks, download, and read uploads
     src/specialist.ts      the session from each specialist's side: blocks, bunks and visit numbers per program area
     src/storage.ts         load, save and repair the saved weeks (localStorage)
-    src/sample.ts          default roster, blank schedule, helpers
+    src/sample.ts          a blank schedule, a blank bunk, and the roster the tests use
+    src/session.ts         the two sessions on the page: starting one, its dates, its bunks (changed in every week), Reset
     src/autogen/           Auto generate: calendar, quota planner, placement, the fill search, and the rule checker;
                            settings.ts holds the numbers the Settings tab can change (config.ts has the defaults);
                            session.ts redoes a week until it is good, background.ts and worker.ts run it off the page
-    src/components/        BuildGrid, ActivityPicker (the dropdown), ScheduleView, TrackingView, DayDetails
+    src/components/        SetupView (the Setup tab), BuildGrid, ActivityPicker (the dropdown), ScheduleView,
+                           TrackingView, SpecialistView, SettingsView with CoreSettings, HowOften (the how-often menu),
+                           SharingSettings and CalendarSettings, the Auto generate box, progress panel and status line,
+                           StartOverDialog (the Reset box), HelpPanel (the how-to)
     src/theme.css          all styling, in one file
 
 ## Common edits
@@ -397,7 +400,8 @@ as `npx vitest run --pool=forks`.
   Hobbies / League rules in `bunkIdsForLabel` and `periodsForLabel`).
 - **Change the number of weeks, days or periods:** `WEEK_COUNT`, `DAYS` and `PERIODS_PER_DAY` in `src/config.ts`.
 - **Change what Auto generate aims for** (targets, rotations, weights): `src/autogen/config.ts`.
-- **Change the default roster:** `sampleSchedule()` in `src/sample.ts`.
+- **Change the bunks or numbers a session starts with:** `SESSION_1` and `SESSION_2` in `src/autogen/sessionCalendar.ts`
+  (`roster`, `most`, `numbers`, `core`, `events`).
 - **See the unstyled app:** comment out `import './theme.css'` in `src/main.tsx`.
 - **Day details** (RH & LOD, TS, DOD, birthdays, EVP, notes) have no on-screen editor right now: the section is
   commented out in `src/App.tsx`. The fields still show on the Schedule tab and travel through Excel, so fill them in

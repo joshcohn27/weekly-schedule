@@ -5,6 +5,12 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.10.1 (October 6, 2026)
+
+- The "?" how-to says where Download, Upload and the specialists' file are now.
+- The user's manual (`docs/manual/`) is rewritten for this version: the Setup tab, Reset, the 2 minute limit, "Not
+  fully done" and Keep trying, the how-often menu and the numbers each session starts with, with new pictures.
+
 ## 1.10.0 (October 6, 2026)
 
 - **How many times a session, said one way.** Time with UH, Judaics, Israel, Teva, Yoga and any area you add each
