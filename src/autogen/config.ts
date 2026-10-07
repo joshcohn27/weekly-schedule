@@ -372,6 +372,17 @@ export let BUDDY_PLANNING = true;
 export const setBuddyPlanning = (on: boolean): void => {
   BUDDY_PLANNING = on;
 };
+/**
+ * The areas with the fewest places are given their periods before the search starts: every visit planned for the week is
+ * matched to a period it can really have (nobody else there, or only the bunk it goes with), all of them at once, the way
+ * pool groups are. A visit with no period is put off to a later week, so these areas are never planned past what they hold.
+ * In this order.
+ *
+ * MEASURED 2026-10-06, the 27-bunk Session 1, one try at a week, 24 tries each, good tries in weeks 1, 2 and 3: none placed
+ * first 5, 0 and 1; Ceramics and Judaics 5, 3 and 13; with Israel 9, 11 and 4; with Teva in place of Israel 11, 6 and 7;
+ * all four 5, 12 and 7. Music as well was worse than none (0 of 10 in weeks 1 and 2).
+ */
+export const PLACED_FIRST: string[] = ['Ceramics', 'Judaics', 'Israel Education'];
 /** No more than this share of an area's places in a week is planned: who may share and which days are open take the rest. */
 export const AREA_WEEK_SHARE = 0.7;
 /** And it takes them once it has this many more left over than this week's fair share of what the rest of the session will leave. */

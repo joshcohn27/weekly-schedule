@@ -5,6 +5,14 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.9.1 (October 6, 2026)
+
+- **Ceramics, Judaics and Israel are given their periods first.** Before the rest of a week is worked out, every visit
+  planned to those three is matched to a period it can really have, all of them at once, the way pool groups already
+  were. A visit with no period that week is put off to a later one, so these areas are no longer planned past what
+  they hold. This is what kept week 2 of a 27-bunk Session 1 from coming out. (The last week of a 4-week session is
+  left as it was.)
+
 ## 1.9.0 (October 6, 2026)
 
 - **A run ends one of two ways: complete, or "Not fully done".** When a week uses up its time, the page says which

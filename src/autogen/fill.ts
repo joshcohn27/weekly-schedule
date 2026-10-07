@@ -15,6 +15,7 @@ import {
   RARE_AREAS,
   SESSION_FILLER_MAX,
   SHABBAT_PREP_STAFF,
+  PLACED_FIRST,
   SLOT_CAP,
   MIN_WEEK_CAPACITY,
   AREA_WEEK_SHARE,
@@ -39,8 +40,8 @@ import { TOKEN_AREAS, TOKEN_LABEL, expectedSpare, inWeekCount, leftoverRoom, rem
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
 import { isShortWeek, openPeriods } from './weekRoom';
-import { firstDay, groupBreaks, isFixedMohawkAthletics, sharedArea } from './share';
-import { ALL_SLOTS, buildDayMasks, fillable, isFree, type Ctx } from './state';
+import { firstDay, groupBreaks, isFixedMohawkAthletics, sharedArea, slotGroupProblems } from './share';
+import { ALL_SLOTS, areaOnDay, backToBack, buildDayMasks, fillable, isFree, onNextDay, put, type Ctx } from './state';
 
 // The areas that may fall a block short when a bunk has no room are RARE_AREAS. Music is only ever dropped as a last resort.
 /** What a leftover period may always be. The areas in SESSION_FILLER_MAX may fill one too, up to that many a session. */
@@ -113,6 +114,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
   topUp(c, tok, free, total);
   fitToVillageDays(c, tok, free);
   if (BUDDY_PLANNING) matchBuddies(c, tok, free, total);
+  placeFirst(c, tok, free, total);
 
   const search = new FillSearch(c, free);
   search.seed(tok);
@@ -122,6 +124,110 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
   // it this week and it is not held against the week.
   for (let b = 0; b < n; b++) if ((tok[b].Music ?? 0) > 0 && search.musicIsOptional && !c.grid[b].includes('Music')) c.excused.push(b);
   return clean;
+}
+
+/**
+ * The areas in PLACED_FIRST get their periods here, before the search. Each visit planned for this week (two bunks of a
+ * village that may go together count as one) is matched to a period: free for the bunk, nobody else at the area then, not
+ * on a day the bunk already has it or the day beside one, and for Judaics never while a village is at Shabbat Prep. The
+ * matching finds a period for as many as can have one. What it places is fixed for the search; a visit left without a
+ * period is put off, so the search is never asked to squeeze it in where it does not fit. Not in the last week of a
+ * 4-week session: that week is short, takes everything that is still owed, and has looser sharing of its own, and it came
+ * out worse with its periods fixed early (measured).
+ */
+function placeFirst(c: Ctx, tok: Record<string, number>[], free: number[][], total: (b: number, area: string) => number): void {
+  if (c.lastWeek) return;
+  const r = c.roster;
+  const prep = ALL_SLOTS.map((s) => c.grid.some((row) => row[s] === 'Shabbat Prep'));
+  const guestAt = ALL_SLOTS.map((s) => new Set((c.guests ?? []).map((row) => areaOf(row[s])).filter((a): a is string => !!a)));
+  for (const area of PLACED_FIRST) {
+    if (!TOKEN_AREAS.includes(area)) continue;
+    const label = labelOf(area);
+    const staff = SHABBAT_PREP_STAFF.includes(area);
+    const dayCap = DAY_CAP[area] ?? Infinity;
+    const villageOnDay = (v: string, day: number): number => r.byVillage[v].filter((b) => areaOnDay(c, b, day, area)).length;
+    const taken = (s: number): boolean => c.grid.some((row) => areaOf(row[s]) === area);
+    const fits = (b: number, s: number): boolean => {
+      const day = dayOf(s);
+      return isFree(c, b, s) && free[b].includes(s) && !areaOnDay(c, b, day, area) && !onNextDay(c, b, day, area) && !backToBack(c, b, [s], area);
+    };
+    const options = (unit: number[]): number[] => {
+      const out: { s: number; score: number }[] = [];
+      for (const s of ALL_SLOTS) {
+        if (!fillable(c, s) || taken(s) || (staff && prep[s]) || guestAt[s].has(area)) continue;
+        if (!unit.every((b) => fits(b, s))) continue;
+        const day = dayOf(s);
+        if (villageOnDay(r.village[unit[0]], day) + unit.length > dayCap) continue;
+        // the day with the most open periods first: that leaves the others the fewest to fill with Athletics and A&C
+        const openToday = Math.min(...unit.map((b) => free[b].filter((x) => dayOf(x) === day && isFree(c, b, x)).length));
+        out.push({ s, score: c.rng() * 1.5 - 1.2 * openToday });
+      }
+      return out.sort((x, y) => x.score - y.score).map((o) => o.s);
+    };
+    const give = (unit: number[], s: number): boolean => {
+      // the matching does not know about the village's day limit: checked again as each one goes down
+      if (taken(s) || !unit.every((b) => fits(b, s)) || villageOnDay(r.village[unit[0]], dayOf(s)) + unit.length > dayCap) return false;
+      for (const b of unit) {
+        put(c, b, [s], label);
+        tok[b][area]--;
+        free[b] = free[b].filter((x) => x !== s);
+      }
+      return true;
+    };
+    const match = (units: number[][]): number[][] => {
+      const list = shuffle(c.rng, units);
+      const can = list.map(options);
+      const holder = new Map<number, number>();
+      const tryPlace = (u: number, seen: Set<number>): boolean => {
+        for (const s of can[u]) {
+          if (seen.has(s)) continue;
+          seen.add(s);
+          const other = holder.get(s);
+          if (other === undefined || tryPlace(other, seen)) {
+            holder.set(s, u);
+            return true;
+          }
+        }
+        return false;
+      };
+      for (const u of list.map((_, i) => i).sort((x, y) => can[x].length - can[y].length)) tryPlace(u, new Set());
+      const placed = new Set<number>();
+      for (const [s, u] of holder) if (give(list[u], s)) placed.add(u);
+      return list.filter((_, u) => !placed.has(u));
+    };
+    // a bunk is down for the area once in a week as a rule; a second visit gets a second pass, on another day
+    for (let pass = 0; pass < 3; pass++) {
+      const want = Array.from({ length: r.n }, (_, b) => b).filter((b) => (tok[b][area] ?? 0) > 0);
+      if (want.length === 0) break;
+      // two bunks of one village that may be there together, on the same visit, go as one
+      const units: number[][] = [];
+      const used = new Set<number>();
+      if ((SLOT_CAP[area] ?? 1) > 1) {
+        for (const x of want) {
+          if (used.has(x)) continue;
+          const y = want.find((b) => b !== x && !used.has(b) && r.village[b] === r.village[x] && slotGroupProblems(r, area, [x, b], (k) => total(k, area) + 1, c.relax).length === 0);
+          if (y === undefined) continue;
+          used.add(x);
+          used.add(y);
+          units.push([x, y]);
+        }
+      }
+      for (const b of want) if (!used.has(b)) units.push([b]);
+      const left = match(units);
+      // a pair that found no period it can both have: each on its own
+      const alone = left.filter((u) => u.length > 1).flat().map((b) => [b]);
+      if (alone.length > 0) match(alone);
+    }
+    // no period this week: put off, not forced in
+    for (let b = 0; b < r.n; b++) {
+      while ((tok[b][area] ?? 0) > 0) {
+        tok[b][area]--;
+        c.unmet++;
+        c.carried.push({ bunk: b, area });
+      }
+      if (tok[b][area] === 0) delete tok[b][area];
+    }
+  }
 }
 
 /**

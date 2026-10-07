@@ -179,6 +179,12 @@ with which weeks and how many empty periods, and a **Keep trying** button that p
 them and the ones built after) and generates them again. So a run always ends one of two ways: every week complete, or
 a plain statement of which are not. Which rule stood in the way is in the browser console only.
 
+**The areas with the fewest places go first.** Ceramics, Judaics and Israel (`PLACED_FIRST` in `src/autogen/config.ts`)
+are given their periods before the search: every visit planned for the week is matched to a period it can really have,
+all at once, and a visit with no period is put off to a later week (`placeFirst` in `src/autogen/fill.ts`). The pool is
+done the same way. Measured on the 27-bunk Session 1, one try at a week, 24 tries each: good tries in weeks 1, 2 and 3
+went from 5, 0 and 1 to 9, 11 and 4.
+
 **Ropes.** One group is at ropes in a half-day, so a session has room for only so many (`src/autogen/ropesRoom.ts` counts
 the half-days and the groups). When everyone's ropes fits, every half-day may be used and ropes is placed before
 Waterfront, and every bunk gets its ropes. When it does not fit, the Settings tab says so with the numbers and what to
