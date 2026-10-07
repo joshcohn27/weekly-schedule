@@ -245,7 +245,7 @@ describe('validateWeek', () => {
     expect(has(state(both), 1, 'H14')).toBe(false);
     expect(has(state(both), 1, 'H13')).toBe(false);
     const four = sampleSchedule();
-    put(four, ['O1', 'C1', 'S1', 'M1', 'T1'], [S(1, 0)], 'Athletics'); // four at the most
+    put(four, ['O1', 'C1', 'S1', 'M1'], [S(1, 0)], 'Athletics'); // three at the most, never four
     expect(has(state(four), 1, 'H14')).toBe(true);
     const three = sampleSchedule();
     put(three, ['O1', 'C1', 'S1'], [S(1, 0)], 'Athletics'); // any three bunks may be at Athletics

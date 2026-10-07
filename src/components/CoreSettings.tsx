@@ -28,7 +28,7 @@ interface Props {
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
 /** The shared areas: the name on the page, the program area, and how many bunks at once it can be set to. */
 const SHARED: { key: SharedKey; name: string; area: string; atOnce: number[] }[] = [
-  { key: 'athletics', name: 'Athletics', area: 'Athletics', atOnce: [1, 2, 3, 4] },
+  { key: 'athletics', name: 'Athletics', area: 'Athletics', atOnce: [1, 2, 3] },
   { key: 'ac', name: 'A&C', area: 'A&C', atOnce: [1, 2, 3] },
   { key: 'music', name: 'Music', area: 'Music', atOnce: [1, 2] },
   { key: 'uh', name: 'Time with UH', area: 'TW UH', atOnce: [1, 2] },

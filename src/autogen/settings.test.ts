@@ -453,7 +453,7 @@ describe('the main areas and the visit numbers', () => {
       musicPerWeek: 1,
       uhMin: 1,
       uhMax: 3,
-      athletics: { atOnce: 4, villagePerDay: 3, maxPerWeek: 3 },
+      athletics: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 },
       ac: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 },
       music: { atOnce: 2, villagePerDay: 3, maxPerWeek: 2 },
       uh: { atOnce: 2, villagePerDay: 3, maxPerWeek: 0 },
@@ -467,13 +467,13 @@ describe('the main areas and the visit numbers', () => {
     const core = { ...defaultCore(), waterfrontPerWeek: 1, leaguePerWeek: 2, poolMaxPerWeek: 1, musicPerWeek: 0, uhMin: 2, uhMax: 1, athletics: { atOnce: 9, villagePerDay: 3, maxPerWeek: 2 } };
     const s = withCore(defaultSettings(), core);
     expect(s.core?.uhMax).toBe(2); // never under the least
-    expect(s.core?.athletics.atOnce).toBe(4); // the most Athletics takes
+    expect(s.core?.athletics.atOnce).toBe(3); // the most Athletics takes: never four
     applySettings(s);
     expect(weekly()).toEqual({ waterfront: 1, league: 2, music: 0, poolMax: 1, uhMax: 2 });
-    expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH']]).toEqual([4, 3, 2, 2]);
+    expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH']]).toEqual([3, 3, 2, 2]);
     applySettings();
     expect(weekly()).toEqual({ waterfront: 2, league: 3, music: 1, poolMax: 2, uhMax: 3 });
-    expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH']]).toEqual([4, 3, 3, 1]);
+    expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH']]).toEqual([3, 3, 3, 1]);
     expect(withCore(defaultSettings(), defaultCore()).core).toBeUndefined();
     expect(isDefaultSettings(withCore(defaultSettings(), defaultCore()))).toBe(true);
   });
@@ -684,7 +684,7 @@ describe('the main areas and the visit numbers', () => {
     expect(less[0].fix).toContain('or more Waterfront or league a week');
     expect(checkSettings(withCore(defaultSettings(), { ...defaultCore(), leaguePerWeek: 1 }), weeks).length).toBeGreaterThan(0);
     // more room for Athletics and A&C is never a problem
-    const room = { ...defaultCore(), athletics: { atOnce: 4, villagePerDay: 3, maxPerWeek: 3 }, ac: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 } };
+    const room = { ...defaultCore(), athletics: { atOnce: 3, villagePerDay: 4, maxPerWeek: 3 }, ac: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 } };
     expect(checkSettings(withCore(defaultSettings(), room), weeks)).toEqual([]);
   });
 

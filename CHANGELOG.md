@@ -5,11 +5,22 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.8.1 (October 6, 2026)
+
+- **Never four bunks at Athletics.** Three at once is the most at Athletics and at A&C, as the starting number and as a
+  choice: 4 is no longer offered, and a schedule saved with 4 is read as 3. (1.7.1 had made 4 the starting number at
+  Athletics. That was a mistake.)
+- **Reset.** The button is called Reset and is at the top of the Setup tab and in the bar over a week. It does one of
+  three plain things: clear everything (every week), clear only the week on screen, or reset the session to its base
+  template. Clearing keeps your bunks and settings. The tick boxes about what to keep are gone.
+- The Auto generate box and the Reset box open at their top.
+- The page uses its whole width again.
+
 ## 1.8.0 (October 6, 2026)
 
 - **A Setup tab.** The page opens on it. It holds what is decided once for a session, in order: which session, its
   bunks village by village, a line saying whether the numbers add up, and the way on to building. Uploading a file,
-  downloading all weeks and Start over are at the bottom of it.
+  downloading all weeks and Start over are at the bottom of it. (Start over became Reset, at the top, in 1.8.1.)
 - **Bunks belong to the session.** A bunk added, renamed, moved or removed on Setup is changed in every week. The Build
   tab shows the bunks and no longer changes them.
 - **The Build tab is only the week's periods.** The bar over it has the week, Auto generate and that week's download.
@@ -32,8 +43,8 @@ new is added, and the third goes up for a fix or a small change (and goes back t
   It goes by campers, like ropes and Yoga: at most 16 at once.
 - **Teva** is from 1 to 3 a session (it was exactly 3).
 - **The numbers the app starts with fit the biggest camp**, so there is no separate set of settings for big villages to
-  switch on: 4 bunks at once at Athletics, 3 bunks of a village a day at every area, and any two bunks of a village
-  within a grade may share. Schedules saved with the old starting numbers are moved to these.
+  switch on: 3 bunks of a village a day at every area, and any two bunks of a village within a grade may share. (It
+  also raised Athletics to 4 bunks at once, which 1.8.1 took back out.) Schedules saved with the old starting numbers are moved to these.
 - **Session 2 starts with numbers that fit it**: ropes once, league twice a week, Ceramics once for every village, and
   Judaics and Israel from 1 to 2. Its Settings tab no longer opens with warnings.
 - The Settings check leaves Taste of CSL out of its counts, and counts Yoga and Ceramics by how many bunks really fit

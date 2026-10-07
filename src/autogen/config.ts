@@ -153,7 +153,7 @@ export const SHARING: Sharing = { within: 'village', across: true, grades: 'one'
 export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Israel Education', 'Pool'];
 /** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Time with UH takes two bunks of one village. Ropes goes by campers (ROPES_MAX_CAMPERS), not by this. */
 export const SLOT_CAP: Record<string, number> = {
-  Athletics: 4,
+  Athletics: 3, // three is the most, here and at A&C: never four
   'A&C': 3,
   Music: 2,
   Teva: 2,

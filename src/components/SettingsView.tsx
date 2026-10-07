@@ -283,8 +283,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
       {bigVillage && !suggested && (
         <p className="hint big-villages">
           {villageName(bigVillage)} has six or more bunks. With that many the usual numbers leave too few places, and weeks come back with
-          empty periods. The suggested settings: 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day at every area,
-          and any two bunks of a village within a grade may share (not only the ones next to each other in the list).{' '}
+          empty periods. The suggested settings: 3 bunks of a village a day at every area, and any two bunks of a village within a grade may share (not only the ones next to each other in the list).{' '}
           <button type="button" disabled={disabled || suggested} onClick={useSuggested}>
             {suggested ? 'The suggested settings are in use' : 'Use the suggested settings'}
           </button>

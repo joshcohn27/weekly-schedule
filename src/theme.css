@@ -637,9 +637,6 @@ header .sessionline {
 header .sessionline strong {
   margin-right: 6px;
 }
-main {
-  max-width: 1500px;
-}
 .lead {
   margin: 0 0 14px;
   color: #45543f;
@@ -673,9 +670,6 @@ main button.primary:hover:not(:disabled) {
 }
 
 /* ---- the Setup tab ---- */
-.setup {
-  max-width: 980px;
-}
 .card {
   background: #fff;
   border: 1px solid var(--line);
@@ -857,4 +851,23 @@ td.bunk-info {
   .card {
     display: none;
   }
+}
+
+/* Start over: plain to find, and plainly not an everyday button */
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.titlebar h2 {
+  margin: 0 0 10px;
+}
+main button.danger {
+  color: #a32020;
+  border-color: #a32020;
+}
+main button.danger:hover:not(:disabled) {
+  background: #a32020;
+  color: #fff;
 }

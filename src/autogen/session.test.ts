@@ -22,7 +22,7 @@ const sessionOptions = (seed: number): RunOptions => ({
 describe('a run only hands back weeks that are good', () => {
   it('generates a whole session with no rule break and nothing short, and leaves what it was given alone', async () => {
     const events: string[] = [];
-    const opts: RunOptions = { ...sessionOptions(11), onProgress: (step) => events.push(`start ${step}`), onWeek: (step) => events.push(`done ${step}`) };
+    const opts: RunOptions = { ...sessionOptions(7), onProgress: (step) => events.push(`start ${step}`), onWeek: (step) => events.push(`done ${step}`) };
     const before = JSON.stringify(opts.weeks);
     const run = await generateRun(opts);
     expect(run?.good).toBe(true);

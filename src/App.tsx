@@ -388,6 +388,9 @@ export default function App() {
                 <button type="button" onClick={handleDownload}>
                   Download {weekLabel(current)} (.xlsx)
                 </button>
+                <button type="button" className="danger" onClick={() => setStartOverOpen(true)} disabled={run !== null} title="Clear the periods, or put the session back to its base template. It says what will happen first.">
+                  Reset
+                </button>
               </div>
             )}
             {run && <AutoGenerateProgress progress={run} onStop={() => runRef.current?.stop()} />}

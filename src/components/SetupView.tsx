@@ -29,7 +29,7 @@ interface Props {
 
 /**
  * The Setup tab: everything that is decided once for a session, in the order it is done. Which session, its bunks, a look
- * at the numbers, and then on to building. Files and starting over are at the bottom.
+ * at the numbers, and then on to building. Reset is at the top, and the files are at the bottom.
  */
 export default function SetupView({ template, templates, onSession, bunks, onBunk, onAddTo, onRemove, onMove, onFillBiggest, problems, onOpenSettings, onAutoGenerate, onOpenBuild, onUpload, onDownloadAll, onStartOver, disabled }: Props) {
   const villages = addableVillages(template);
@@ -68,7 +68,12 @@ export default function SetupView({ template, templates, onSession, bunks, onBun
 
   return (
     <section className="setup">
-      <h2>Setup</h2>
+      <div className="titlebar">
+        <h2>Setup</h2>
+        <button type="button" className="danger" disabled={disabled} onClick={onStartOver} title="Clear the periods, or put the session back to its base template. It says what will happen first.">
+          Reset
+        </button>
+      </div>
       <p className="lead">Set the session up here, top to bottom. Everything on this page is for the whole session, not one week.</p>
 
       <div className="card">
@@ -179,16 +184,13 @@ export default function SetupView({ template, templates, onSession, bunks, onBun
       </div>
 
       <div className="card plain">
-        <h3>Files and starting over</h3>
+        <h3>Files</h3>
         <p>
           <button type="button" disabled={disabled} onClick={onUpload}>
             Upload a schedule (.xlsx)
           </button>{' '}
           <button type="button" onClick={onDownloadAll}>
             Download all weeks (.xlsx)
-          </button>{' '}
-          <button type="button" disabled={disabled} onClick={onStartOver} title="Empty this week or the whole session and put the calendar back on. It asks what to keep first.">
-            Start over
           </button>
         </p>
         <p className="hint">Your work is saved in this browser as you go. Download a file to keep a copy or to send the schedule to someone.</p>

@@ -38,12 +38,12 @@ has not seen the page before.
 
 - **Setup** is the tab the page opens on. It holds what is decided once for a session, top to bottom: which session,
   its bunks (village by village: name, grades, campers), whether the numbers add up, and the way on to building.
-  **Upload**, **Download all weeks** and **Start over** are at the bottom of it. A bunk added, changed, moved or removed
+  **Reset** is at the top of it, and **Upload** and **Download all weeks** at the bottom. A bunk added, changed, moved or removed
   on Setup is changed in every week of the session; the Build tab shows the bunks and does not change them.
 - **Weeks:** the bar over the Build, Schedule and Tracking tabs switches between the weeks of the session, each with
-  its dates, and has **Auto generate** and that week's download. **Start over** (on Setup) empties this week or the
-  whole session and puts the session calendar back on; it asks what to keep (your bunks, and for a whole session your
-  settings) and says what will happen before it does anything.
+  its dates, and has **Auto generate**, that week's download and **Reset**. **Reset** does one of three things: clears
+  every week, clears only the week on screen, or puts the session back to its base template. Clearing keeps your bunks
+  and settings, the calendar is put back on, and it says what will happen before it does anything.
 - **Villages** are the first letter of the bunk name (O, C, S, M, T), and the page calls them by name: Onondaga,
   Cayuga, Seneca, Mohawk, Tusc. Keep the first-letter convention: colours, village autofill and the village notes all
   depend on it.
@@ -98,7 +98,7 @@ replaces whatever was in the cells it fills, without asking.
 Pick the session on the Setup tab: **Session 1** (4 weeks, June 27 to July 23, 2027) or **Session 2** (3 weeks,
 with Color War, July 26 to August 15, 2027). Each keeps its own bunks, schedule and settings, so switching does not
 lose the other. A session starts from its template (`src/autogen/sessionCalendar.ts`): its bunks, its numbers, and its
-calendar already on the schedule. **Start over** (Setup), with nothing kept, goes back to that. On the Setup tab, **Add a bunk** under a
+calendar already on the schedule. **Reset** to the base template goes back to that. On the Setup tab, **Add a bunk** under a
 village adds the next bunk of that village to every week, and **Fill in the biggest camp** brings every village
 up to its most bunks at 15 campers each, a round number to plan with that nothing enforces. The camp has 27 cabins, so
 no week holds more than 27 bunks: 5, 6, 6, 6 and 4 in Session 1, and in Session 2 four Taste of CSL bunks whose cabins
@@ -180,8 +180,8 @@ try, four fifths of the half-days are used so the rest of the schedule still com
 while somebody has not been at all.
 
 **Six bunks in a village.** The biggest Session 1 camp is 5 Onondaga, 6 Cayuga, 6 Seneca, 6 Mohawk and 4 Tusc (27
-bunks). The numbers the app starts with are the ones that many bunks need: 4 bunks at once at Athletics, 3 bunks of a
-village a day at every area, and any two bunks of a village within a grade may share (not only neighbours in the list).
+bunks). The numbers the app starts with are the ones that many bunks need: 3 bunks of a village a day at every area
+(never more than 3 bunks at once at Athletics or A&C), and any two bunks of a village within a grade may share (not only neighbours in the list).
 If those are lowered and a village has six bunks, the Auto generate dialog and the Settings tab offer to put them back. Three things in the
 generator make it fit: pool groups are matched to periods all at once, neighbours in a village are given the same
 areas each week so they stay on the same visit and can go together, and they are nudged to stay level at A&C.

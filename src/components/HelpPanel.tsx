@@ -112,9 +112,9 @@ export default function HelpPanel({ onClose }: Props) {
             yellow so it is plain what still needs filling. Then press Auto generate and choose to keep what is there and fill the gaps.
           </li>
           <li>
-            <strong>Start over</strong>, at the bottom of the Setup tab, empties this week or the whole session and puts the session calendar
-            back on. It asks first what to keep: your bunks, and for a whole session your settings. It says what will happen before it
-            does anything, and it cannot be undone.
+            <strong>Reset</strong>, at the top of the Setup tab and in the bar over a week, does one of three things: clears every week,
+            clears only the week on screen, or puts the session back to its base template (its own bunks and settings, nothing filled
+            in). Clearing keeps your bunks and settings. It says what will happen before it does anything, and it cannot be undone.
           </li>
         </ul>
 

@@ -78,8 +78,8 @@ export interface Settings {
  * 3: Yoga takes 20 campers at once, not 22. Settings saved with the old 22 are moved to 20.
  * 4: Ceramics is exactly twice (it was 2 to 3) and goes by campers; Teva is 1 to 3 (it was exactly 3). Settings saved with
  *    the old numbers, which were the app's and not a choice, are moved to the new ones. The numbers a camp of 27 bunks
- *    needs are the starting ones: 4 at once at Athletics and 3 bunks of a village a day everywhere (they were 3 and 2), and
- *    any two bunks of a village may share. Saved 3 and 2 are moved up the same way.
+ *    needs are the starting ones: 3 bunks of a village a day everywhere (it was 2), and any two bunks of a village may
+ *    share. A saved 2 is moved up the same way. (Athletics and A&C take 3 bunks at once at the most: a saved 4 is read as 3.)
  */
 export const SETTINGS_VERSION = 4;
 /** What Yoga's camper limit started at before settings version 3. */
@@ -161,7 +161,7 @@ const CORE_LIMITS = {
 } as const;
 /** [bunks at once: least, most], then the most times a week, for each shared area. */
 const SHARED_LIMITS: Record<'athletics' | 'ac' | 'music' | 'uh', { atOnce: [number, number]; maxPerWeek: [number, number] }> = {
-  athletics: { atOnce: [1, 4], maxPerWeek: [0, 3] },
+  athletics: { atOnce: [1, 3], maxPerWeek: [0, 3] }, // never four bunks at once, at Athletics or at A&C
   ac: { atOnce: [1, 3], maxPerWeek: [0, 3] },
   music: { atOnce: [1, 2], maxPerWeek: [1, 2] },
   uh: { atOnce: [1, 2], maxPerWeek: [0, 0] },
@@ -386,7 +386,7 @@ const whole = (v: unknown, least: number, most: number, fallback: number): numbe
   return Number.isFinite(n) ? Math.min(most, Math.max(least, Math.round(n))) : fallback;
 };
 
-/** Core numbers saved before settings version 4: the app's old 3 at once at Athletics and 2 bunks of a village a day follow the app to 4 and 3. */
+/** Core numbers saved before settings version 4: the app's old 2 bunks of a village a day follow the app to 3. */
 function broughtUp(core: unknown, saved: number): unknown {
   if (saved >= 4 || !core || typeof core !== 'object') return core;
   const out = JSON.parse(JSON.stringify(core)) as Record<string, Partial<SharedNumbers> | undefined>;
@@ -394,7 +394,6 @@ function broughtUp(core: unknown, saved: number): unknown {
     const n = out[key];
     if (!n || typeof n !== 'object') continue;
     if (Number(n.villagePerDay) < 3) n.villagePerDay = 3;
-    if (key === 'athletics' && Number(n.atOnce) === 3) n.atOnce = 4;
   }
   return out;
 }
@@ -618,11 +617,11 @@ export const bigVillageIn = (names: readonly string[]): string | undefined => {
 /** Are the settings for big villages in use? */
 export function usesBigVillageSettings(s: Settings): boolean {
   const core = coreOf(s);
-  return core.athletics.atOnce >= 4 && core.athletics.villagePerDay >= 3 && core.ac.villagePerDay >= 3 && s.areas.Ceramics.atOnce >= 2 && sharingOf(s).within === 'village' && settingAreas(s).every((a) => s.areas[a].villagePerDay >= 3);
+  return core.athletics.villagePerDay >= 3 && core.ac.villagePerDay >= 3 && s.areas.Ceramics.atOnce >= 2 && sharingOf(s).within === 'village' && settingAreas(s).every((a) => s.areas[a].villagePerDay >= 3);
 }
 /**
  * The settings a camp with six bunks in a village needs (measured: with 27 bunks the usual numbers did not come out, and
- * these did): 4 bunks at once at Athletics, 2 at Ceramics, 3 bunks of a village a day everywhere, and any two bunks of a
+ * these did): 3 bunks of a village a day everywhere, and any two bunks of a
  * village within a grade may share, not only the ones next to each other. Offered, never applied unasked.
  */
 export function withBigVillageSettings(s: Settings): Settings {
@@ -630,7 +629,7 @@ export function withBigVillageSettings(s: Settings): Settings {
   const areas: Record<string, AreaSettings> = {};
   for (const a of Object.keys(s.areas)) areas[a] = { ...s.areas[a], villagePerDay: Math.max(3, s.areas[a].villagePerDay), ...(a === 'Ceramics' ? { atOnce: 2 } : {}) };
   const shared = (n: SharedNumbers, atOnce = n.atOnce): SharedNumbers => ({ ...n, atOnce, villagePerDay: Math.max(3, n.villagePerDay) });
-  const next = withCore({ ...s, areas }, { ...core, athletics: shared(core.athletics, 4), ac: shared(core.ac), music: shared(core.music), uh: shared(core.uh) });
+  const next = withCore({ ...s, areas }, { ...core, athletics: shared(core.athletics), ac: shared(core.ac), music: shared(core.music), uh: shared(core.uh) });
   return withSharing(next, { ...sharingOf(next), within: 'village' });
 }
 

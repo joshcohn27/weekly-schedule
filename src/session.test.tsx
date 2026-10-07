@@ -160,9 +160,12 @@ describe('starting a session from its template', () => {
 
     // the dialog says what will happen before anything does
     const html = renderToStaticMarkup(createElement(StartOverDialog, { weekNumber: 2, sessionName: 'Session 1 (4 weeks)', onCancel: noop, onStartOver: noop }));
-    expect(html).toContain('Just Week 2');
-    expect(html).toContain('Keep my bunks');
-    expect(html).toContain('Every period of Week 2 is emptied.');
+    // three plain choices: clear everything, clear the week, or back to the base template
+    expect(html).toContain('Clear everything: every week of the session');
+    expect(html).toContain('Clear only Week 2');
+    expect(html).toContain('Reset to the base template for Session 1 (4 weeks)');
+    expect(html).not.toContain('Keep my');
+    expect(html).toContain('Every period of every week of Session 1 (4 weeks) is emptied. Your bunks and your settings stay.');
     expect(html).toContain('This cannot be undone.');
   });
 
@@ -170,7 +173,7 @@ describe('starting a session from its template', () => {
     const six = ['O1', 'O2', 'O3', 'O4', 'O5', 'O6'].map((n) => newBunk(n, '5th', '10'));
     let next: ReturnType<typeof defaultSettings> | null = null;
     // the numbers the app starts with fit a big village, so the offer is only for settings that were lowered
-    const lowered = withCore(defaultSettings(), { ...defaultCore(), athletics: { ...defaultCore().athletics, atOnce: 3 } });
+    const lowered = withCore(defaultSettings(), { ...defaultCore(), athletics: { ...defaultCore().athletics, villagePerDay: 2 } });
     const html = renderToStaticMarkup(createElement(SettingsView, { settings: lowered, villages: ['O'], onChange: (s) => (next = s), onReset: noop, bunks: six }));
     expect(html).toContain('Use the suggested settings');
     expect(next).toBeNull();
@@ -213,11 +216,13 @@ describe('starting a session from its template', () => {
     expect(bigVillageIn(['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'O1'])).toBe('C');
     expect(bigVillageIn(['TC1', 'TC2', 'TC3', 'TC4', 'TC5', 'TC6', 'T1'])).toBeUndefined(); // Taste of CSL is not Tusc
     expect(usesBigVillageSettings(defaultSettings())).toBe(true); // the numbers the app starts with are the ones a big village needs
-    const lowered = withCore(defaultSettings(), { ...defaultCore(), athletics: { ...defaultCore().athletics, atOnce: 3 } });
+    const lowered = withCore(defaultSettings(), { ...defaultCore(), athletics: { ...defaultCore().athletics, villagePerDay: 2 } });
     expect(usesBigVillageSettings(lowered)).toBe(false);
     const big = withBigVillageSettings(lowered);
     expect(usesBigVillageSettings(big)).toBe(true);
-    expect(coreOf(big).athletics).toMatchObject({ atOnce: 4, villagePerDay: 3 });
+    expect(coreOf(big).athletics).toMatchObject({ atOnce: 3, villagePerDay: 3 }); // never four at once
+    // a file saved when four was allowed is read as three
+    expect(coreOf(normalizeSettings({ ...defaultSettings(), core: { ...defaultCore(), athletics: { atOnce: 4, villagePerDay: 3, maxPerWeek: 3 } } })).athletics.atOnce).toBe(3);
     expect(big.areas.Ceramics).toMatchObject({ atOnce: 2, villagePerDay: 3 });
     expect(big.areas.Teva.villagePerDay).toBe(3);
     expect(sharingOf(big).within).toBe('village');
@@ -307,12 +312,15 @@ describe('starting a session from its template', () => {
         onStartOver: noop,
       }),
     );
-    const order = ['</span> Session', '</span> Bunks', '</span> Numbers and calendar', '</span> Build the schedule', 'Files and starting over</h3>'].map((t) => html.indexOf(t));
+    const order = ['</span> Session', '</span> Bunks', '</span> Numbers and calendar', '</span> Build the schedule', 'Files</h3>'].map((t) => html.indexOf(t));
     expect(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1]))).toBe(true);
     for (const village of ['Taste', 'Onondaga', 'Cayuga', 'Seneca', 'Mohawk', 'Tusc']) expect(html).toContain(`>${village} <span`);
     expect(html).toContain('Taste of CSL is in camp for week 1 only.');
     expect(html).toContain('The numbers add up for these bunks.');
     expect(html).toContain('Upload a schedule (.xlsx)');
+    // one plain way to start again, at the top of the page
+    expect(html.indexOf('Reset\n')).toBeLessThan(html.indexOf('</span> Session'));
+    expect(html).not.toContain('Start over');
   });
 
   it('a calendar line that was moved on the Settings tab goes on the schedule where it was put', () => {

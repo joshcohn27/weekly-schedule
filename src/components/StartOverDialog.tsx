@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-/** What the person asked to start over, and what to keep while doing it. */
+/** What a reset covers and what it keeps. */
 export interface StartOverChoice {
   scope: 'week' | 'session';
   /** Keep the bunks that are there (names, grades, camper counts). Otherwise the session's own bunks come back. */
   keepBunks: boolean;
-  /** Keep the Settings tab as it is. Only asked for the whole session; a week never touches the settings. */
+  /** Keep the Settings tab as it is. A week never touches the settings. */
   keepSettings: boolean;
 }
 
@@ -18,14 +18,15 @@ interface Props {
   onStartOver: (choice: StartOverChoice) => void;
 }
 
+type Kind = 'week' | 'all' | 'template';
+
 /**
- * The one way to start again. It says in words what will happen before anything does: which periods are emptied, that the
- * session calendar goes back on, and what is kept.
+ * Reset: the one way to start again, and it is one of three plain things. Clear a week, clear every week, or put the whole
+ * session back to its template. Clearing keeps the bunks and the settings; the template does not.
  */
 export default function StartOverDialog({ weekNumber, sessionName, onCancel, onStartOver }: Props) {
-  const [scope, setScope] = useState<'week' | 'session'>('week');
-  const [keepBunks, setKeepBunks] = useState(true);
-  const [keepSettings, setKeepSettings] = useState(true);
+  const [kind, setKind] = useState<Kind>('all');
+  const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -34,56 +35,56 @@ export default function StartOverDialog({ weekNumber, sessionName, onCancel, onS
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onCancel]);
+  // the box opens at its top, whatever was given the focus
+  useEffect(() => {
+    if (box.current) box.current.scrollTop = 0;
+  }, []);
 
-  const where = scope === 'week' ? `Week ${weekNumber}` : `every week of ${sessionName}`;
-  const happens = [
-    `Every period of ${where} is emptied.`,
-    'The session calendar is put back on: opening day, trips and Tiyuls, village day, Mass Program or Color War.',
-    keepBunks ? 'Your bunks stay: names, grades and camper counts.' : `The bunks go back to the ones ${sessionName} starts with.`,
-    scope === 'week' ? 'The other weeks and the Settings tab are not touched.' : keepSettings ? 'The Settings tab stays as it is.' : 'The Settings tab goes back to the numbers and the calendar the session starts with.',
-  ];
+  const happens: Record<Kind, string> = {
+    week: `Every period of Week ${weekNumber} is emptied. The other weeks, your bunks and your settings are not touched.`,
+    all: `Every period of every week of ${sessionName} is emptied. Your bunks and your settings stay.`,
+    template: `${sessionName} goes back to exactly how it starts: its own bunks, its own settings and calendar, and no periods filled in. Bunks you added and settings you changed are gone.`,
+  };
+  const choice: Record<Kind, StartOverChoice> = {
+    week: { scope: 'week', keepBunks: true, keepSettings: true },
+    all: { scope: 'session', keepBunks: true, keepSettings: true },
+    template: { scope: 'session', keepBunks: false, keepSettings: false },
+  };
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="startover-title">
-        <h2 id="startover-title">Start over</h2>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="startover-title" ref={box}>
+        <h2 id="startover-title">Reset</h2>
         <fieldset>
-          <legend>What should start over?</legend>
+          <legend>Clear the periods</legend>
           <label>
-            <input type="radio" name="startover-scope" checked={scope === 'week'} onChange={() => setScope('week')} /> Just Week {weekNumber}
+            <input type="radio" name="reset-kind" checked={kind === 'all'} onChange={() => setKind('all')} /> Clear everything: every week of the
+            session
           </label>
           <label>
-            <input type="radio" name="startover-scope" checked={scope === 'session'} onChange={() => setScope('session')} /> The whole session:{' '}
-            {sessionName}
+            <input type="radio" name="reset-kind" checked={kind === 'week'} onChange={() => setKind('week')} /> Clear only Week {weekNumber}
           </label>
         </fieldset>
         <fieldset>
-          <legend>What should be kept?</legend>
+          <legend>Or go back to the start</legend>
           <label>
-            <input type="checkbox" checked={keepBunks} onChange={(e) => setKeepBunks(e.target.checked)} /> Keep my bunks (names, grades, camper
-            counts).
+            <input type="radio" name="reset-kind" checked={kind === 'template'} onChange={() => setKind('template')} /> Reset to the base template
+            for {sessionName}
           </label>
-          {scope === 'session' && (
-            <label>
-              <input type="checkbox" checked={keepSettings} onChange={(e) => setKeepSettings(e.target.checked)} /> Keep my settings.
-            </label>
-          )}
         </fieldset>
         <p>
-          <strong>What will happen:</strong>
+          <strong>What will happen:</strong> {happens[kind]}
         </p>
-        <ul>
-          {happens.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-        <p className="hint">This cannot be undone. Download all weeks first if there is anything here you might want again.</p>
+        <p className="hint">
+          The session calendar (opening day, trips and Tiyuls, village day, Mass Program or Color War) is put back on the emptied weeks. This
+          cannot be undone. Download all weeks first if there is anything here you might want again.
+        </p>
         <div className="modal-buttons">
           <button type="button" autoFocus onClick={onCancel}>
             Cancel
           </button>{' '}
-          <button type="button" className="primary" onClick={() => onStartOver({ scope, keepBunks, keepSettings: scope === 'week' ? true : keepSettings })}>
-            Start over
+          <button type="button" className="primary" onClick={() => onStartOver(choice[kind])}>
+            {kind === 'template' ? 'Reset to the template' : kind === 'week' ? `Clear Week ${weekNumber}` : 'Clear everything'}
           </button>
         </div>
       </div>
