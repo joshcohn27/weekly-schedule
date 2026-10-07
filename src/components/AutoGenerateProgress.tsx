@@ -90,7 +90,6 @@ export default function AutoGenerateProgress({ progress, onStop, now }: Props) {
   const total = weekNumbers.length;
   const measure = runMeasure(progress, at);
   if (measure) furthest.current = Math.max(furthest.current, measure.share);
-  const working = states.indexOf('working');
   return (
     <div className="autogen-progress" role="status">
       <div>
@@ -123,8 +122,8 @@ export default function AutoGenerateProgress({ progress, onStop, now }: Props) {
         ))}
       </ul>
       <div className="muted">
-        {measure && working >= 0 && progress.budgets
-          ? `Each week is tried several ways at once until one keeps every rule. Week ${weekNumbers[working]} may take up to ${clockText(progress.budgets[working])}; a bigger camp is given longer. `
+        {measure
+          ? 'Each week is tried several ways at once until one keeps every rule. A full camp is given up to 2 minutes for a whole session, and a smaller one less. '
           : ''}
         You can keep using the page. Finished weeks are already there to look at. Stop keeps the weeks that are done.
       </div>

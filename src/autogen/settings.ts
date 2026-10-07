@@ -156,7 +156,7 @@ const CORE_LIMITS = {
   leaguePerWeek: [0, 3],
   poolMaxPerWeek: [1, 2],
   musicPerWeek: [0, 1],
-  uhMin: [0, 3],
+  uhMin: [0, 6],
   uhMax: [0, 6],
 } as const;
 /** [bunks at once: least, most], then the most times a week, for each shared area. */

@@ -276,11 +276,13 @@ export default function App() {
           setRun((r) => r && { ...r, states: r.states.map((s, i) => (i === step ? 'done' : s)) });
         },
         onDone: (result) => {
-          // a week that ran out of time is said to be not fully done, with how many periods it was left without; which
-          // rule stood in the way is only for whoever has the console open
+          // a week that ran out of time with periods nothing could go in is said to be not fully done, with how many;
+          // which rule stood in the way is only for whoever has the console open
           unfinished = (result?.results ?? []).flatMap((r, n) =>
             isBad(r.quality) ? [{ weekNumber: indexes[n] + 1, empty: (made.get(indexes[n]) ?? r.schedule).bunks.reduce((sum, b) => sum + (b.cleared?.filter((s) => b.slots[s] === '').length ?? 0), 0) }] : [],
           );
+          // a week that has every period filled and keeps every rule is done, even where a bunk got one fewer of something
+          unfinished = unfinished.filter((u) => u.empty > 0);
           console.debug('Auto generate', {
             seed,
             good: result?.good,

@@ -13,6 +13,7 @@ import {
   leagueOf,
 } from '../autogen/settings';
 import { villageName } from '../autofill';
+import HowOften from './HowOften';
 import Info, { HINT } from './Info';
 
 interface Props {
@@ -26,6 +27,8 @@ interface Props {
 }
 
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
+/** The most Time with UH can be set to in a session: it stands for "no limit". */
+const UH_MOST = 6;
 /** The shared areas: the name on the page, the program area, and how many bunks at once it can be set to. */
 const SHARED: { key: SharedKey; name: string; area: string; atOnce: number[] }[] = [
   { key: 'athletics', name: 'Athletics', area: 'Athletics', atOnce: [1, 2, 3] },
@@ -66,31 +69,7 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
       );
     }
     if (key === 'uh') {
-      const exact = core.uhMin === core.uhMax;
-      return (
-        <>
-          <select
-            aria-label="Time with UH exactly or a range"
-            value={exact ? 'exactly' : 'range'}
-            disabled={disabled}
-            onChange={(e) => set(e.target.value === 'exactly' ? { uhMax: core.uhMin } : { uhMax: core.uhMin + 1 })}
-          >
-            <option value="exactly">exactly</option>
-            <option value="range">from</option>
-          </select>{' '}
-          {exact ? (
-            <>
-              {number('Time with UH exactly a session', core.uhMin, 0, 3, (n) => set({ uhMin: n, uhMax: n }))} a session <Info text={HINT.exactly} />
-            </>
-          ) : (
-            <>
-              {number('Time with UH at least a session', core.uhMin, 0, 3, (n) => set({ uhMin: n, uhMax: Math.max(n + 1, core.uhMax) }))} to{' '}
-              {number('Time with UH at most a session', core.uhMax, 0, 6, (n) => set({ uhMax: n, uhMin: Math.min(n, core.uhMin) }))} a session{' '}
-              <Info text={HINT.atMost} />
-            </>
-          )}
-        </>
-      );
+      return <HowOften label="Time with UH" labelEnd=" a session" value={{ min: core.uhMin, max: core.uhMax }} most={UH_MOST} disabled={disabled} onChange={(next) => set({ uhMin: next.min, uhMax: next.max })} />;
     }
     const name = key === 'ac' ? 'A&C' : 'Athletics';
     return (

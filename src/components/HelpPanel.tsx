@@ -88,8 +88,8 @@ export default function HelpPanel({ onClose }: Props) {
           </li>
           <li>
             Let it work. A panel shows a progress bar, which weeks are done, how long it has been and the most time it can still take.
-            You can keep using the page, and each week appears as soon as it is finished. Every week has a time limit, and a bigger
-            camp is given longer: 45 seconds a week for an ordinary camp, a little over 3 minutes a week for 27 bunks.
+            You can keep using the page, and each week appears as soon as it is finished. A whole session takes 2 minutes at the
+            most, and only for a full camp of 27 bunks; a smaller camp is given less, and most runs are well under a minute.
           </li>
           <li>
             Look it over, starting with Tracking. Press Auto generate again for a different version, or <strong>Undo</strong> to go back.
@@ -135,7 +135,7 @@ export default function HelpPanel({ onClose }: Props) {
         <h3>Settings</h3>
         <ul>
           <li>
-            Every program area is in one table: how often each bunk has it (a week or a session, exactly or from one number to another), how many bunks at
+            Every program area is in one table: how often each bunk has it (a week or a session; for most areas a menu of exactly, at least, no more than, between or leftover), how many bunks at
             once, how many bunks of one village in a day, and whether bunks that share must be on the same visit number. Hobbies, Shabbat
             Prep, the pool's lessons and camper limit, and how many campers ropes takes at once are there too. League is set village by
             village, and hobbies is an exact number of sessions for the whole session.

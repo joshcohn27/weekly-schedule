@@ -8,6 +8,7 @@ import CalendarSettings from './CalendarSettings';
 import CoreRows, { LastWeekSwitch } from './CoreSettings';
 import type { SessionTemplate } from '../autogen/sessionCalendar';
 import { villageName } from '../autofill';
+import HowOften from './HowOften';
 import Info, { HINT } from './Info';
 
 interface Props {
@@ -27,6 +28,8 @@ interface Props {
 }
 
 const NAME: Record<string, string> = { 'Israel Education': 'Israel' };
+/** The biggest number of times a session an area can be set to: it stands for "no limit". */
+const AREA_MOST = 12;
 const nameOf = (area: string): string => NAME[area] ?? area;
 
 /** The rules that are always kept and cannot be changed here. */
@@ -75,33 +78,6 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
       }}
     />
   );
-  // how often: "exactly" is both numbers the same, "from _ to _" is a range
-  const often = (label: string, value: { min: number; max: number }, input: (label: string, value: number, change: (n: number) => void) => JSX.Element, change: (next: { min: number; max: number }) => void) => {
-    const exact = value.min === value.max;
-    return (
-      <>
-        <select
-          aria-label={`${label} exactly or a range`}
-          value={exact ? 'exactly' : 'range'}
-          disabled={disabled}
-          onChange={(e) => change(e.target.value === 'exactly' ? { min: value.min, max: value.min } : { min: value.min, max: value.min + 1 })}
-        >
-          <option value="exactly">exactly</option>
-          <option value="range">from</option>
-        </select>{' '}
-        {exact ? (
-          <>
-            {input('exactly', value.min, (n) => change({ min: n, max: n }))} a session <Info text={HINT.exactly} />
-          </>
-        ) : (
-          <>
-            {input('at least', value.min, (n) => change({ min: n, max: Math.max(n + 1, value.max) }))} to{' '}
-            {input('at most', value.max, (n) => change({ max: n, min: Math.min(n, value.min) }))} a session <Info text={HINT.atMost} />
-          </>
-        )}
-      </>
-    );
-  };
   const number = (area: string, label: string, value: number, least: number, most: number, change: (n: number) => void) => (
     <input
       type="number"
@@ -186,7 +162,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                     </td>
                   ) : (
                     <td>
-                      {often(nameOf(area), a, (label, value, change) => number(area, label, value, 0, 12, change), (next) => set(area, next))}
+                      <HowOften label={nameOf(area)} value={a} most={AREA_MOST} disabled={disabled} onChange={(next) => set(area, next)} />
                     </td>
                   )}
                   {area === 'Yoga' || area === 'Ceramics' ? (
@@ -237,7 +213,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                 />
               </th>
               <td>
-                {often('New program area', draft, (label, value, change) => draftNumber(label, value, 0, 12, change), (next) => setDraft({ ...draft, ...next }))}
+                <HowOften label="New program area" value={draft} most={AREA_MOST} disabled={disabled} onChange={(next) => setDraft({ ...draft, ...next })} />
               </td>
               <td>
                 <select aria-label="New program area bunks at once" value={draft.atOnce} disabled={disabled} onChange={(e) => setDraft({ ...draft, atOnce: Number(e.target.value) })}>
@@ -264,9 +240,12 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
         gives it to every bunk as single periods. To stop using an area that comes with the app, set it to exactly 0.
       </p>
       <p className="hint">
-        "Exactly" gives every bunk that many. "From _ to _" gives every bunk the first number, and the area may go as far as the second
-        to fill a period that would otherwise be Athletics or A&C, so the extra shows up in crowded weeks and not for everyone. When
-        the calendar leaves a bunk too few periods for everything, it ends short of something either way. "A week" is the average over the session: a
+        How many times a session is said the same way for Time with UH, Judaics, Israel, Teva, Yoga and any area you add.{' '}
+        <strong>Exactly</strong> gives every bunk that many. <strong>At least</strong> gives every bunk that many, and more when there
+        are periods to fill. <strong>No more than</strong> gives nobody a set number: the area only fills periods that would otherwise be
+        Athletics or A&C, up to that many. <strong>Between</strong> gives every bunk the first number and fills periods up to the second.{' '}
+        <strong>Leftover</strong> is whatever periods are left, with no number at all. When the calendar leaves a bunk too few periods for
+        everything, it ends short of something either way. "A week" is the average over the session: a
         short week, or one with a trip in it, gets fewer. Dance is set village by village. Athletics and A&C are whatever periods the
         other areas leave, up to their weekly number, so raising another area means less of them and lowering one means more.
       </p>

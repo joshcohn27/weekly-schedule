@@ -340,3 +340,37 @@ describe('starting a session from its template', () => {
     expect(withCalendar(cleared).weeks[2]?.bunks[0].slots[0]).toBe('All Camp Clean Up'); // the template, while nothing is in force
   });
 });
+
+describe('how many times a session, said one way', () => {
+  it('reads two numbers as exactly, at least, no more than, between or leftover, and turns one into another', async () => {
+    const { kindOf, asKind, default: HowOften } = await import('./components/HowOften');
+    const MOST = 12;
+    expect([{ min: 2, max: 2 }, { min: 0, max: 0 }, { min: 2, max: MOST }, { min: 0, max: 3 }, { min: 1, max: 3 }, { min: 0, max: MOST }].map((v) => kindOf(v, MOST))).toEqual(['exactly', 'exactly', 'atLeast', 'noMore', 'between', 'leftover']);
+    // changing the way it is said keeps the number that was there
+    const between = { min: 2, max: 3 };
+    expect(asKind('exactly', between, MOST)).toEqual({ min: 2, max: 2 });
+    expect(asKind('atLeast', between, MOST)).toEqual({ min: 2, max: MOST });
+    expect(asKind('noMore', between, MOST)).toEqual({ min: 0, max: 3 });
+    expect(asKind('leftover', between, MOST)).toEqual({ min: 0, max: MOST });
+    expect(asKind('between', { min: 2, max: 2 }, MOST)).toEqual({ min: 2, max: 3 });
+    expect(asKind('between', { min: 0, max: MOST }, MOST)).toEqual({ min: 2, max: 3 });
+    // and whatever comes out reads back as the kind that was asked for
+    for (const kind of ['exactly', 'atLeast', 'noMore', 'between', 'leftover'] as const) {
+      for (const from of [{ min: 0, max: 0 }, { min: 2, max: 2 }, { min: 1, max: 3 }, { min: 0, max: 4 }, { min: 3, max: MOST }, { min: 0, max: MOST }, { min: 11, max: MOST }]) {
+        if (kind === 'exactly') continue; // exactly 0 is "off", and is still exactly
+        expect(kindOf(asKind(kind, from, MOST), MOST), `${kind} from ${from.min} to ${from.max}`).toBe(kind);
+      }
+    }
+    // the same five choices on every area that has the control
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop }));
+    for (const area of ['Time with UH', 'Judaics', 'Israel', 'Teva', 'Yoga', 'New program area']) {
+      const at = html.indexOf(`aria-label="${area} how often"`);
+      expect(at, area).toBeGreaterThan(0);
+      const menu = html.slice(at, html.indexOf('</select>', at));
+      expect(menu.match(/<option[^>]*>([^<]*)</g)?.map((o) => o.replace(/<option[^>]*>|</g, ''))).toEqual(['Exactly', 'At least', 'No more than', 'Between', 'Leftover']);
+    }
+    const one = renderToStaticMarkup(createElement(HowOften, { label: 'Teva', value: { min: 0, max: MOST }, most: MOST, onChange: noop }));
+    expect(one).toContain('whatever periods are left');
+    expect(one).not.toContain('type="number"');
+  });
+});

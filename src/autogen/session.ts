@@ -1,7 +1,7 @@
 import { isGuest } from '../autofill';
 import { emptySchedule, newBunk } from '../sample';
 import type { Bunk, Schedule } from '../types';
-import { APP_BACK_UP_AFTER, APP_MAX_MS, weekBudgetMs, type SessionWeeks } from './config';
+import { APP_BACK_UP_AFTER, APP_MAX_MS, LAST_WEEK_TIME_SHARE, runBudgetMs, type SessionWeeks } from './config';
 import { tidyWeek } from './tidy';
 import { isFilledWeek } from './history';
 import { generateWeekAsync, isBad, type AutoGenOptions, type AutoGenResult } from './index';
@@ -43,10 +43,10 @@ export interface RunOptions {
   onWeek?: (step: number, schedule: Schedule) => void;
   /** How one week is generated. Left out, it is generated here; the page passes one that tries several seeds at once. */
   generate?: (options: AutoGenOptions) => Promise<AutoGenResult | null>;
-  /** Longest one try at one week may take, and longest the whole run may take before it settles for its best (no limit when left out: the weeks have their own). */
+  /** Longest one try at one week may take, and longest the whole run may take (left out: by the number of bunks, runBudgetMs). */
   maxMsPerTry?: number;
   maxTotalMs?: number;
-  /** Longest one week may be worked on in all before its best is handed over. Left out, it goes by the number of bunks. */
+  /** A fixed limit for each week, in place of a share of the run's time. For measuring. */
   maxWeekMs?: number;
 }
 
@@ -54,7 +54,7 @@ export interface RunOptions {
 export interface RunTime {
   /** Milliseconds each week has been worked on, counting every try that is over. */
   spent: number[];
-  /** The longest each week may be worked on. */
+  /** The longest each week may be worked on: its share of the run's time. A later week's is an estimate until the run gets to it. */
   budgets: number[];
 }
 
@@ -72,7 +72,9 @@ export interface RunResult {
  * Generate the weeks one after another, and only keep a week that is good: no rule break and nothing short. A week that is
  * not good is thrown away and generated again with a new seed. When it keeps failing, the week before it (if this run made
  * it) is thrown away and generated again too, because what an earlier week used up is the usual reason a later one cannot be
- * finished. A week that has used up its time limit is handed over as the best week found, and `good` is then false.
+ * finished. The run has a time limit, shared out over the weeks still to do each time a week is begun (a week that comes
+ * out early leaves its time to the later ones). A week that has used up its share is handed over as the best week found,
+ * and `good` is then false.
  * Resolves to null when the signal aborts it.
  */
 export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
@@ -81,7 +83,6 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
   const settings = opts.calendar && isDefaultSettings(opts.settings) ? templateSettings(templateFor(opts.sessionWeeks)) : opts.settings;
   applySettings(settings);
   const started = performance.now();
-  const maxTotalMs = opts.maxTotalMs ?? Infinity;
   const generated = new Set(steps.map((s) => s.index));
   // what each week holds before it is generated: a week that is redone starts from this again
   const blank = opts.weeks.map((w, i) =>
@@ -106,14 +107,28 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
   /** Time spent on each week so far, counting every try at it. */
   const spent = steps.map(() => 0);
   const backedUp = steps.map(() => false);
-  // every week has a time limit, and a camp of more bunks is given longer
-  const budgets = steps.map(({ index }) => opts.maxWeekMs ?? weekBudgetMs(input[index]?.bunks.length ?? opts.roster.length));
+  // the run's time, and each week's share of what is left of it when the week is begun
+  const bunks = Math.max(opts.roster.length, ...steps.map(({ index }) => input[index]?.bunks.length ?? 0));
+  const totalMs = opts.maxTotalMs ?? runBudgetMs(bunks, steps.length, opts.sessionWeeks);
+  const weight = steps.map(({ index }) => (opts.sessionWeeks === 4 && index === 3 ? LAST_WEEK_TIME_SHARE : 1));
+  const budgets = steps.map(() => opts.maxWeekMs ?? 0);
+  const begin = (at: number): void => {
+    if (opts.maxWeekMs !== undefined) return;
+    const left = Math.max(0, totalMs - (performance.now() - started));
+    const ahead = weight.slice(at).reduce((a, w) => a + w, 0);
+    for (let k = at; k < steps.length; k++) budgets[k] = spent[k] + (left * weight[k]) / ahead;
+  };
+  let begun = -1;
   let tries = 0;
   let n = 0;
   while (n < steps.length) {
     const { index, mode, pastDays } = steps[n];
     working[index] = input[index];
-    opts.onProgress?.(n, fails[n], { spent: [...spent], budgets });
+    if (begun !== n) {
+      begin(n);
+      begun = n;
+    }
+    opts.onProgress?.(n, fails[n], { spent: [...spent], budgets: [...budgets] });
     // starting fresh: the weeks that are not part of this run are hidden from the generator
     const visible = opts.useOtherWeeks ? working : working.map((w, i) => (generated.has(i) ? w : null));
     const began = performance.now();
@@ -147,7 +162,7 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
     const soFar = best[n];
     if (!soFar || compareQuality(result.quality, soFar.quality) < 0) best[n] = result;
     fails[n]++;
-    if (spent[n] >= budgets[n] || performance.now() - started >= maxTotalMs) {
+    if (spent[n] >= budgets[n] - 100) {
       // out of time for this week. A good week it made earlier (before it was redone for the sake of the next one) comes
       // back; otherwise the best it got, with the periods that break a rule emptied so that it keeps the rules.
       const earlier = lastGood[n];
@@ -161,7 +176,7 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
       keep({ ...chosen, schedule });
       continue;
     }
-    if (fails[n] >= APP_BACK_UP_AFTER && n > 0 && !backedUp[n] && spent[n - 1] < budgets[n - 1]) {
+    if (fails[n] >= APP_BACK_UP_AFTER && n > 0 && !backedUp[n]) {
       // this week will not come out with the week before it as it is: redo that one as well, once
       backedUp[n] = true;
       fails[n] = 0;

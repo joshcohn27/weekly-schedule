@@ -57,8 +57,10 @@ export default function Info({ text }: Props) {
 /** What the "i" says in the places it is used more than once. */
 export const HINT = {
   aWeek: 'A rough number: the average over the whole session. A short week, or one with a trip in it, gets fewer.',
-  atLeast: 'What every bunk is given.',
-  exactly: 'Every bunk is given this many, no more. Pick "from" to let the area go further when it has room.',
+  exactly: 'Every bunk is given this many, no more.',
+  atLeast: 'Every bunk is given this many. More may be added to fill a period that would otherwise be Athletics or A&C.',
+  noMore: 'Nobody is given a set number. The area only fills periods that would otherwise be Athletics or A&C, up to this many for a bunk.',
+  leftoverKind: 'No number at all: the area fills whatever periods the others leave, like Athletics and A&C.',
   atMost: 'The most a bunk may have. Anything above the first number is only used to fill a period that would otherwise be Athletics or A&C, so not every bunk gets it.',
   leftover: 'Athletics and A&C are whatever periods the other areas leave. This is the most of them a bunk may have in a week, not a number it is given.',
   atOnce: 'How many bunks may be in this area in the same period.',

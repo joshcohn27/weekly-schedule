@@ -5,6 +5,18 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.10.0 (October 6, 2026)
+
+- **How many times a session, said one way.** Time with UH, Judaics, Israel, Teva, Yoga and any area you add each
+  have the same menu: Exactly, At least, No more than, Between, Leftover, with the number or numbers that go with it.
+  "At least" gives every bunk that many and more when there are periods to fill. "No more than" and "Leftover" give
+  nobody a set number: the area only fills periods that would otherwise be Athletics or A&C.
+- **A whole session takes 2 minutes at the most, and only for a full camp.** The time limit is on the whole run now,
+  not on each week: 2 minutes for 27 bunks, down to 75 seconds for 21 or fewer, shared out over the weeks (a week that
+  comes out early leaves its time to the later ones). 1.9.0 had allowed up to 3 minutes 15 seconds a week.
+- "Not fully done" is only said when periods were left empty. A week with every period filled and every rule kept is
+  done.
+
 ## 1.9.1 (October 6, 2026)
 
 - **Ceramics, Judaics and Israel are given their periods first.** Before the rest of a week is worked out, every visit

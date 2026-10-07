@@ -171,11 +171,11 @@ changed until it is over.
 seed and on its own processor core (one fewer than the machine has, six at most), and the first good week is kept. A
 try lasts 15 seconds at most. When none comes out right the week is generated again, without a word; the panel just
 says "try 2". If it fails twice in a whole-session run, the week before it is redone as well, once, because what an
-earlier week used up is the usual reason. Every week has a time limit, and a bigger camp is given longer
-(`weekBudgetMs` in `src/autogen/config.ts`): 45 seconds up to 21 bunks, and 25 seconds more for each bunk over that, so
-3 minutes 15 seconds a week for 27 bunks. When a week uses up its time, the best one found is handed over with the
+earlier week used up is the usual reason. The whole run has a time limit (`runBudgetMs` in `src/autogen/config.ts`):
+2 minutes for a full camp of 27 bunks, down to 75 seconds for 21 or fewer, shared out over the weeks each time a week
+is begun, so a week that comes out early leaves its time to the later ones. When a week uses up its share, the best one found is handed over with the
 periods that break a rule emptied and marked yellow (`src/autogen/tidy.ts`), and the page says so: **Not fully done**,
-with which weeks and how many empty periods, and a **Keep trying** button that puts those weeks back as they were (with the week before the first of
+with which weeks and how many empty periods (a week with every period filled is done), and a **Keep trying** button that puts those weeks back as they were (with the week before the first of
 them and the ones built after) and generates them again. So a run always ends one of two ways: every week complete, or
 a plain statement of which are not. Which rule stood in the way is in the browser console only.
 
@@ -211,8 +211,12 @@ in memory only, and goes away when you edit a cell or upload a file.
 The **Settings** tab holds the numbers Auto generate works with, one row per program area (Judaics, Israel, Teva,
 Ceramics, Yoga, Dance):
 
-- **Times per bunk per session: exactly, or a range.** "Exactly 2" gives every bunk two. "From 2 to 3" gives every
-  bunk two, and a third only fills a period that would otherwise be Athletics or A&C. Dance is set village by village.
+- **Times per bunk per session**, said the same way for Judaics, Israel, Teva, Yoga, Time with UH and any area you add:
+  a menu of **Exactly**, **At least**, **No more than**, **Between** and **Leftover**. "Exactly 2" gives every bunk two.
+  "At least 2" gives every bunk two and more when there are periods to fill. "Between 2 and 3" gives every bunk two, and a
+  third only fills a period that would otherwise be Athletics or A&C. "No more than 3" and "Leftover" give nobody a set
+  number: the area only fills such periods. Underneath each is two numbers, the least and the most (12 stands for no
+  limit; `src/components/HowOften.tsx`). Dance and Ceramics are set village by village.
 - **Bunks at once** (1 or 2) and **bunks of one village in a day.**
 
 Whatever periods these areas do not use become Athletics, A&C or Time with UH. So raising a number means less of
@@ -235,7 +239,7 @@ cut to 1 and no third Ceramics, for example, a run tried for its full time and d
   people, not by bunks.
 - **Shabbat Prep:** which village or villages have Shabbat in each week (or No Shabbat), and how many single periods (0 to 2) a village gets earlier in its Shabbat week on top of the Friday afternoon double, which is always there. Music and Judaics never have a period while a village is at Shabbat Prep, because their specialists run it; villages that share a week prepare together. The extra periods go where the fewest other bunks are free, and in a week with Shabbat Prep a bunk whose Music cannot fit goes without it that week.
 - **Athletics and A&C:** the most a week, bunks at once, bunks of one village in a day.
-- **Music:** times a week and the most. **Time with UH:** exactly, or a range, a session.
+- **Music:** times a week and the most. **Time with UH:** the same menu as the areas above.
 - **Trips** have no numbers: a Tiyul or a bike trip is entered by hand.
 
 "A week" is a rough number, the average over the session; a short week gets fewer. Each number on the page is

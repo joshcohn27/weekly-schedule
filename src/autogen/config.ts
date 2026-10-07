@@ -308,23 +308,27 @@ export const GAP_SLACK_BEFORE_LAST_WEEK = 0;
 export const TRIO_AFTER = 64;
 /**
  * In the app a week that does not come out good is thrown away and generated again. One try at a week lasts APP_MAX_MS at
- * most. After APP_BACK_UP_AFTER failed tries the week before it is redone as well, once. A week is never worked on for
- * longer than its time limit, weekBudgetMs(): when that is up, the best week found is handed over with the periods that
- * break a rule emptied and marked, so what comes back always keeps the rules, and the page says the week is not fully done.
+ * most. After APP_BACK_UP_AFTER failed tries the week before it is redone as well, once. The whole run has a time limit,
+ * runBudgetMs(), shared out over its weeks: when a week's share is used up, the best week found is handed over with the
+ * periods that break a rule emptied and marked, so what comes back always keeps the rules, and the page says so.
  */
 export const APP_MAX_MS = 15000;
 export const APP_BACK_UP_AFTER = 2;
-/** The time limit for a week of an ordinary camp. */
-export const APP_WEEK_MAX_MS = 45000;
-/** A camp of more bunks than this is given longer for each week: this much for each bunk over. */
-export const WEEK_BUDGET_FULL_AT = 21;
-export const WEEK_BUDGET_MS_PER_BUNK_OVER = 25000;
 /**
- * The longest one week may be worked on: 45 seconds up to 21 bunks, and 25 seconds more for each bunk over that (a
- * 27-bunk camp gets 3 minutes 15 seconds a week). The user's rule: it may take longer for a bigger camp, as long as the
- * page shows how far along it is.
+ * The longest a whole-session run may take (the user's rule, 2026-10-06: "it can take 2 minutes for the whole thing if and
+ * only if camp is full"): 2 minutes for the 27 bunks the camp holds, and less for a smaller camp, down to 75 seconds at
+ * 21 bunks or fewer. A run of fewer weeks than the session gets that share of it.
  */
-export const weekBudgetMs = (bunks: number): number => APP_WEEK_MAX_MS + Math.max(0, bunks - WEEK_BUDGET_FULL_AT) * WEEK_BUDGET_MS_PER_BUNK_OVER;
+export const RUN_MS_SMALL = 75000;
+export const RUN_MS_FULL = 120000;
+export const RUN_SMALL_BUNKS = 21;
+export const RUN_FULL_BUNKS = 27;
+export const runBudgetMs = (bunks: number, weeks: number, sessionWeeks: number): number => {
+  const fullness = Math.min(1, Math.max(0, (bunks - RUN_SMALL_BUNKS) / (RUN_FULL_BUNKS - RUN_SMALL_BUNKS)));
+  return ((RUN_MS_SMALL + (RUN_MS_FULL - RUN_MS_SMALL) * fullness) * Math.min(weeks, sessionWeeks)) / sessionWeeks;
+};
+/** The last week of a 4-week session is four short days and comes out in about a second (measured): it is given this share of an ordinary week's time. */
+export const LAST_WEEK_TIME_SHARE = 0.25;
 /** The most attempts at one week that run at the same time, each on its own processor core. */
 export const APP_MAX_WORKERS = 6;
 /** The synchronous generateWeek stops after this long and returns its best week. The browser never uses it: it keeps going until the week is good, or the user cancels. */
