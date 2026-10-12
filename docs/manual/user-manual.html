@@ -45,7 +45,7 @@
   <h1>Weekly Period Schedule Builder</h1>
   <div class="sub">User's Manual</div>
   <img src="screenshots/13-schedule-tab-week-2.png" alt="A finished week on the Schedule tab">
-  <div class="ver">For version 1.11.0 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
+  <div class="ver">For version 1.11.1 of the app<br>Summer 2027: Session 1, June 27 to July 23. Session 2, July 26 to August 15.</div>
 </section>
 
 <h1>Quick Start</h1>
@@ -284,7 +284,7 @@
 <p>The app tries a week several ways at once and keeps the first one that keeps every rule. If none does, it tries again, without saying anything except "try 2" in the panel. A week that comes out early leaves its time to the weeks after it.</p>
 <h2>When a week will not come out</h2>
 <p>If a week uses up its time and no version of it keeps every rule, the app hands back the best one it found, and does two things to it.</p>
-<p><b>First, it will go one over a limit before it leaves a period empty.</b> A limit on how many bunks are at an area at once, or on how many bunks of one village go there in a day, may be passed by one. It is only ever bunks of one village who are allowed to share with each other: who may share, the grid included, is never overridden. Every place this happened is <b>outlined in orange</b> on the Schedule and Build tabs and listed above the Schedule grid with the day, the period and what is over, such as "O1, O2, O3 are 3 at Teva on Monday period 2, and the most is 2". The line after the run counts them by week. Change such a period by hand and its mark goes.</p>
+<p><b>First, it will go one over a limit before it leaves a period empty.</b> A limit on how many bunks are at an area at once, or on how many bunks of one village go there in a day, may be passed by one. It is only ever bunks who are all allowed to share with each other, by the sharing choices and the grid on the Settings tab (so bunks of one village, or Onondaga with Cayuga and Seneca with Mohawk where those mix). Who may share is never overridden. Every place this happened is <b>outlined in orange</b> on the Schedule and Build tabs and listed above the Schedule grid with the day, the period and what is over, such as "O1, O2, O3 are 3 at Teva on Monday period 2, and the most is 2". The line after the run counts them by week. Change such a period by hand and its mark goes.</p>
 <p>These never go over, whatever happens: a fourth bunk at Athletics, a first visit to Ceramics, the pool's camper limit, the same thing twice in a day or two days running, and period 4 into period 1.</p>
 <p><b>Second, anything else that breaks a rule is emptied</b> and given another activity where one fits. If every period ends up filled, the week is done like any other.</p>
 <p>If some periods are left with nothing that fits, they are <b>empty and marked yellow</b>, and the line after the run says so in place of saying the weeks were generated:</p>
@@ -294,7 +294,7 @@
   <li><span class="ui">Keep trying</span> puts that week, the week before it and the weeks after it back as they were, and generates them again. The week before goes again because what it used up is the usual reason the next one cannot be finished.</li>
   <li>Or fill the yellow periods by hand, or change a setting and generate again.</li>
 </ul>
-<p>In our tests of this version with the numbers the app starts with, Session 1 and Session 2 as they start came out complete every time, in a few seconds. A full camp of 27 bunks at 15 campers each did not always: three runs of the full Session 1 left 1, 2 and 6 empty periods in week 1, and one run of the full Session 2 left 2. Smaller bunks make more room, because two can go together where two of 15 cannot. If the Settings tab says "Unlikely to work" or "Not possible", expect it.</p>
+<p>In our tests of this version with the numbers the app starts with, Session 1 and Session 2 as they start came out complete every time, in a few seconds. A full camp of 27 bunks at 15 campers each did not always: four runs of the full Session 1 left 0, 1, 3 and 6 empty periods, and two runs of the full Session 2 left 0 and 7. Smaller bunks make more room, because two can go together where two of 15 cannot. If the Settings tab says "Unlikely to work" or "Not possible", expect it.</p>
 <h2>Afterwards</h2>
 <figure class="strip"><img src="screenshots/11-after-a-run-undo.png" alt="After a run"><figcaption>After a run: what was generated, and Undo.</figcaption></figure>
 <ul>
@@ -465,7 +465,7 @@
 <h3>It says "Not fully done", and a week has yellow, empty periods.</h3>
 <p>The app could not find a version of that week that keeps every rule inside its time, so it emptied the periods that broke one and refilled the ones it could. Press <span class="ui">Keep trying</span> for another go at that week and the ones around it, fill the yellow periods by hand, or loosen a setting. Look at the top of the Settings tab first: if it says "Unlikely to work" or "Not possible", the numbers are the reason.</p>
 <h3>Some periods are outlined in orange.</h3>
-<p>To finish the week, the app went one bunk over a limit there. The list above the Schedule grid says where and what. Nothing else about those periods breaks a rule, and the bunks are of one village and allowed to share. Leave them, or move one of the bunks by hand; the mark goes when the period is changed.</p>
+<p>To finish the week, the app went one bunk over a limit there. The list above the Schedule grid says where and what. Nothing else about those periods breaks a rule, and the bunks there are all allowed to share. Leave them, or move one of the bunks by hand; the mark goes when the period is changed.</p>
 <h3>A number on the Tracking tab is light red.</h3>
 <p>That bunk has fewer of that area than the Settings tab asks for. Point at it to see the numbers. Generate again, fill it by hand, or lower the number if it was never going to fit.</p>
 <h3>The Settings tab says "Will come up short".</h3>

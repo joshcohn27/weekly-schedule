@@ -181,7 +181,7 @@ a plain statement of which are not. Which rule stood in the way is in the browse
 
 **When a week runs out of time, it goes one over and says so.** A limit on how many are at an area at once, or on bunks
 of one village there in a day, may be passed by one (`BEND` in `src/autogen/config.ts`, switched on only inside the
-clean-up in `src/autogen/tidy.ts`), and only for bunks of one village who may all share: who may share is never
+clean-up in `src/autogen/tidy.ts`), and only for bunks who may all share with each other by the sharing choices and the grid: who may share is never
 overridden. Every such place is kept on the bunk (`over`), outlined in orange on the Schedule and Build tabs, listed over
 the Schedule grid and counted in the line after a run. A fourth bunk at Athletics, a first visit to Ceramics and the
 pool's camper limit never bend. On the Tracking tab a count under what the settings ask for is light red once the week

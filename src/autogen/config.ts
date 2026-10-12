@@ -236,9 +236,9 @@ export function setRopesMax(campers: number, bunksAlways: number = ROPES_BUNKS_A
  * a week runs out of time, the limits on how many are at an area at once, and how many bunks of a village go there in a
  * day, may each be passed by one bunk, and the page marks every place it happened. BEND.on is switched on only while that
  * last clean-up looks at the week; the search itself always works to the limits as they are set. It is only ever for
- * bunks of one village who may all share with each other: who may share (the choices and the grid on the Settings tab)
- * is never overridden (the user, 2026-10-12: "should only bend if the bunks are from the same village ... abide by the
- * grid in the settings hard").
+ * bunks who may all share with each other by the choices and the grid on the Settings tab, which is never overridden
+ * (the user, 2026-10-12: "abide by the grid in the settings hard", and of a group across two villages that the grid
+ * lets mix: "yeah good refuse it if it doesnt abide by grid").
  *
  * What never bends, whatever BEND says: Athletics never has a fourth bunk; a first visit to Ceramics keeps its camper
  * limit; the pool keeps its camper limit unless it is one whole village; nothing twice in a day, on two days running, or

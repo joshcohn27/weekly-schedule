@@ -381,7 +381,7 @@ describe('how many times a session, said one way', () => {
 });
 
 describe('the program-area study: limits, what may bend, and what is marked', () => {
-  it('goes one over a limit only for bunks of one village who may share, and never where it is strict', async () => {
+  it('goes one over a limit only for bunks the sharing grid lets be together, and never where it is strict', async () => {
     const { BEND } = await import('./autogen/config');
     const { buildRoster } = await import('./autogen/roster');
     const { slotGroupProblems } = await import('./autogen/share');
@@ -401,10 +401,12 @@ describe('the program-area study: limits, what may bend, and what is marked', ()
     expect(rules('Teva', ['O1', 'O2', 'O3'])).toEqual(['H14']);
     expect(rules('A&C', ['O1', 'O2', 'O3'])).toEqual(['H14']);
     expect(rules('Athletics', ['O1', 'C1', 'S1'])).toEqual([]);
-    // when a week has run out of time: one more, for three bunks of one village who may all be together
+    // when a week has run out of time: one more, for three bunks who may all be together
     expect(bent('Teva', ['O1', 'O2', 'O3'])).toEqual([]);
     expect(bent('A&C', ['O1', 'O2', 'O3'])).toEqual([]);
-    expect(bent('Teva', ['O1', 'O2', 'C1'])).toEqual(['H14']); // two villages: never
+    expect(bent('Teva', ['O1', 'O2', 'C1'])).toEqual([]); // Onondaga with Cayuga, the same grades: the grid lets them mix at Teva
+    expect(bent('Teva', ['O1', 'O2', 'S1'])).toEqual(['H14']); // Onondaga with Seneca: the grid never does
+    expect(bent('Judaics', ['O1', 'O2', 'C1'])).toContain('H14'); // Judaics is for bunks of one village
     expect(bent('Teva', ['O1', 'O2', 'O5'])).toEqual(['H14']); // O1 and O5 are two grades apart: the sharing choices are not overridden
     expect(bent('Teva', ['O1', 'O2', 'O3', 'O4'])).toEqual(['H14']); // one over, not two
     expect(bent('Athletics', ['O1', 'C1', 'S1', 'M1'])).toEqual(['H14']); // never a fourth bunk at Athletics

@@ -5,6 +5,12 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.11.1 (October 12, 2026)
+
+- Going one over a limit is for any bunks the sharing choices and the grid let be together, so Onondaga with Cayuga and
+  Seneca with Mohawk count where those villages mix. Before it was bunks of one village only. Bunks the grid keeps
+  apart are still never put together.
+
 ## 1.11.0 (October 12, 2026)
 
 The numbers and limits from the camp's own study of each program area are what the app starts with.

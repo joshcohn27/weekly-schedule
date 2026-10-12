@@ -81,12 +81,13 @@ export const isFixedMohawkAthletics = (weekIndex: number, village: string, slot:
 /** The most campers at once in an area that goes by campers (Ropes, Yoga), or undefined for an area that goes by bunks. */
 export const camperLimit = (area: string): number | undefined => (area === 'Ropes' ? ROPES_MAX_CAMPERS : CAMPER_CAP[area]);
 
-/** Are these bunks all of one village, and may every two of them be together at this area? (Athletics takes any bunks.) */
-function oneVillageWhoShare(r: Roster, group: readonly number[], area: string): boolean {
-  for (let i = 0; i < group.length; i++) {
-    if (r.village[group[i]] !== r.village[group[0]]) return false;
-    for (let j = i + 1; j < group.length && area !== 'Athletics'; j++) if (shareLevel(r, group[i], group[j], area) === 0) return false;
-  }
+/**
+ * May every two of these bunks be together at this area, by the sharing choices and the grid on the Settings tab? That is
+ * what one over a limit is held to: bunks of one village, or of two villages that the grid lets mix there (Onondaga with
+ * Cayuga, Seneca with Mohawk, at the areas where villages mix). Nothing the grid forbids is ever allowed.
+ */
+function allMayShare(r: Roster, group: readonly number[], area: string): boolean {
+  for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) if (shareLevel(r, group[i], group[j], area) === 0) return false;
   return true;
 }
 
@@ -142,13 +143,13 @@ export function slotGroupProblems(
     }
     return out;
   }
-  // one over, when bending, is only for bunks of one village who may all be together
-  if (group.length > cap + bendBy(area) || (group.length > cap && !oneVillageWhoShare(r, group, area))) {
+  // one over, when bending, is only for bunks who may all be together
+  if (group.length > cap + bendBy(area) || (group.length > cap && !allMayShare(r, group, area))) {
     out.push({ rule: 'H14', message: `${names} are ${group.length} at ${area}${at}, and the most is ${cap}.` });
     return out;
   }
   const room = AREA_CAMPERS[area];
-  if (room !== undefined && !(BEND.on && oneVillageWhoShare(r, group, area))) {
+  if (room !== undefined && !(BEND.on && allMayShare(r, group, area))) {
     const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
     if (campers > room) out.push({ rule: 'H14', message: `${names} are ${campers} campers at ${area}${at}, and the most is ${room}.` });
   }
@@ -175,7 +176,7 @@ export function slotGroupProblems(
   } else if (group.length === 2) {
     if (matched.length === 0) bad('they are not allowed to be together');
   } else if (area === 'A&C') {
-    if (!isSameAgeGroup(r, group) && !BEND.on) bad('three at A&C must all be the same age'); // bending: one village who may share, checked above
+    if (!isSameAgeGroup(r, group) && !BEND.on) bad('three at A&C must all be the same age'); // bending: all of them may share, checked above
     sameVisit = [[group[0], group[1]], [group[1], group[2]]];
   }
   // the same visit is asked of every area except the ones the settings leave free (Athletics and Time with UH, to start with)
