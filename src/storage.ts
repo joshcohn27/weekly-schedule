@@ -25,7 +25,9 @@ export function normalize(raw: unknown): Schedule | null {
     };
     // the yellow marks left by the Clear tool, for periods that are still empty
     const cleared = (Array.isArray(b?.cleared) ? b.cleared : []).filter((s: unknown) => Number.isInteger(s) && bunk.slots[s as number] === '');
-    return cleared.length ? { ...bunk, cleared } : bunk;
+    // the places Auto generate went over a limit, for periods that still hold what it put there
+    const over = (Array.isArray(b?.over) ? b.over : []).filter((o: any) => Number.isInteger(o?.slot) && typeof o?.note === 'string' && bunk.slots[o.slot] === o?.label).map((o: any) => ({ slot: o.slot, label: str(o.label), note: str(o.note) }));
+    return { ...bunk, ...(cleared.length ? { cleared } : {}), ...(over.length ? { over } : {}) };
   });
 
   const rawDays = Array.isArray(obj.days) ? obj.days : [];

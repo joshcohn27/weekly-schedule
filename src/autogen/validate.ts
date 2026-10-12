@@ -1,6 +1,7 @@
 import { ACTIVITIES, areaOf } from '../config';
 import type { WeeksState } from '../types';
 import {
+  BEND,
   DAY_CAP,
   CALENDAR,
   hobbiesInWeek,
@@ -167,7 +168,7 @@ export function validateGrid(input: ValidationInput): Violation[] {
             (k) => k.day === day && k.area === area && !lockedAny(b, k.start, k.len) && !isFixedMohawkAthletics(weekIndex, v, k.start, k.label),
           ),
         );
-        if (here.length > cap) add('H15', `${here.length} bunks of village ${v} have ${area} on ${DAY_NAMES[day]}, and the most is ${cap}.`, here[0], slotAt(day, 0));
+        if (here.length > cap + (BEND.on ? 1 : 0)) add('H15', `${here.length} bunks of village ${v} have ${area} on ${DAY_NAMES[day]}, and the most is ${cap}.`, here[0], slotAt(day, 0));
       }
     }
   }

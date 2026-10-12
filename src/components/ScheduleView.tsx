@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { isCleared } from '../clear';
+import { isCleared, overNote } from '../clear';
 import { DAYS, PERIODS_PER_DAY } from '../config';
 import { highlightFor, isHighlighted, sameHighlight, type Highlight } from '../highlight';
 import { blocksByRow, computeBlocks } from '../merge';
@@ -19,6 +19,12 @@ export default function ScheduleView({ bunks, days, dayLabels = DAYS }: Props) {
   const highlight = picked?.highlight ?? null;
   const periods = Array.from({ length: PERIODS_PER_DAY }, (_, i) => i);
   const half = PERIODS_PER_DAY / 2;
+  // every place Auto generate went one over a limit to finish the week, said once each, in the order of the week
+  const overNotes = useMemo(() => {
+    const seen = new Map<string, number>();
+    bunks.forEach((b) => (b.over ?? []).forEach((o) => b.slots[o.slot] === o.label && !seen.has(o.note) && seen.set(o.note, o.slot)));
+    return [...seen].sort((x, y) => x[1] - y[1]).map(([note]) => note);
+  }, [bunks]);
 
   return (
     <section>
@@ -28,6 +34,19 @@ export default function ScheduleView({ bunks, days, dayLabels = DAYS }: Props) {
           Print
         </button>
       </p>
+      {overNotes.length > 0 && (
+        <div className="over-list">
+          <strong>
+            {overNotes.length === 1 ? 'One place is over a limit.' : `${overNotes.length} places are over a limit.`}
+          </strong>{' '}
+          Auto generate had to go one over to finish this week. They are outlined in orange below.
+          <ul>
+            {overNotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <p className="hint">Click a block to highlight every block in the same program area. Leagues light up within their village.</p>
       <div className="scroll" onClick={() => setPicked(null)}>
         <table border={1} className="schedule">
@@ -61,6 +80,9 @@ export default function ScheduleView({ bunks, days, dayLabels = DAYS }: Props) {
                 {rows[r].map((blk) => {
                   if (!blk.label) return <td key={blk.col} rowSpan={blk.rowSpan} colSpan={blk.colSpan} className={isCleared(b, blk.col) ? 'cleared' : undefined} />;
                   const names = bunks.slice(r, r + blk.rowSpan).map((x) => x.name);
+                  // a block covers several bunks and periods: it is marked when any of them is over a limit
+                  let over: string | undefined;
+                  for (const x of bunks.slice(r, r + blk.rowSpan)) for (let s = blk.col; s < blk.col + blk.colSpan && !over; s++) over = overNote(x, s);
                   const lit = isHighlighted(highlight, blk.label, names);
                   const isPicked = picked?.row === r && picked.col === blk.col;
                   const choose = () => {
@@ -72,7 +94,8 @@ export default function ScheduleView({ bunks, days, dayLabels = DAYS }: Props) {
                       key={blk.col}
                       rowSpan={blk.rowSpan}
                       colSpan={blk.colSpan}
-                      className={`filled${lit ? ' hl' : ''}${isPicked ? ' picked' : ''}`}
+                      className={`filled${lit ? ' hl' : ''}${isPicked ? ' picked' : ''}${over ? ' over' : ''}`}
+                      title={over}
                       role="button"
                       tabIndex={0}
                       aria-pressed={isPicked}

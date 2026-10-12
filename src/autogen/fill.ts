@@ -12,6 +12,7 @@ import {
   GAP_MAX_OCS,
   GAP_SLACK_BEFORE_LAST_WEEK,
   MUSIC_LIGHT_VILLAGES,
+  MUSIC_SESSION_MAX,
   RARE_AREAS,
   SESSION_FILLER_MAX,
   SHABBAT_PREP_STAFF,
@@ -36,7 +37,7 @@ import {
   WEIGHTS,
 } from './config';
 import { SLOTS, dayOf } from './history';
-import { TOKEN_AREAS, TOKEN_LABEL, expectedSpare, inWeekCount, leftoverRoom, remainingWeeks, sessionTargetOf, type Plan } from './planner';
+import { TOKEN_AREAS, TOKEN_LABEL, expectedSpare, inWeekCount, leftoverRoom, musicDue, remainingWeeks, sessionTargetOf, type Plan } from './planner';
 import { shuffle } from './rng';
 import { shareLevel } from './roster';
 import { isShortWeek, openPeriods } from './weekRoom';
@@ -442,7 +443,9 @@ class FillSearch {
   private readonly athleticsDays: number[];
   /** Most Time with UH each bunk may have had by the end of this week. */
   private readonly uhLimit: number[];
-  private readonly base: { ath: number; ac: number; uh: number }[];
+  private readonly base: { ath: number; ac: number; uh: number; music: number }[];
+  /** The weekly Music each bunk still has coming in the weeks after this one: room is kept for it under the session's most. */
+  private readonly musicOwedLater: number[];
   /** Periods in which some village is at Shabbat Prep: the Music and Judaics specialists run it, so neither area has a bunk then. */
   private readonly prep: boolean[];
   /** Each bunk's neighbour in its village (the first with the second, the third with the fourth, ...), or -1. They share A&C, so they are kept level. */
@@ -477,8 +480,10 @@ class FillSearch {
     this.fillers = Object.keys(SESSION_FILLER_MAX).filter((a) => TOKEN_AREAS.includes(a) && a !== 'Music' && a !== 'TW UH');
     this.leftover = [...LEFTOVER_ALWAYS, ...this.fillers.map(labelOf)];
     this.fillerBase = c.grid.map((_, b) => this.fillers.map((a) => other(b, a)));
-    this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH') }));
+    this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH'), music: other(b, 'Music') }));
     this.prep = ALL_SLOTS.map((s) => c.grid.some((row) => row[s] === 'Shabbat Prep'));
+    const unbuilt = remainingWeeks(c).filter((w) => w > c.weekIndex);
+    this.musicOwedLater = c.grid.map((_, b) => unbuilt.filter((w) => musicDue(c.roster.village[b], c.roster.pos[b], w)).length);
     this.buddy = c.roster.village.map((v, b) => {
       const members = c.roster.byVillage[v];
       const at = c.roster.pos[b];
@@ -687,7 +692,9 @@ class FillSearch {
     }
     // a village that gives up some of its Music for A&C does not get the Music back as a filler
     // (in week 4 of 4 it may: one Music to fill a period)
-    const musicMax = MUSIC_LIGHT_VILLAGES.includes(c.roster.village[b]) ? Math.max(this.musicPlanned[b] ? 1 : 0, WEEK_FOUR_NOW ? 1 : 0) : WEEK_BLOCK_MAX.Music;
+    const musicWeek = MUSIC_LIGHT_VILLAGES.includes(c.roster.village[b]) ? Math.max(this.musicPlanned[b] ? 1 : 0, WEEK_FOUR_NOW ? 1 : 0) : WEEK_BLOCK_MAX.Music;
+    // and no more in the session than MUSIC_SESSION_MAX, the week's own Music always among them
+    const musicMax = Math.max(this.musicPlanned[b] ? 1 : 0, Math.min(musicWeek, MUSIC_SESSION_MAX - this.base[b].music - this.musicOwedLater[b]));
     cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']) + Math.min(music, Math.max(0, musicAll - musicMax)));
     // Mohawk and Tusc have few periods left over, and those should not all go to Athletics and Time with UH
     if (this.flexible[b] && ac === 0 && (athWeek > 0 || uh > 0)) cost += WEIGHTS.noAcWeek;

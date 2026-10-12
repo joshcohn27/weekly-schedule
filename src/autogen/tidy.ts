@@ -1,7 +1,7 @@
 import { isGuest } from '../autofill';
 import { areaOf } from '../config';
-import type { Schedule, WeeksState } from '../types';
-import { VILLAGE_LEVEL_LABELS, type SessionWeeks } from './config';
+import type { OverLimit, Schedule, WeeksState } from '../types';
+import { BEND, VILLAGE_LEVEL_LABELS, type SessionWeeks } from './config';
 import { dayOf } from './history';
 import { validateWeek, type Violation } from './validate';
 
@@ -15,8 +15,10 @@ const CROWD_RULES = ['H13', 'H14', 'H15', 'H10'];
 const MAX_PASSES = 80;
 
 /**
- * A week that ran out of time with a rule still broken is handed back clean instead: the periods that break a rule are
- * emptied, as few as it takes, and left marked (yellow) for a person to fill. Nothing that was on the week before it was
+ * A week that ran out of time with a rule still broken is handed back clean instead. A limit on how many are somewhere
+ * at once may be passed by one (see BEND in config.ts): those periods stay as they are and are marked as over a limit,
+ * with a note saying what is over. Anything else that breaks a rule is emptied, as few periods as it takes, and left marked
+ * (yellow) for a person to fill. Nothing that was on the week before it was
  * generated is touched: the calendar and whatever was entered by hand stay. What comes back has nothing in it that breaks
  * a rule. A period that was emptied is given another activity where one fits, so only the periods nothing fits in are left
  * empty; the week may still be short of something it should have.
@@ -37,7 +39,20 @@ export function tidyWeek(schedule: Schedule, before: Schedule | null, weeks: Wee
   });
   // an empty period is what this leaves behind on purpose, so it does not count against the week here
   // (what was there before counts in full here: a bunk put next to one that was entered by hand is still one too many)
-  const broken = (): Violation[] => validateWeek(state(), weekIndex, sessionWeeks).filter((v) => v.rule !== 'H1');
+  // the second step of the bend, taken only for periods that would otherwise be left empty
+  let shareToo = false;
+  const check = (bend: boolean): Violation[] => {
+    BEND.on = bend;
+    BEND.share = bend && shareToo;
+    try {
+      return validateWeek(state(), weekIndex, sessionWeeks).filter((v) => v.rule !== 'H1');
+    } finally {
+      BEND.on = false;
+      BEND.share = false;
+    }
+  };
+  // what has to be mended: what breaks a rule even with the limits on how many passed by one
+  const broken = (): Violation[] => check(true);
 
   /** The whole block a cell belongs to (a double period goes together), for the whole village when it is a village block. */
   const unitOf = (b: number, s: number): [number, number][] => {
@@ -110,14 +125,19 @@ export function tidyWeek(schedule: Schedule, before: Schedule | null, weeks: Wee
 
   // Then put something back in each period that was emptied, where anything fits: the first single-period activity that
   // breaks no rule there. What is left empty after this has nothing that fits, and is marked for a person to fill.
+  const refill = (): void => {
   let left = broken().length;
   for (let k = 0; k < grid.length; k++) {
     for (const x of [...emptied[k]].sort((a, b) => a - b)) {
       if (grid[k][x] !== '') continue;
       // rotate the list by bunk and period, so the same activity is not tried first everywhere
       const from = (k * 7 + x) % REFILL.length;
+      const day = dayOf(x);
       for (let i = 0; i < REFILL.length; i++) {
-        grid[k][x] = REFILL[(from + i) % REFILL.length];
+        const label = REFILL[(from + i) % REFILL.length];
+        // never what the bunk already has that day: two of a thing side by side would read as a double period
+        if ([0, 1, 2, 3].some((p) => day * 4 + p !== x && areaOf(grid[k][day * 4 + p]) === areaOf(label))) continue;
+        grid[k][x] = label;
         const now = broken().length;
         if (now <= left) {
           left = now;
@@ -127,13 +147,46 @@ export function tidyWeek(schedule: Schedule, before: Schedule | null, weeks: Wee
       }
     }
   }
+  };
+  refill();
+  // a period still empty: once more, letting bunks be together that the sharing choices or their visit numbers keep apart
+  if (grid.some((row, k) => [...emptied[k]].some((x) => row[x] === ''))) {
+    shareToo = true;
+    refill();
+  }
+
+  // What is left that only the bend lets through: each is a place that is over a limit, and is marked as one.
+  const allowed = new Set(check(true).map((v) => `${v.rule}|${v.bunk}|${v.slot}|${v.message}`));
+  const over = schedule.bunks.map(() => new Map<number, string>());
+  const mark = (k: number, s: number, note: string) => {
+    if (grid[k][s] !== '' && !locked[k][s] && !over[k].has(s)) over[k].set(s, note);
+  };
+  for (const v of check(false)) {
+    if (allowed.has(`${v.rule}|${v.bunk}|${v.slot}|${v.message}`) || v.slot === undefined) continue;
+    const b = v.bunk === undefined ? undefined : index.get(v.bunk);
+    if (b === undefined) continue;
+    const perDay = v.rule === 'H15' ? /have (.+) on \w+, and the most/.exec(v.message) : null;
+    if (perDay) {
+      // a village with one bunk too many at an area in a day: every one of its bunks that has it that day
+      const day = dayOf(v.slot);
+      for (let k = 0; k < grid.length; k++) {
+        if (village[k] !== village[b]) continue;
+        for (let s = day * 4; s < day * 4 + 4; s++) if (areaOf(grid[k][s]) === perDay[1]) mark(k, s, v.message);
+      }
+      continue;
+    }
+    // too many at an area in one period: everybody who is there
+    const area = areaOf(grid[b][v.slot]);
+    for (let k = 0; k < grid.length; k++) if (area && areaOf(grid[k][v.slot]) === area) mark(k, v.slot, v.message);
+  }
 
   return {
     ...schedule,
     bunks: schedule.bunks.map((b, k) => {
-      if (emptied[k].size === 0) return b;
+      if (emptied[k].size === 0 && over[k].size === 0) return b;
       const cleared = [...new Set([...(b.cleared ?? []), ...emptied[k]])].filter((s) => grid[k][s] === '').sort((x, y) => x - y);
-      return { ...b, slots: grid[k], cleared };
+      const marks: OverLimit[] = [...over[k]].sort((x, y) => x[0] - y[0]).map(([slot, note]) => ({ slot, label: grid[k][slot], note }));
+      return { ...b, slots: grid[k], ...(cleared.length || b.cleared ? { cleared } : {}), ...(marks.length ? { over: marks } : {}) };
     }),
   };
 }

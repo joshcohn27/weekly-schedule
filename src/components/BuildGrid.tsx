@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { PERIOD_CHOICES, periodsForChoice, villageName, villageOf } from '../autofill';
-import { clearChoices, isCleared, type ClearRequest, type ClearWho } from '../clear';
+import { clearChoices, isCleared, overNote, type ClearRequest, type ClearWho } from '../clear';
 import { DAYS, PERIODS_PER_DAY } from '../config';
 import { slotUsage } from '../slotUsage';
 import type { Bunk } from '../types';
@@ -234,7 +234,7 @@ export default function BuildGrid({ bunks, onCell, onBunk, onAdd, onRemove, onMo
                   periods.map((p) => {
                     const slot = di * PERIODS_PER_DAY + p;
                     return (
-                      <td key={slot} className={isCleared(b, slot) ? 'cleared' : undefined}>
+                      <td key={slot} className={isCleared(b, slot) ? 'cleared' : overNote(b, slot) ? 'over' : undefined} title={overNote(b, slot)}>
                         <SlotSelect
                           bunkId={b.id}
                           slot={slot}

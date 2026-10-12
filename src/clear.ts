@@ -50,12 +50,25 @@ export function applyClear(bunks: Bunk[], req: ClearRequest): Bunk[] {
 export const isCleared = (b: Bunk, slot: number): boolean => b.slots[slot] === '' && !!b.cleared?.includes(slot);
 
 /** Forget the marks on periods that have been filled again (the same bunk comes back when there is nothing to forget). */
-export function pruneCleared(b: Bunk): Bunk {
+function pruneYellow(b: Bunk): Bunk {
   if (!b.cleared) return b;
   const still = b.cleared.filter((s) => b.slots[s] === '');
   if (still.length === b.cleared.length) return b;
   const { cleared: _old, ...rest } = b;
   return still.length ? { ...rest, cleared: still } : rest;
+}
+
+/** The over-a-limit note on this period, when it still holds what Auto generate put there. */
+export const overNote = (b: Bunk, slot: number): string | undefined => b.over?.find((o) => o.slot === slot && b.slots[slot] === o.label)?.note;
+
+/** A mark is dropped once its period has changed: a yellow one when it is filled, an over-a-limit one when it holds something else. */
+export function pruneCleared(bunk: Bunk): Bunk {
+  const b = pruneYellow(bunk);
+  if (!b.over) return b;
+  const still = b.over.filter((o) => b.slots[o.slot] === o.label);
+  if (still.length === b.over.length) return b;
+  const { over: _old, ...rest } = b;
+  return still.length ? { ...rest, over: still } : rest;
 }
 
 /** Take every yellow mark off, leaving the periods empty. */

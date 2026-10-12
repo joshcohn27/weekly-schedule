@@ -17,10 +17,10 @@ export const SESSION_TARGETS: Record<string, number> = {
   Ropes: 2,
   Judaics: 2,
   'Israel Education': 2,
-  Teva: 1,
+  Teva: 2,
   Ceramics: 2,
   Yoga: 1,
-  'TW UH': 1,
+  'TW UH': 2,
 };
 /**
  * A village that has its own number for an area in this session, in place of the one above: area, then village letter.
@@ -39,9 +39,9 @@ export const ROPES_START_HIGH: string[] = [];
  * Areas a bunk may have once more than its target, to fill a period that would otherwise be Athletics or A&C: the most
  * per session. They are one bunk at a time, so asking every bunk for a third would use up nearly every period they have.
  */
-export const SESSION_FILLER_MAX: Record<string, number> = { Yoga: 2, Teva: 3, Judaics: 3 };
+export const SESSION_FILLER_MAX: Record<string, number> = { Yoga: 2, Teva: 4, Judaics: 3 };
 /** H7: the most of each of these a bunk may have in a session. */
-export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2, Teva: 3, Ceramics: 2, Yoga: 2, Dance: 3 };
+export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2, Teva: 4, Ceramics: 2, Yoga: 2, Dance: 3 };
 /** Dance blocks per session for each village letter. '*' is a village not listed. */
 export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1, '*': 2 };
 /**
@@ -224,8 +224,26 @@ export function setRopesMax(campers: number, bunksAlways: number = ROPES_BUNKS_A
   ROPES_MAX_CAMPERS = campers;
   ROPES_BUNKS_ALWAYS = bunksAlways;
 }
+/**
+ * A schedule coming out matters more than a limit on how many are somewhere at once (the user, 2026-10-12: "my priority
+ * is a schedule generating. if you have to go slightly over any limit set okay. just highlight that on the sheet"). So when
+ * a week runs out of time, the limits on how many are at an area at once, and how many bunks of a village go there in a
+ * day, may each be passed by one bunk, and the page marks every place it happened. BEND.on is switched on only while that
+ * last clean-up looks at the week; the search itself always works to the limits as they are set. BEND.share goes one
+ * step further, for a period that would otherwise be left empty: bunks may be together there that the sharing choices
+ * keep apart, or that are on different visits. That is marked too.
+ *
+ * What never bends, whatever BEND says: Athletics never has a fourth bunk; a first visit to Ceramics keeps its camper
+ * limit; the pool keeps its camper limit unless it is one whole village; nothing twice in a day, on two days running, or
+ * in period 4 and again in period 1 the next morning.
+ */
+export const BEND = { on: false, share: false };
+/** Areas whose limit on bunks at once never bends. */
+export const NEVER_OVER: string[] = ['Athletics'];
+/** One more bunk than the limit, when bending. */
+export const bendBy = (area: string): number => (BEND.on && !NEVER_OVER.includes(area) ? 1 : 0);
 /** Is this many bunks, with this many campers between them, a group ropes can take? */
-export const ropesHolds = (bunks: number, campers: number): boolean => bunks <= ROPES_BUNKS_ALWAYS || campers <= ROPES_MAX_CAMPERS;
+export const ropesHolds = (bunks: number, campers: number): boolean => bunks <= ROPES_BUNKS_ALWAYS + (BEND.on ? 1 : 0) || campers <= ROPES_MAX_CAMPERS;
 /** Change the two pool numbers above (they are settings). */
 export function setPool(lessons: number, maxCampers: number): void {
   POOL_LESSONS = lessons;
@@ -285,7 +303,9 @@ export const UH_EARLY_MARGIN = 0.5;
 /** Villages that are over-subscribed by design: they may end a rare area one block short, and Athletics/A&C two apart, with a warning. */
 export const FLEXIBLE_VILLAGES = ['M', 'T'];
 /** Time with UH is planned once a session; a bunk may get it up to this many times when its periods cannot be filled otherwise. */
-export let UH_MAX_PER_SESSION = 3;
+export let UH_MAX_PER_SESSION = 4;
+/** The most Music a bunk has in a session, the weekly one and any that fill a period together. */
+export const MUSIC_SESSION_MAX = 4;
 /** Tusc away on a trip for at least this many periods of a week has no triathlon training that week (the three-day bike trip). */
 export const TRI_AWAY_PERIODS = 8;
 /** A bunk away on trips for at least this many periods of a week is not expected to get its weekly Music. */
@@ -475,7 +495,7 @@ export const VISIT_FREE_IN_WEEK_FOUR = ['A&C'];
  * many bunks of a village a day at Athletics and at A&C, and one more Time with UH than a session usually allows.
  */
 export const WEEK_FOUR_DAY_CAP: Record<string, number> = { Athletics: 3, 'A&C': 3 };
-export const WEEK_FOUR_UH_BONUS = 1;
+export const WEEK_FOUR_UH_BONUS = 0; // it was 1 while the most was 3; the most is 4 now and is not passed
 /** The Time with UH bonus for the week in hand, and whether that week is week 4 of 4. */
 export let UH_BONUS_NOW = 0;
 export let WEEK_FOUR_NOW = false;

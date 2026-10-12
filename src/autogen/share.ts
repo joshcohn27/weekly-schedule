@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { AREA_CAMPERS, CAMPER_CAP, PAIR_FROM_VISIT, ROPES_MAX_CAMPERS, SLOT_CAP, VILLAGE_LEVEL_LABELS, VISIT, ropesHolds, visitFree } from './config';
+import { AREA_CAMPERS, BEND, CAMPER_CAP, PAIR_FROM_VISIT, ROPES_MAX_CAMPERS, SLOT_CAP, VILLAGE_LEVEL_LABELS, VISIT, bendBy, ropesHolds, visitFree } from './config';
 import { isSameAgeGroup, shareLevel, type Roster } from './roster';
 
 /**
@@ -89,7 +89,8 @@ function fitsByCampers(area: string, group: readonly number[], campers: number, 
   if (campers <= most) return true;
   if (area === 'Ropes') return ropesHolds(group.length, campers);
   const from = PAIR_FROM_VISIT[area];
-  return from !== undefined && group.length === 2 && ordinal(group[0]) >= from && ordinal(group[1]) >= from;
+  if (from !== undefined) return group.length === 2 && ordinal(group[0]) >= from && ordinal(group[1]) >= from; // a first visit never bends
+  return BEND.on && group.length === 2; // two bunks over the limit, when bending
 }
 
 /**
@@ -120,10 +121,10 @@ export function slotGroupProblems(
     // Ropes and Yoga go by people, not by bunks: neighbours in one village, with no more campers than the place takes
     const line = ropesLine(r, group, area);
     const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
-    if (!line) out.push({ rule: 'H13', message: `${names} share ${area}${at}, but bunks at ${area} together must be next to each other in one village.` });
+    if (!line && !BEND.share) out.push({ rule: 'H13', message: `${names} share ${area}${at}, but bunks at ${area} together must be next to each other in one village.` });
     if (!fitsByCampers(area, group, campers, most, (b) => ordinal(b) ?? 0)) out.push({ rule: 'H14', message: `${names} are ${campers} campers at ${area}${at}, and the most is ${most}.` });
     const order = line ?? [...group];
-    for (let i = 1; i < order.length && !visitFree(area); i++) {
+    for (let i = 1; i < order.length && !visitFree(area) && !BEND.share; i++) {
       const oa = ordinal(order[i - 1]);
       const ob = ordinal(order[i]);
       if (oa !== null && ob !== null && Math.abs(oa - ob) > VISIT.slackNow) {
@@ -132,12 +133,12 @@ export function slotGroupProblems(
     }
     return out;
   }
-  if (group.length > cap) {
+  if (group.length > cap + bendBy(area)) {
     out.push({ rule: 'H14', message: `${names} are ${group.length} at ${area}${at}, and the most is ${cap}.` });
     return out;
   }
   const room = AREA_CAMPERS[area];
-  if (room !== undefined) {
+  if (room !== undefined && !BEND.on) {
     const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
     if (campers > room) out.push({ rule: 'H14', message: `${names} are ${campers} campers at ${area}${at}, and the most is ${room}.` });
   }
@@ -145,7 +146,9 @@ export function slotGroupProblems(
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) if (shareLevel(r, group[i], group[j], area) > 0) matched.push([group[i], group[j]]);
   }
-  const bad = (why: string) => out.push({ rule: 'H13', message: `${names} share ${area}${at}, but ${why}.` });
+  const bad = (why: string) => {
+    if (!BEND.share) out.push({ rule: 'H13', message: `${names} share ${area}${at}, but ${why}.` });
+  };
   // who must be on the same ordinal: bunks that may share, and all three of a group of three at A&C
   let sameVisit = matched;
 
@@ -164,11 +167,11 @@ export function slotGroupProblems(
   } else if (group.length === 2) {
     if (matched.length === 0) bad('they are not allowed to be together');
   } else if (area === 'A&C') {
-    if (!isSameAgeGroup(r, group)) bad('three at A&C must all be the same age');
+    if (!isSameAgeGroup(r, group) && !BEND.on) bad('three at A&C must all be the same age');
     sameVisit = [[group[0], group[1]], [group[1], group[2]]];
   }
   // the same visit is asked of every area except the ones the settings leave free (Athletics and Time with UH, to start with)
-  if (visitFree(area)) sameVisit = [];
+  if (visitFree(area) || BEND.share) sameVisit = [];
   for (const [a, b] of sameVisit) {
     const oa = ordinal(a);
     const ob = ordinal(b);

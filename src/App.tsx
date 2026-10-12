@@ -57,7 +57,7 @@ export default function App() {
     if (helpOpen) markHelpSeen();
   }, [helpOpen]);
   /** What the last Auto generate did, kept in memory only so it can be undone. */
-  const [auto, setAuto] = useState<{ weeks: number[]; seed: number; before: (Schedule | null)[]; unfinished: UnfinishedWeek[]; plan: AutoGeneratePlan } | null>(null);
+  const [auto, setAuto] = useState<{ weeks: number[]; seed: number; before: (Schedule | null)[]; unfinished: UnfinishedWeek[]; plan: AutoGeneratePlan; over: { weekNumber: number; places: number }[] } | null>(null);
   /** The Auto generate run that is going on in the background, or null when idle. `indexes` are its 0-based weeks. */
   const [run, setRun] = useState<(RunProgress & { indexes: number[] }) | null>(null);
   const runRef = useRef<{ stop: () => void } | null>(null);
@@ -245,7 +245,11 @@ export default function App() {
     const end = () => {
       runRef.current = null;
       setRun(null);
-      if (handedOver.size > 0) setAuto({ weeks: indexes.filter((i) => handedOver.has(i)), seed, before: undoTo, unfinished, plan });
+      // the places a limit was passed by one to finish a week: counted once each, however many bunks are there
+      const over = indexes
+        .map((i) => ({ weekNumber: i + 1, places: new Set((made.get(i)?.bunks ?? []).flatMap((b) => (b.over ?? []).map((o) => o.note))).size }))
+        .filter((o) => o.places > 0);
+      if (handedOver.size > 0) setAuto({ weeks: indexes.filter((i) => handedOver.has(i)), seed, before: undoTo, unfinished, plan, over });
     };
     setRun({ indexes, weekNumbers: indexes.map((i) => i + 1), states: indexes.map(() => 'waiting'), tries: 0, startedAt: Date.now() });
     // a camp with six bunks in a village is switched to the settings that fit it, when the dialog was left saying so
@@ -418,7 +422,7 @@ export default function App() {
               </div>
             )}
             {run && <AutoGenerateProgress progress={run} onStop={() => runRef.current?.stop()} />}
-            {auto && <AutoGenerateStatus weekNumbers={auto.weeks.map((w) => w + 1)} seed={auto.seed} onUndo={undoAutoGenerate} unfinished={auto.unfinished} onKeepTrying={keepTrying} />}
+            {auto && <AutoGenerateStatus weekNumbers={auto.weeks.map((w) => w + 1)} seed={auto.seed} onUndo={undoAutoGenerate} unfinished={auto.unfinished} onKeepTrying={keepTrying} over={auto.over} />}
           </div>
         )}
 

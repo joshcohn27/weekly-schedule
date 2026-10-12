@@ -9,6 +9,18 @@ export interface Bunk {
   slots: string[];
   /** Slots emptied with the Clear tool that are still empty. They show in yellow until something is put there again. */
   cleared?: number[];
+  /**
+   * Periods where Auto generate had to go one over a limit to finish the week (three bunks where the limit is two, say).
+   * Each remembers what was put there, so the mark goes when the period is changed.
+   */
+  over?: OverLimit[];
+}
+
+export interface OverLimit {
+  slot: number;
+  label: string;
+  /** What is over, in a sentence. */
+  note: string;
 }
 
 export interface DayInfo {

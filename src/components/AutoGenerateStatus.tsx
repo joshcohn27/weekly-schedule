@@ -13,6 +13,8 @@ interface Props {
   unfinished?: UnfinishedWeek[];
   /** Generate the unfinished weeks again, with the week before the first of them and the ones after. */
   onKeepTrying?: () => void;
+  /** Weeks where a limit was passed by one to finish: how many places in each. */
+  over?: { weekNumber: number; places: number }[];
 }
 
 /** "Week 2", "Weeks 1 and 3", "Weeks 1 to 4". */
@@ -27,13 +29,23 @@ export function weeksPhrase(numbers: number[]): string {
  * The line after Auto generate. Either every week is complete, or it says plainly which weeks are not fully done and
  * offers to keep trying. It never lists rules.
  */
-export default function AutoGenerateStatus({ weekNumbers, seed, onUndo, unfinished = [], onKeepTrying }: Props) {
+export default function AutoGenerateStatus({ weekNumbers, seed, onUndo, unfinished = [], onKeepTrying, over = [] }: Props) {
   const complete = unfinished.length === 0;
+  const places = over.reduce((sum, o) => sum + o.places, 0);
   return (
     <div className={complete ? 'autogen-status' : 'autogen-status not-done'}>
       {complete ? (
         <span>
           {weeksPhrase(weekNumbers)} generated. Check the Tracking tab for the totals. Press Auto generate again for a different version.
+          {places > 0 && (
+            <>
+              {' '}
+              <strong className="over-count">
+                {places === 1 ? 'One place is' : `${places} places are`} one over a limit ({over.map((o) => `Week ${o.weekNumber}: ${o.places}`).join(', ')}).
+              </strong>{' '}
+              They are outlined in orange and listed on the Schedule tab.
+            </>
+          )}
         </span>
       ) : (
         <span>

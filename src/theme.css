@@ -884,3 +884,34 @@ main button.danger:hover:not(:disabled) {
 .weekbar > .autogen-status.not-done:first-child {
   padding: 8px 10px;
 }
+
+/* a period where Auto generate went one over a limit to finish the week */
+td.over,
+td.filled.over {
+  box-shadow: inset 0 0 0 3px #e07b00;
+  background: #fff1dc;
+}
+.over-list {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-left: 5px solid #e07b00;
+  background: #fff1dc;
+}
+.over-list ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.over-count {
+  color: #9a4f00;
+}
+@media print {
+  .over-list {
+    display: block;
+    font-size: 9px;
+  }
+  td.over,
+  td.filled.over {
+    box-shadow: inset 0 0 0 2px #000;
+    background: #fff;
+  }
+}
