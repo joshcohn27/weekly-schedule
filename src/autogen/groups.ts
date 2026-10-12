@@ -1,10 +1,10 @@
-import { ROPES_MAX_CAMPERS } from './config';
+import { ropesHolds } from './config';
 import { shareLevel, type Roster } from './roster';
 
 /**
  * Split bunks that need Ropes into the groups that will go together. Ropes goes by people, not by bunks: bunks next to
- * each other in a village's list, on the same time at ropes, go together as long as their campers add up to no more than
- * ROPES_MAX_CAMPERS. A bunk that is bigger than that on its own goes alone. `pick(k)` chooses a number from 0 to k-1
+ * each other in a village's list, on the same time at ropes, go together as long as ropes holds them (ropesHolds: a set
+ * number of bunks always, more when their campers are under the limit). `pick(k)` chooses a number from 0 to k-1
  * (randomness lives with the caller): it decides which end of a line the packing starts from, so the same bunks are not
  * left over every time.
  */
@@ -38,7 +38,7 @@ function packByCampers(r: Roster, run: number[], fromEnd: boolean): number[][] {
   let group: number[] = [];
   let campers = 0;
   for (const b of line) {
-    if (group.length > 0 && campers + r.campers[b] > ROPES_MAX_CAMPERS) {
+    if (group.length > 0 && !ropesHolds(group.length + 1, campers + r.campers[b])) {
       groups.push(group);
       group = [];
       campers = 0;

@@ -1,6 +1,6 @@
 import { isGuest, villageOf } from '../autofill';
 import type { Schedule } from '../types';
-import { DEFAULT_CAMPERS, ROPES_MAX_CAMPERS, TRIP_LABELS, hobbiesInWeek } from './config';
+import { DEFAULT_CAMPERS, ROPES_BUNKS_ALWAYS, ROPES_MAX_CAMPERS, TRIP_LABELS, hobbiesInWeek } from './config';
 import { sessionTargetOf } from './planner';
 
 /**
@@ -30,14 +30,18 @@ const closed = (label: string): boolean => TRIP_LABELS.includes(label) || SET_LA
 function groupsOf(campers: number[], limit: number): number {
   let groups = 0;
   let sum = 0;
+  let bunks = 0;
   for (const n of campers) {
-    if (sum > 0 && sum + n > limit) {
+    // a set number of bunks always go together; more only while their campers are under the limit
+    if (bunks > 0 && bunks + 1 > ROPES_BUNKS_ALWAYS && sum + n > limit) {
       groups++;
       sum = 0;
+      bunks = 0;
     }
     sum += n;
+    bunks++;
   }
-  return sum > 0 ? groups + 1 : groups;
+  return bunks > 0 ? groups + 1 : groups;
 }
 
 export function ropesOutlook(weeks: (Schedule | null)[], sessionWeeks: number, limit: number = ROPES_MAX_CAMPERS): RopesOutlook {

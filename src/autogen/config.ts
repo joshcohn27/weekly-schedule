@@ -19,7 +19,7 @@ export const SESSION_TARGETS: Record<string, number> = {
   'Israel Education': 2,
   Teva: 1,
   Ceramics: 2,
-  Yoga: 2,
+  Yoga: 1,
   'TW UH': 1,
 };
 /**
@@ -27,21 +27,21 @@ export const SESSION_TARGETS: Record<string, number> = {
  * (Tusc in Session 2: Ceramics once and ropes once, because it had its fill in Session 1.) Such a village gets no extra
  * visit as a filler either. The settings overwrite it in place.
  */
-export const VILLAGE_TARGETS: Record<string, Record<string, number>> = { Ceramics: { O: 1, C: 1, S: 2, M: 2, T: 2 } };
+export const VILLAGE_TARGETS: Record<string, Record<string, number>> = { Ceramics: { O: 2, C: 2, S: 2, M: 2, T: 2 } };
 /**
  * The areas (besides Dance) that are set village by village on the Settings tab, with the numbers they start at. Ceramics
- * has five wheels: the younger villages go once a session and the older ones twice.
+ * is twice for every village (the user's study, 2026-10-12: "2 exactly"; a piece is made on one visit and glazed on the next).
  */
-export const AREA_BY_VILLAGE: Record<string, Record<string, number>> = { Ceramics: { O: 1, C: 1, S: 2, M: 2, T: 2 } };
+export const AREA_BY_VILLAGE: Record<string, Record<string, number>> = { Ceramics: { O: 2, C: 2, S: 2, M: 2, T: 2 } };
 /** Villages whose first ropes of this session is High Ropes: they did Low Ropes in the session before. */
 export const ROPES_START_HIGH: string[] = [];
 /**
  * Areas a bunk may have once more than its target, to fill a period that would otherwise be Athletics or A&C: the most
  * per session. They are one bunk at a time, so asking every bunk for a third would use up nearly every period they have.
  */
-export const SESSION_FILLER_MAX: Record<string, number> = { Yoga: 3, Teva: 3, Judaics: 3 };
+export const SESSION_FILLER_MAX: Record<string, number> = { Yoga: 2, Teva: 3, Judaics: 3 };
 /** H7: the most of each of these a bunk may have in a session. */
-export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2, Teva: 3, Ceramics: 2, Yoga: 3, Dance: 3 };
+export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Education': 2, Teva: 3, Ceramics: 2, Yoga: 2, Dance: 3 };
 /** Dance blocks per session for each village letter. '*' is a village not listed. */
 export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1, '*': 2 };
 /**
@@ -63,7 +63,7 @@ export const POOL_SHORT_OK = 1;
 // The six numbers below and LEAGUE_MIN_PER_WEEK are settings too. They are plain numbers, so they are changed through
 // setWeekly(), and every file that imports them sees the new value.
 export let WATERFRONT_PER_WEEK = 2;
-export let LEAGUE_PER_WEEK = 3; // M: 3 double periods
+export let LEAGUE_PER_WEEK = 2; // twice a week for everyone but Mohawk, who has 3 double periods (LEAGUE_BY_VILLAGE)
 export let MUSIC_PER_WEEK = 1;
 /**
  * Villages with so little room that the weekly Music crowds out A&C. Their bunks have Music in two of the first three weeks
@@ -153,8 +153,8 @@ export const SHARING: Sharing = { within: 'village', across: true, grades: 'one'
 export const CROSS_VILLAGE_AREAS = ['Athletics', 'A&C', 'Music', 'Teva', 'Dance', 'Israel Education', 'Pool'];
 /** H14: most bunks camp-wide in one period. Athletics takes two or three. A&C takes two, or three of the same age. Time with UH takes two bunks of one village. Ropes goes by campers (ROPES_MAX_CAMPERS), not by this. */
 export const SLOT_CAP: Record<string, number> = {
-  Athletics: 3, // three is the most, here and at A&C: never four
-  'A&C': 3,
+  Athletics: 3, // two is what is wanted and three is put up with: never four
+  'A&C': 2, // two bunks, and never more (the user's study, 2026-10-12)
   Music: 2,
   Teva: 2,
   Dance: 2,
@@ -182,7 +182,17 @@ export const DAY_CAP: Record<string, number> = {
  * Areas that go by campers, the way Ropes does: bunks next to each other in a village share a period as long as they have no
  * more campers between them than this. It is a setting. (Ropes has its own number, ROPES_MAX_CAMPERS.)
  */
-export const CAMPER_CAP: Record<string, number> = { Yoga: 20, Ceramics: 16 };
+export const CAMPER_CAP: Record<string, number> = { Yoga: 16, Ceramics: 16 };
+/**
+ * In these areas two bunks over the camper limit may still go together when it is this visit, or a later one, for both of
+ * them. (Ceramics: a second visit is glazing what was made on the first, which takes less of the room.)
+ */
+export const PAIR_FROM_VISIT: Record<string, number> = { Ceramics: 2 };
+/**
+ * A limit in campers for an area that also has a limit in bunks: the bunks there together may have no more campers
+ * between them than this. The user's study, 2026-10-12. It is a setting.
+ */
+export const AREA_CAMPERS: Record<string, number> = { Judaics: 25, 'Israel Education': 32, Teva: 32, Dance: 40 };
 /** What SLOT_CAP and DAY_CAP hold for such an area: high enough never to be the limit. */
 export const BY_CAMPERS_SLOT_CAP = 8;
 export const BY_CAMPERS_DAY_CAP = 6;
@@ -196,7 +206,7 @@ export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 3, 'A&C': 3, 
 // ---- Pool (H16) ---------------------------------------------------------------------------------
 
 /** Total campers at the pool in one period, except a whole village. */
-export let POOL_MAX_CAMPERS = 80;
+export let POOL_MAX_CAMPERS = 75;
 /** A village takes a second swim in a week only when each of its bunks has at least this many periods to spare beyond what is planned. */
 export const EXTRA_POOL_MIN_SPARE = 2;
 /** Most times a bunk swims in one week. */
@@ -204,10 +214,18 @@ export let POOL_MAX_PER_WEEK = 2;
 /** An O or C bunk's first this many regular Pool blocks are lessons, one bunk alone. The Swim Test is not a lesson. */
 export let POOL_LESSONS = 2;
 /** Ropes goes by people, not by bunks: the most campers at ropes at once. It is a setting. */
-export let ROPES_MAX_CAMPERS = 30;
-export function setRopesMax(campers: number): void {
+export let ROPES_MAX_CAMPERS = 25;
+/**
+ * This many bunks may always be at ropes together, however many campers they are (the user's study: "25 or 2 bunks").
+ * Session 2 lets one more go, because it has fewer half-days for the same ropes.
+ */
+export let ROPES_BUNKS_ALWAYS = 2;
+export function setRopesMax(campers: number, bunksAlways: number = ROPES_BUNKS_ALWAYS): void {
   ROPES_MAX_CAMPERS = campers;
+  ROPES_BUNKS_ALWAYS = bunksAlways;
 }
+/** Is this many bunks, with this many campers between them, a group ropes can take? */
+export const ropesHolds = (bunks: number, campers: number): boolean => bunks <= ROPES_BUNKS_ALWAYS || campers <= ROPES_MAX_CAMPERS;
 /** Change the two pool numbers above (they are settings). */
 export function setPool(lessons: number, maxCampers: number): void {
   POOL_LESSONS = lessons;
@@ -419,7 +437,7 @@ export let LEAGUE_MIN_PER_WEEK = 2;
  * League is set village by village: a village letter here has its own number of league periods a week, and one that is
  * not here has LEAGUE_PER_WEEK. For Tusc the number is triathlon sessions: the first is a double period, the rest single.
  */
-export const LEAGUE_BY_VILLAGE: Record<string, number> = {};
+export const LEAGUE_BY_VILLAGE: Record<string, number> = { M: 3 };
 export const leagueFor = (v: string): number => LEAGUE_BY_VILLAGE[v] ?? LEAGUE_PER_WEEK;
 /** The fewest a village may have in a week and still be fine: a short week has one fewer than usual, never more than its number. */
 export const leagueMinFor = (v: string): number => Math.min(LEAGUE_MIN_PER_WEEK, leagueFor(v));

@@ -14,6 +14,7 @@ import {
   POOL_MAX_CAMPERS,
   POOL_TARGETS,
   ROPES_MAX_CAMPERS,
+  ROPES_BUNKS_ALWAYS,
   BY_CAMPERS_DAY_CAP,
   ROPES_START_HIGH,
   VILLAGE_TARGETS,
@@ -112,6 +113,8 @@ export interface CoreSettings {
   /** Ropes in a session (low ropes first, then high ropes), and the most campers at ropes at once. */
   ropesPerSession: number;
   ropesMaxCampers: number;
+  /** This many bunks may always be at ropes together, whatever their campers. */
+  ropesBunksAlways: number;
   /** Yoga goes by campers: two bunks have it together only when they have no more campers between them than this. */
   yogaMaxCampers: number;
   /** Ceramics goes by campers too. */
@@ -147,6 +150,7 @@ const CORE_LIMITS = {
   shabbatPrepExtra: [0, SHABBAT_PREP_EXTRA_MAX],
   ropesPerSession: [0, 2],
   ropesMaxCampers: [5, 200],
+  ropesBunksAlways: [1, 4],
   yogaMaxCampers: [5, 200],
   ceramicsMaxCampers: [5, 200],
   poolPerWeek: [0, 1],
@@ -193,6 +197,7 @@ function readCore(): CoreSettings {
     shabbatWeeks: null,
     ropesPerSession: SESSION_TARGETS.Ropes,
     ropesMaxCampers: ROPES_MAX_CAMPERS,
+    ropesBunksAlways: ROPES_BUNKS_ALWAYS,
     yogaMaxCampers: CAMPER_CAP.Yoga,
     ceramicsMaxCampers: CAMPER_CAP.Ceramics,
     poolPerWeek: POOL_TARGETS.O?.perWeek ?? 1,
@@ -555,7 +560,7 @@ export function applySettings(settings?: Settings | null): void {
   replace(LEAGUE_BY_VILLAGE, core.leagueByVillage);
   SESSION_TARGETS['TW UH'] = core.uhMin;
   SESSION_TARGETS.Ropes = core.ropesPerSession;
-  setRopesMax(core.ropesMaxCampers);
+  setRopesMax(core.ropesMaxCampers, core.ropesBunksAlways);
   CAMPER_CAP.Yoga = core.yogaMaxCampers;
   CAMPER_CAP.Ceramics = core.ceramicsMaxCampers;
   CALENDAR.hobbySessions = core.hobbySessions;

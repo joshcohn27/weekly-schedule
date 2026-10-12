@@ -59,7 +59,7 @@ export interface SessionTemplate {
   /** Where this session's numbers differ from the app's own: times a session for an area, or for each village (Dance). */
   numbers?: Record<string, { min?: number; max?: number; villages?: Record<string, number> }>;
   /** Where this session's main numbers differ: ropes a session, league a week. */
-  core?: { ropesPerSession?: number; leaguePerWeek?: number };
+  core?: { ropesPerSession?: number; leaguePerWeek?: number; ropesBunksAlways?: number };
 }
 
 /** The date of a day of a session: the Sunday of the week opening day falls in is day 0 of week 1. */
@@ -158,9 +158,9 @@ export const SESSION_2: SessionTemplate = {
     Judaics: { min: 1, max: 2 },
     'Israel Education': { min: 1, max: 2 },
     Dance: { min: 1, villages: { O: 2, S: 2, C: 1, T: 1, M: 1 } },
-    Ceramics: { min: 1, villages: { O: 0, C: 0, S: 1, M: 1, T: 1 } },
   },
-  core: { ropesPerSession: 1, leaguePerWeek: 2 },
+  // ropes is twice here too (Tusc once, High), and three bunks may go together to make the half-days stretch
+  core: { ropesBunksAlways: 3 },
   villageTargets: { Ropes: { T: 1 } },
   ropesStartHigh: ['T'],
   // 3 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL (4) for week 1: its cabins are Onondaga's and Cayuga's
