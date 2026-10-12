@@ -39,16 +39,12 @@ export function tidyWeek(schedule: Schedule, before: Schedule | null, weeks: Wee
   });
   // an empty period is what this leaves behind on purpose, so it does not count against the week here
   // (what was there before counts in full here: a bunk put next to one that was entered by hand is still one too many)
-  // the second step of the bend, taken only for periods that would otherwise be left empty
-  let shareToo = false;
   const check = (bend: boolean): Violation[] => {
     BEND.on = bend;
-    BEND.share = bend && shareToo;
     try {
       return validateWeek(state(), weekIndex, sessionWeeks).filter((v) => v.rule !== 'H1');
     } finally {
       BEND.on = false;
-      BEND.share = false;
     }
   };
   // what has to be mended: what breaks a rule even with the limits on how many passed by one
@@ -149,11 +145,6 @@ export function tidyWeek(schedule: Schedule, before: Schedule | null, weeks: Wee
   }
   };
   refill();
-  // a period still empty: once more, letting bunks be together that the sharing choices or their visit numbers keep apart
-  if (grid.some((row, k) => [...emptied[k]].some((x) => row[x] === ''))) {
-    shareToo = true;
-    refill();
-  }
 
   // What is left that only the bend lets through: each is a place that is over a limit, and is marked as one.
   const allowed = new Set(check(true).map((v) => `${v.rule}|${v.bunk}|${v.slot}|${v.message}`));

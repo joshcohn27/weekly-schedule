@@ -171,14 +171,12 @@ describe('who may share a period and an area', () => {
     expect(problems('Athletics', ['O1', 'O2', 'S1', 'T1'])).toEqual(['H14']);
   });
 
-  it('A&C: a pair that may share or three of the same age, always on the same visit', () => {
+  it('A&C: a pair that may share, on the same visit, and never three', () => {
     expect(problems('A&C', ['C2', 'C3'])).toEqual([]);
     expect(problems('A&C', ['C2', 'C3'], [1, 2])).toEqual(['H5']);
     expect(problems('A&C', ['O1', 'O4'])).toEqual(['H13']);
     expect(isSameAgeGroup(r, ['O2', 'O3', 'C2'].map(i))).toBe(true);
-    expect(problems('A&C', ['O2', 'O3', 'C2'])).toEqual([]);
-    expect(problems('A&C', ['O2', 'O3', 'C2'], [2, 2, 3])).toEqual(['H5']);
-    expect(problems('A&C', ['O1', 'O3', 'C2'])).toEqual(['H13']); // 4th with 5th is not the same age
+    expect(problems('A&C', ['O2', 'O3', 'C2'])).toEqual(['H14']); // two bunks is the limit, whatever their ages
     expect(problems('A&C', ['O2', 'O3', 'C2', 'C3'])).toEqual(['H14']);
   });
 
@@ -215,7 +213,11 @@ describe('who may share a period and an area', () => {
     applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 40 }));
     expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1])).toEqual([]);
     expect(problems('Ropes', ['O1', 'O2', 'O3', 'O4'], [1, 1, 1, 1])).toEqual(['H14']); // 48 campers
+    // two bunks always go together, whatever their campers; a third only under the limit
     applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 20 }));
+    expect(problems('Ropes', ['O1', 'O2'])).toEqual([]);
+    expect(problems('Ropes', ['O1', 'O2', 'O3'], [1, 1, 1])).toEqual(['H14']);
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 20, ropesBunksAlways: 1 }));
     expect(problems('Ropes', ['O1', 'O2'])).toEqual(['H14']);
     applySettings();
   });
@@ -225,12 +227,14 @@ describe('who may share a period and an area', () => {
     const onondaga = r.byVillage.O; // four bunks of 12 campers
     const first = () => 0;
     const last = () => 1;
-    expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1+O2', 'O3+O4']); // 24 each, under 30
+    expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1+O2', 'O3+O4']); // two always go together
     applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 45 }));
     expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1+O2+O3', 'O4']); // three bunks is 36
     expect(names(ropeGroups(r, onondaga, () => 0, last))).toEqual(['O1', 'O2+O3+O4']); // packed from the other end
     applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 10 }));
-    expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1', 'O2', 'O3', 'O4']); // too big to pair: every bunk goes alone
+    expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1+O2', 'O3+O4']); // over the limit, and still in twos
+    applySettings(withCore(defaultSettings(), { ...defaultCore(), ropesMaxCampers: 10, ropesBunksAlways: 1 }));
+    expect(names(ropeGroups(r, onondaga, () => 0, first))).toEqual(['O1', 'O2', 'O3', 'O4']); // one at a time when that is what is set
     applySettings();
     // bunks on different visits are never grouped
     expect(names(ropeGroups(r, onondaga, (b) => (b === onondaga[1] ? 1 : 0), first))).toEqual(['O1', 'O2', 'O3+O4']);

@@ -81,6 +81,15 @@ export const isFixedMohawkAthletics = (weekIndex: number, village: string, slot:
 /** The most campers at once in an area that goes by campers (Ropes, Yoga), or undefined for an area that goes by bunks. */
 export const camperLimit = (area: string): number | undefined => (area === 'Ropes' ? ROPES_MAX_CAMPERS : CAMPER_CAP[area]);
 
+/** Are these bunks all of one village, and may every two of them be together at this area? (Athletics takes any bunks.) */
+function oneVillageWhoShare(r: Roster, group: readonly number[], area: string): boolean {
+  for (let i = 0; i < group.length; i++) {
+    if (r.village[group[i]] !== r.village[group[0]]) return false;
+    for (let j = i + 1; j < group.length && area !== 'Athletics'; j++) if (shareLevel(r, group[i], group[j], area) === 0) return false;
+  }
+  return true;
+}
+
 /**
  * Do these bunks fit in an area that goes by campers? Under the limit, yes. Over it: at ropes a set number of bunks may
  * always go together; and where PAIR_FROM_VISIT says so (Ceramics), two bunks may when both are on that visit or a later one.
@@ -121,10 +130,10 @@ export function slotGroupProblems(
     // Ropes and Yoga go by people, not by bunks: neighbours in one village, with no more campers than the place takes
     const line = ropesLine(r, group, area);
     const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
-    if (!line && !BEND.share) out.push({ rule: 'H13', message: `${names} share ${area}${at}, but bunks at ${area} together must be next to each other in one village.` });
+    if (!line) out.push({ rule: 'H13', message: `${names} share ${area}${at}, but bunks at ${area} together must be next to each other in one village.` });
     if (!fitsByCampers(area, group, campers, most, (b) => ordinal(b) ?? 0)) out.push({ rule: 'H14', message: `${names} are ${campers} campers at ${area}${at}, and the most is ${most}.` });
     const order = line ?? [...group];
-    for (let i = 1; i < order.length && !visitFree(area) && !BEND.share; i++) {
+    for (let i = 1; i < order.length && !visitFree(area); i++) {
       const oa = ordinal(order[i - 1]);
       const ob = ordinal(order[i]);
       if (oa !== null && ob !== null && Math.abs(oa - ob) > VISIT.slackNow) {
@@ -133,12 +142,13 @@ export function slotGroupProblems(
     }
     return out;
   }
-  if (group.length > cap + bendBy(area)) {
+  // one over, when bending, is only for bunks of one village who may all be together
+  if (group.length > cap + bendBy(area) || (group.length > cap && !oneVillageWhoShare(r, group, area))) {
     out.push({ rule: 'H14', message: `${names} are ${group.length} at ${area}${at}, and the most is ${cap}.` });
     return out;
   }
   const room = AREA_CAMPERS[area];
-  if (room !== undefined && !BEND.on) {
+  if (room !== undefined && !(BEND.on && oneVillageWhoShare(r, group, area))) {
     const campers = group.reduce((sum, b) => sum + r.campers[b], 0);
     if (campers > room) out.push({ rule: 'H14', message: `${names} are ${campers} campers at ${area}${at}, and the most is ${room}.` });
   }
@@ -146,9 +156,7 @@ export function slotGroupProblems(
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) if (shareLevel(r, group[i], group[j], area) > 0) matched.push([group[i], group[j]]);
   }
-  const bad = (why: string) => {
-    if (!BEND.share) out.push({ rule: 'H13', message: `${names} share ${area}${at}, but ${why}.` });
-  };
+  const bad = (why: string) => out.push({ rule: 'H13', message: `${names} share ${area}${at}, but ${why}.` });
   // who must be on the same ordinal: bunks that may share, and all three of a group of three at A&C
   let sameVisit = matched;
 
@@ -167,11 +175,11 @@ export function slotGroupProblems(
   } else if (group.length === 2) {
     if (matched.length === 0) bad('they are not allowed to be together');
   } else if (area === 'A&C') {
-    if (!isSameAgeGroup(r, group) && !BEND.on) bad('three at A&C must all be the same age');
+    if (!isSameAgeGroup(r, group) && !BEND.on) bad('three at A&C must all be the same age'); // bending: one village who may share, checked above
     sameVisit = [[group[0], group[1]], [group[1], group[2]]];
   }
   // the same visit is asked of every area except the ones the settings leave free (Athletics and Time with UH, to start with)
-  if (visitFree(area) || BEND.share) sameVisit = [];
+  if (visitFree(area)) sameVisit = [];
   for (const [a, b] of sameVisit) {
     const oa = ordinal(a);
     const ob = ordinal(b);

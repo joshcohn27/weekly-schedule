@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { isGuest } from './autofill';
+import { ropesIfRoom } from './autogen/config';
 import { SESSION_1, SESSION_2 } from './autogen/sessionCalendar';
 import { defaultSettings, normalizeSettings, templateSettings } from './autogen/settings';
 import CalendarSettings from './components/CalendarSettings';
@@ -60,10 +61,13 @@ describe('starting a session from its template', () => {
     expect(checkSettings(templateSettings(SESSION_1), one.weeks, 4, SESSION_1.events)).toEqual([]);
     const two = startSession(SESSION_2);
     applySettings(templateSettings(SESSION_2));
-    // Session 2 starts with numbers that fit it: ropes once, league twice a week, Ceramics once
-    expect(checkSettings(templateSettings(SESSION_2), two.weeks, 3, SESSION_2.events)).toEqual([]);
-    // asked for what Session 1 has, it is told what will come up short
-    const asked = withCore(templateSettings(SESSION_2), { ...coreOf(templateSettings(SESSION_2)), ropesPerSession: 2, leaguePerWeek: 3 });
+    // Session 2 is short and keeps Ceramics twice for everybody: the check says that will come up short, and that who
+    // goes without is for the person to decide. Nothing in it is called impossible.
+    const starts = checkSettings(templateSettings(SESSION_2), two.weeks, 3, SESSION_2.events);
+    expect(starts.every((p) => p.level === 'short')).toBe(true);
+    expect(starts.find((p) => p.text.startsWith('Ceramics'))?.fix).toContain('This one is yours to decide');
+    // asked for one bunk at a time at ropes, it is told that cannot be
+    const asked = withCore(templateSettings(SESSION_2), { ...coreOf(templateSettings(SESSION_2)), ropesBunksAlways: 1, ropesMaxCampers: 10 });
     applySettings(asked);
     const found = checkSettings(asked, two.weeks, 3, SESSION_2.events);
     expect(found.length).toBeGreaterThan(1);
@@ -181,17 +185,18 @@ describe('starting a session from its template', () => {
     expect(renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop, bunks: six }))).not.toContain('suggested settings');
   });
 
-  it('Session 2: Ceramics once for the older villages, one ropes for everybody, and for Tusc that ropes is High, because it is the same campers as Session 1', () => {
+  it('Session 2: ropes twice with three bunks together, and for Tusc one more, High, only when there is room, because it is the same campers as Session 1', () => {
     const two = templateSettings(SESSION_2);
     expect(two.villageTargets).toEqual({ Ropes: { T: 1 } });
-    expect(two.areas.Ceramics.villages).toEqual({ O: 0, C: 0, S: 1, M: 1, T: 1 }); // none for the younger villages in the short session
-    expect(coreOf(two)).toMatchObject({ ropesPerSession: 1, leaguePerWeek: 2 });
+    expect(two.areas.Ceramics.villages).toEqual({ O: 2, C: 2, S: 2, M: 2, T: 2 }); // twice for everybody: a piece is made, then glazed
+    expect(coreOf(two)).toMatchObject({ ropesPerSession: 2, leaguePerWeek: 2, ropesBunksAlways: 3, uhMin: 1, uhMax: 3 });
+    expect(coreOf(two).leagueByVillage).toEqual({}); // Mohawk on two here, like everybody
     expect(two.ropesStartHigh).toEqual(['T']);
     applySettings(two);
-    expect(sessionTargetOf('T', 3, 'Ceramics')).toBe(1);
-    expect(sessionTargetOf('S', 3, 'Ceramics')).toBe(1);
+    expect(sessionTargetOf('T', 3, 'Ceramics')).toBe(2);
     expect(sessionTargetOf('T', 3, 'Ropes')).toBe(1);
-    expect(sessionTargetOf('S', 3, 'Ropes')).toBe(1);
+    expect(sessionTargetOf('S', 3, 'Ropes')).toBe(2);
+    expect([ropesIfRoom('T'), ropesIfRoom('S')]).toEqual([true, false]); // Tusc goes only when a half-day is going spare
     // a first ropes block for Tusc is High Ropes in this session, and Low Ropes for everybody else
     const week = startSession(SESSION_2).weeks[1] as Schedule;
     const put = (name: string, label: string) => {
@@ -207,7 +212,7 @@ describe('starting a session from its template', () => {
     expect(validateWeek({ current: 1, weeks: [null, week, null, null] }, 2, 3).filter((v) => v.rule === 'H6').map((v) => v.bunk)).toEqual(['T1']);
     applySettings();
     expect(sessionTargetOf('T', 4, 'Ropes')).toBe(2); // Session 1: low, then high
-    expect([sessionTargetOf('O', 4, 'Ceramics'), sessionTargetOf('S', 4, 'Ceramics')]).toEqual([1, 2]); // Session 1: the younger villages once, the older twice
+    expect([sessionTargetOf('O', 4, 'Ceramics'), sessionTargetOf('S', 4, 'Ceramics'), ropesIfRoom('T')]).toEqual([2, 2, false]); // Session 1: twice for everybody, and Tusc's ropes like anybody's
     expect(templateSettings(SESSION_1).villageTargets).toBeUndefined();
   });
 
@@ -372,5 +377,104 @@ describe('how many times a session, said one way', () => {
     const one = renderToStaticMarkup(createElement(HowOften, { label: 'Teva', value: { min: 0, max: MOST }, most: MOST, onChange: noop }));
     expect(one).toContain('whatever periods are left');
     expect(one).not.toContain('type="number"');
+  });
+});
+
+describe('the program-area study: limits, what may bend, and what is marked', () => {
+  it('goes one over a limit only for bunks of one village who may share, and never where it is strict', async () => {
+    const { BEND } = await import('./autogen/config');
+    const { buildRoster } = await import('./autogen/roster');
+    const { slotGroupProblems } = await import('./autogen/share');
+    const { sampleSchedule } = await import('./sample');
+    applySettings();
+    const r = buildRoster(sampleSchedule().bunks);
+    const rules = (area: string, names: string[], visit = 1): string[] => slotGroupProblems(r, area, names.map((n) => r.names.indexOf(n)), () => visit).map((p) => p.rule);
+    const bent = (area: string, names: string[], visit = 1): string[] => {
+      BEND.on = true;
+      try {
+        return rules(area, names, visit);
+      } finally {
+        BEND.on = false;
+      }
+    };
+    // as set: two bunks at Teva and at A&C, three at Athletics
+    expect(rules('Teva', ['O1', 'O2', 'O3'])).toEqual(['H14']);
+    expect(rules('A&C', ['O1', 'O2', 'O3'])).toEqual(['H14']);
+    expect(rules('Athletics', ['O1', 'C1', 'S1'])).toEqual([]);
+    // when a week has run out of time: one more, for three bunks of one village who may all be together
+    expect(bent('Teva', ['O1', 'O2', 'O3'])).toEqual([]);
+    expect(bent('A&C', ['O1', 'O2', 'O3'])).toEqual([]);
+    expect(bent('Teva', ['O1', 'O2', 'C1'])).toEqual(['H14']); // two villages: never
+    expect(bent('Teva', ['O1', 'O2', 'O5'])).toEqual(['H14']); // O1 and O5 are two grades apart: the sharing choices are not overridden
+    expect(bent('Teva', ['O1', 'O2', 'O3', 'O4'])).toEqual(['H14']); // one over, not two
+    expect(bent('Athletics', ['O1', 'C1', 'S1', 'M1'])).toEqual(['H14']); // never a fourth bunk at Athletics
+    // Ceramics: a first visit keeps its 16 campers whatever happens; two bunks may glaze together on their second
+    expect(bent('Ceramics', ['O1', 'O2'], 1)).toEqual(['H14']);
+    expect(rules('Ceramics', ['O1', 'O2'], 2)).toEqual([]);
+    expect(rules('Ceramics', ['O1', 'C1'], 2)).toContain('H13'); // of one village, next to each other
+  });
+
+  it('marks the places a week went over, and drops a mark when its period is changed', async () => {
+    const { overNote, pruneCleared } = await import('./clear');
+    const bunk = { id: 'a', name: 'O1', grades: '4th', count: '12', slots: Array<string>(24).fill(''), over: [{ slot: 5, label: 'Teva', note: 'O1, O2, O3 are 3 at Teva on Monday period 2, and the most is 2.' }] };
+    bunk.slots[5] = 'Teva';
+    expect(overNote(bunk, 5)).toContain('3 at Teva');
+    expect(overNote(bunk, 6)).toBeUndefined();
+    expect(pruneCleared(bunk)).toBe(bunk); // nothing has changed: the same bunk comes back
+    const changed = { ...bunk, slots: bunk.slots.map((l, s) => (s === 5 ? 'Dance' : l)) };
+    expect(pruneCleared(changed).over).toBeUndefined();
+    // the Schedule tab lists them and outlines the period
+    const { default: ScheduleView } = await import('./components/ScheduleView');
+    const html = renderToStaticMarkup(createElement(ScheduleView, { bunks: [bunk], days: (startSession(SESSION_1).weeks[0] as Schedule).days }));
+    expect(html).toContain('One place is over a limit.');
+    expect(html).toContain('O1, O2, O3 are 3 at Teva on Monday period 2');
+    expect(html).toMatch(/class="filled[^"]* over"/);
+    // and the line after a run counts them
+    const { default: Status } = await import('./components/AutoGenerateStatus');
+    expect(renderToStaticMarkup(createElement(Status, { weekNumbers: [1, 2], seed: 1, onUndo: noop, over: [{ weekNumber: 1, places: 3 }] }))).toContain('3 places are one over a limit (Week 1: 3).');
+    expect(renderToStaticMarkup(createElement(Status, { weekNumbers: [1, 2], seed: 1, onUndo: noop }))).not.toContain('over a limit');
+  });
+
+  it('shows in light red on Tracking what a bunk is short of, once the session is filled in', async () => {
+    const { owedInSession, owedInWeek } = await import('./expected');
+    const { settingAreas } = await import('./autogen/settings');
+    applySettings(templateSettings(SESSION_2));
+    const areas = settingAreas(templateSettings(SESSION_2));
+    expect(owedInSession('O1', 'Ceramics', 3, areas)).toBe(2);
+    expect(owedInSession('O1', 'Ropes', 3, areas)).toBe(2);
+    expect(owedInSession('T1', 'Ropes', 3, areas)).toBeUndefined(); // Tusc goes only when there is room: nothing is owed
+    expect(owedInSession('TC1', 'Ceramics', 3, areas)).toBeUndefined(); // Taste of CSL has its own week
+    expect(owedInSession('O1', 'Waterfront', 3, areas)).toBeUndefined();
+    expect(owedInSession('O1', 'A&C', 3, areas)).toBe(1);
+    expect(owedInSession('O1', 'Music', 3, areas)).toBe(2); // every other week at the least
+    expect(owedInWeek('O1', 'Pool')).toBe(1);
+    expect(owedInWeek('S1', 'Pool')).toBeUndefined(); // Seneca swims are counted over the session
+    applySettings();
+    const week = startSession(SESSION_1).weeks[0] as Schedule;
+    const none = renderToStaticMarkup(createElement(TrackingView, { bunks: week.bunks, weekLabel: 'Week 1', schedules: [week] }));
+    expect(none).not.toContain('owed');
+    const red = renderToStaticMarkup(createElement(TrackingView, { bunks: week.bunks, weekLabel: 'Week 1', schedules: [week], owed: { week: (_name: string, area: string) => (area === 'Pool' ? 1 : undefined) } }));
+    expect((red.match(/<td class="[^"]*\bowed\b/g) ?? []).length).toBe(week.bunks.length);
+    expect(red).toContain('should have Pool once this week, and has it not at all.');
+    expect(red).toContain('Light red');
+  });
+
+  it('brings settings saved with the old starting numbers up to the study, and keeps what was chosen', () => {
+    const old = {
+      v: 4,
+      areas: { Teva: { min: 1, max: 3, atOnce: 2, villagePerDay: 3 }, Yoga: { min: 2, max: 3, atOnce: 2, villagePerDay: 3 }, Judaics: { min: 1, max: 1, atOnce: 2, villagePerDay: 3 }, Ceramics: { min: 2, max: 2, atOnce: 2, villagePerDay: 3, villages: { O: 1, C: 1, S: 2, M: 2, T: 2 } } },
+      core: { ...defaultCore(), uhMin: 1, uhMax: 3, ropesMaxCampers: 30, yogaMaxCampers: 20, poolMaxCampers: 80, leaguePerWeek: 3, leagueByVillage: {}, ac: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 }, hobbySessions: 5 },
+    };
+    const now = normalizeSettings(old);
+    expect(now.areas.Teva).toMatchObject({ min: 2, max: 4, campers: 32 });
+    expect(now.areas.Yoga).toMatchObject({ min: 1, max: 2 });
+    expect(now.areas.Judaics).toMatchObject({ min: 1, max: 1, campers: 25 }); // what was chosen stays
+    expect(now.areas.Ceramics.villages).toEqual({ O: 2, C: 2, S: 2, M: 2, T: 2 });
+    expect(coreOf(now)).toMatchObject({ uhMin: 2, uhMax: 4, ropesMaxCampers: 25, ropesBunksAlways: 2, yogaMaxCampers: 16, poolMaxCampers: 75, leaguePerWeek: 2, leagueByVillage: { M: 3 }, hobbySessions: 5 });
+    expect(coreOf(now).ac.atOnce).toBe(2);
+    // a limit in campers that was switched off stays off, and one that was changed stays changed
+    const mine = normalizeSettings({ ...defaultSettings(), areas: { ...defaultSettings().areas, Teva: { ...defaultSettings().areas.Teva, campers: 0 }, Dance: { ...defaultSettings().areas.Dance, campers: 50 } } });
+    expect([mine.areas.Teva.campers, mine.areas.Dance.campers]).toEqual([0, 50]);
+    expect(normalizeSettings(JSON.parse(JSON.stringify(mine)))).toEqual(mine);
   });
 });

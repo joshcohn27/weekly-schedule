@@ -22,6 +22,7 @@ import {
   SHABBAT_ROTATION,
   TRI_AWAY_PERIODS,
   TRIP_LABELS,
+  ropesIfRoom,
 } from './config';
 import { blocksOf, isBuiltWeek } from './history';
 import { ropeGroups } from './groups';
@@ -288,13 +289,16 @@ export function planWeek(c: Ctx): Plan {
   for (const day of c.days) for (const half of [0, 2]) if (c.grid.some((row) => row[day * 4 + half] === '' && row[day * 4 + half + 1] === '')) halfDays++;
   const room = Math.max(0, Math.round(halfDays * ROPES_HALF_DAY_SHARE));
   const had = (g: number[]): number => counted(c, inWeek, g[0], 'Ropes');
+  // a village that goes only when there is room never has to go, and waits behind everybody else
+  const spare = (g: number[]): number => (ropesIfRoom(c.roster.village[g[0]]) ? 1 : 0);
+  for (const g of groups) if (spare(g)) mins.Ropes[g[0]] = 0;
   if (!ROPES_TIGHT) {
-    const going = shuffle(c.rng, groups.filter((g) => plan.Ropes[g[0]] > 0)).sort((x, y) => mins.Ropes[y[0]] - mins.Ropes[x[0]]);
+    const going = shuffle(c.rng, groups.filter((g) => plan.Ropes[g[0]] > 0)).sort((x, y) => spare(x) - spare(y) || mins.Ropes[y[0]] - mins.Ropes[x[0]]);
     for (const g of going.slice(room)) if (mins.Ropes[g[0]] === 0) plan.Ropes[g[0]] = 0;
   } else {
     // Ropes for everyone does not fit in this session, so nobody goes a second time while somebody has not been at all:
     // the groups that have been the fewest times take this week's half-days, whatever the draw said.
-    const order = shuffle(c.rng, groups).sort((x, y) => had(x) - had(y) || plan.Ropes[y[0]] - plan.Ropes[x[0]]);
+    const order = shuffle(c.rng, groups).sort((x, y) => spare(x) - spare(y) || had(x) - had(y) || plan.Ropes[y[0]] - plan.Ropes[x[0]]);
     order.forEach((g, i) => {
       plan.Ropes[g[0]] = i < room ? 1 : 0;
       mins.Ropes[g[0]] = Math.min(mins.Ropes[g[0]], plan.Ropes[g[0]]);

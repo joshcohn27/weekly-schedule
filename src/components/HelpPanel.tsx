@@ -52,7 +52,8 @@ export default function HelpPanel({ onClose }: Props) {
           </li>
           <li>
             <strong>Tracking</strong> counts how many times each bunk has had each program area, for the week and for the whole session. This
-            is the place to check that things are fair.
+            is the place to check that things are fair. Once the week or the session is filled in, a count that is under what the
+            Settings tab asks for is light red.
           </li>
           <li>
             <strong>Specialists</strong> shows the schedule from one program area's side. Pick the area, and each week is a grid, days
@@ -98,7 +99,9 @@ export default function HelpPanel({ onClose }: Props) {
         <p>
           The page tries each week several ways at once and keeps the first one that keeps every rule. That is why some weeks take
           longer than others. If a week uses up its time, the page says <strong>Not fully done</strong> and how many periods of that
-          week are empty (they are yellow). Everything that is on the schedule still keeps the rules. <strong>Keep trying</strong>{' '}
+          week are empty (they are yellow). Before it leaves a period empty it will go one over a limit on how many are somewhere at once,
+          for bunks of one village who may share: those periods are outlined in orange and listed on the Schedule tab, with the day, the
+          period and what is over. Everything else on the schedule keeps the rules. <strong>Keep trying</strong>{' '}
           generates that week again, with the week before it and the ones after it.
         </p>
 

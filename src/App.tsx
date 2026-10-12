@@ -22,6 +22,8 @@ import { applyClear, countToClear, dropMarks, pruneCleared, type ClearRequest } 
 import { APP_VERSION, SUPPORT_LINK } from './config';
 import { downloadAllWeeks, downloadSpecialists, downloadWeek, readUploadedFile } from './excel';
 import { emptySchedule } from './sample';
+import { owedInSession, owedInWeek } from './expected';
+import { settingAreas } from './autogen/settings';
 import { MAX_BUNKS_IN_CAMP, MAX_CAMPERS_PER_BUNK, datesOf, dayLabels, pastDaysOf, rosterOf, startSession, startedOver, withBiggestCamp, withBunkAdded, withBunkChanged, withBunkMoved, withBunkRemoved, templateOf, weekDates, withCalendar, type SessionId } from './session';
 import { SESSION_TEMPLATES, calendarFor } from './autogen/sessionCalendar';
 import { isFirstVisit, loadSession, loadWeeks, markHelpSeen, saveSession, saveWeeks } from './storage';
@@ -492,7 +494,18 @@ export default function App() {
             calendar={{ template, onApply: putCalendarOn }}
           />
         )}
-        {view === 'tracking' && <TrackingView bunks={schedule.bunks} weekLabel={weekLabel(current)} schedules={allSchedules} />}
+        {view === 'tracking' && (
+          <TrackingView
+            bunks={schedule.bunks}
+            weekLabel={weekLabel(current)}
+            schedules={allSchedules}
+            // what a bunk is short of is only said once the week, or every week of the session, has been filled in
+            owed={{
+              week: weekInfo[current]?.built ? owedInWeek : undefined,
+              session: weekInfo.slice(0, template.weeks).every((w) => w.built) ? (name, area) => owedInSession(name, area, template.weeks, settingAreas(settings)) : undefined,
+            }}
+          />
+        )}
       </main>
 
       <footer>

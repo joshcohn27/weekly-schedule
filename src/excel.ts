@@ -77,17 +77,17 @@ function trackingSheetFromResult(result: TrackingResult): XLSX.WorkSheet {
 }
 
 const SETTINGS_SHEET = 'Settings';
-const SETTINGS_HEADER = ['Program area', 'Times per session: at least', 'At most', 'Bunks at once', 'Bunks of one village in a day', 'By village'];
+const SETTINGS_HEADER = ['Program area', 'Times per session: at least', 'At most', 'Bunks at once', 'Bunks of one village in a day', 'By village', 'Most campers at once (0 is no limit)'];
 
 /** The Settings tab: one row per program area. "By village" reads "O 3, S 3, C 2" for an area that is set village by village. */
 function buildSettingsSheet(settings: Settings): XLSX.WorkSheet {
   const rows = settingAreas(settings).map((area) => {
     const a = settings.areas[area];
     const byVillage = a.villages ? Object.entries(a.villages).map(([v, n]) => `${v} ${n}`).join(', ') : '';
-    return [area, a.min, a.max, a.atOnce, a.villagePerDay, byVillage];
+    return [area, a.min, a.max, a.atOnce, a.villagePerDay, byVillage, a.campers ?? 0];
   });
   const sheet = XLSX.utils.aoa_to_sheet([SETTINGS_HEADER, ...rows]);
-  sheet['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 9 }, { wch: 14 }, { wch: 28 }, { wch: 28 }];
+  sheet['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 9 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 34 }];
   return sheet;
 }
 
@@ -103,7 +103,7 @@ export function parseSettingsSheet(wb: XLSX.WorkBook): Settings | null {
       const match = part.trim().match(/^(\S+)\s+(\d+)$/);
       if (match) villages[match[1]] = Number(match[2]);
     }
-    areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}) };
+    areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}), ...(row[6] !== undefined && row[6] !== '' ? { campers: row[6] } : {}) };
   }
   return normalizeSettings({ areas, sharing: parseSharingSheet(wb), calendar: parseCalendarSheet(wb), ...parseMainSheet(wb) });
 }
@@ -161,6 +161,7 @@ const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: Cor
   { label: 'Shabbat Prep, single periods on top of the Friday afternoon double', get: (c) => c.shabbatPrepExtra, set: (c, n) => (c.shabbatPrepExtra = n as number) },
   { label: 'Ropes, times a session', get: (c) => c.ropesPerSession, set: (c, n) => (c.ropesPerSession = n as number) },
   { label: 'Ropes, most campers at once', get: (c) => c.ropesMaxCampers, set: (c, n) => (c.ropesMaxCampers = n as number) },
+  { label: 'Ropes, bunks that always go together', get: (c) => c.ropesBunksAlways, set: (c, n) => (c.ropesBunksAlways = n as number) },
   { label: 'Yoga, most campers at once', get: (c) => c.yogaMaxCampers, set: (c, n) => (c.yogaMaxCampers = n as number) },
   { label: 'Ceramics, most campers at once', get: (c) => c.ceramicsMaxCampers, set: (c, n) => (c.ceramicsMaxCampers = n as number) },
   { label: 'Pool, times a week', get: (c) => c.poolPerWeek, set: (c, n) => (c.poolPerWeek = n as number) },

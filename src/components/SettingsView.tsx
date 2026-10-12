@@ -180,7 +180,10 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                         <select aria-label={`${nameOf(area)} bunks at once`} value={a.atOnce} disabled={disabled} onChange={(e) => set(area, { atOnce: Number(e.target.value) })}>
                           <option value={1}>1</option>
                           <option value={2}>2</option>
-                        </select>
+                        </select>{' '}
+                        <span className="and-campers">
+                          and {number(area, 'most campers at once', a.campers ?? 0, 0, 200, (n) => set(area, { campers: n }))} campers <Info text={HINT.andCampers} />
+                        </span>
                       </td>
                       <td>{number(area, 'bunks of one village in a day', a.villagePerDay, 1, 6, (n) => set(area, { villagePerDay: n }))}</td>
                     </>

@@ -11,7 +11,8 @@ export const blankCopy = (s: Schedule): Schedule => ({
 
 /**
  * A blank week with its trips entered the way a person would before generating: Tusc's mini bike trip in week 2 and its
- * three-day trip in the last week of a 4-week session, and a Tiyul for O (week 2), C and S (week 3) and M (week 4, or 2).
+ * three-day trip in the last week of a 4-week session, a Tiyul for O (week 2), C and S (week 3) and M (week 4, or 2), and
+ * in the last week of a 4-week session village day on the Sunday and Seneca's Tiyul, as the session calendar has them.
  */
 export function weekWithTrips(roster: Schedule, week: number, sessionWeeks: SessionWeeks = 4): Schedule {
   const s = blankCopy(roster);
@@ -31,6 +32,9 @@ export function weekWithTrips(roster: Schedule, week: number, sessionWeeks: Sess
   if (week === 4 && sessionWeeks === 4) {
     set('T', [0, 1, 2].flatMap((day) => [0, 1, 2, 3].map((p) => slotAt(day, p))), 'Bike Trip');
     set('M', [...halfSlots(2, 1), ...halfSlots(3, 0)], 'Tiyul');
+    // as the session's own calendar has it: village day on the last Sunday for everyone but Tusc, and Seneca's Tiyul
+    for (const letter of ['O', 'C', 'S', 'M']) set(letter, [0, 1, 2, 3], `${letter}-Day`);
+    set('S', overnight, 'Tiyul');
   }
   return s;
 }

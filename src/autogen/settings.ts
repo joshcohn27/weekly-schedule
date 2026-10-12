@@ -19,6 +19,7 @@ import {
   ROPES_START_HIGH,
   VILLAGE_TARGETS,
   AREA_BY_VILLAGE,
+  AREA_CAMPERS,
   BY_CAMPERS_SLOT_CAP,
   CAMPER_CAP,
   VISIT,
@@ -50,6 +51,8 @@ export interface AreaSettings {
   villagePerDay: number;
   /** Times in a session for one village, by its letter, in place of `min` and `max` (Dance is different for each village). */
   villages?: Record<string, number>;
+  /** The most campers there at once, on top of the limit in bunks. Left out: no limit in campers. */
+  campers?: number;
 }
 
 /** The numbers a schedule is generated with. They are saved with the schedule, so each schedule carries its own. */
@@ -81,12 +84,18 @@ export interface Settings {
  *    the old numbers, which were the app's and not a choice, are moved to the new ones. The numbers a camp of 27 bunks
  *    needs are the starting ones: 3 bunks of a village a day everywhere (it was 2), and any two bunks of a village may
  *    share. A saved 2 is moved up the same way. (Athletics and A&C take 3 bunks at once at the most: a saved 4 is read as 3.)
+ * 5: the user's program-area study (2026-10-12). Settings saved with the old starting numbers follow the app: Teva 2 to 4,
+ *    Yoga 1 to 2 with 16 campers, Ceramics twice for every village, Time with UH 2 to 4, ropes 25 campers, the pool 75,
+ *    league twice a week with Mohawk 3, A&C two bunks at once, and the camper limits at Judaics, Israel, Teva and Dance.
  */
-export const SETTINGS_VERSION = 4;
+export const SETTINGS_VERSION = 5;
 /** What Yoga's camper limit started at before settings version 3. */
 const OLD_YOGA_CAMPERS = 22;
 /** What Ceramics and Teva started at before settings version 4. */
 const OLD_NUMBERS: Record<string, { min: number; max: number }> = { Ceramics: { min: 2, max: 3 }, Teva: { min: 3, max: 3 } };
+/** What Teva and Yoga started at in settings version 4, and Ceramics village by village. */
+const OLD_NUMBERS_4: Record<string, { min: number; max: number }> = { Teva: { min: 1, max: 3 }, Yoga: { min: 2, max: 3 } };
+const OLD_CERAMICS_4 = JSON.stringify({ C: 1, M: 2, O: 1, S: 2, T: 2 });
 
 /** An area that bunks may share: how many at once, how many of one village in a day, and (Athletics, A&C) how many times a bunk may have it in a week. */
 export interface SharedNumbers {
@@ -371,7 +380,7 @@ function readConfig(): Settings {
     const dance = area === 'Dance';
     const min = dance ? DANCE_TARGETS[OTHER] : SESSION_TARGETS[area];
     const byCampers = CAMPER_CAP[area] !== undefined; // the check reads such an area as about two bunks at a time
-    areas[area] = { min, max: Math.max(min, SESSION_FILLER_MAX[area] ?? min), atOnce: byCampers ? 2 : SLOT_CAP[area], villagePerDay: byCampers ? 3 : DAY_CAP[area] };
+    areas[area] = { min, max: Math.max(min, SESSION_FILLER_MAX[area] ?? min), atOnce: byCampers ? 2 : SLOT_CAP[area], villagePerDay: byCampers ? 3 : DAY_CAP[area], ...(AREA_CAMPERS[area] !== undefined ? { campers: AREA_CAMPERS[area] } : {}) };
     if (dance) {
       const villages = { ...DANCE_TARGETS };
       delete villages[OTHER];
@@ -393,8 +402,20 @@ const whole = (v: unknown, least: number, most: number, fallback: number): numbe
 
 /** Core numbers saved before settings version 4: the app's old 2 bunks of a village a day follow the app to 3. */
 function broughtUp(core: unknown, saved: number): unknown {
-  if (saved >= 4 || !core || typeof core !== 'object') return core;
-  const out = JSON.parse(JSON.stringify(core)) as Record<string, Partial<SharedNumbers> | undefined>;
+  if (saved >= 5 || !core || typeof core !== 'object') return core;
+  const five = JSON.parse(JSON.stringify(core)) as Record<string, unknown> & { ac?: Partial<SharedNumbers>; leagueByVillage?: Record<string, number> };
+  // version 5: the app's old starting numbers follow the app to the ones from the study
+  const move = (key: string, was: number, now: number) => {
+    if (Number(five[key]) === was) five[key] = now;
+  };
+  if (Number(five.uhMin) === 1 && Number(five.uhMax) === 3) Object.assign(five, { uhMin: 2, uhMax: 4 });
+  move('ropesMaxCampers', 30, 25);
+  move('yogaMaxCampers', 20, 16);
+  move('poolMaxCampers', 80, 75);
+  if (Number(five.leaguePerWeek) === 3 && Object.keys(five.leagueByVillage ?? {}).length === 0) Object.assign(five, { leaguePerWeek: 2, leagueByVillage: { M: 3 } });
+  if (five.ac && Number(five.ac.atOnce) === 3) five.ac.atOnce = 2;
+  if (saved >= 4) return five;
+  const out = five as Record<string, Partial<SharedNumbers> | undefined>;
   for (const key of ['athletics', 'ac', 'music', 'uh']) {
     const n = out[key];
     if (!n || typeof n !== 'object') continue;
@@ -418,7 +439,8 @@ export function normalizeSettings(raw: unknown): Settings {
     const clean = cleanAreaName(name);
     if (!g || typeof g !== 'object' || whyNotAdd(out, clean)) continue;
     const min = whole(g.min, 0, 12, NEW_AREA.min);
-    out.areas[clean] = { min, max: Math.max(min, whole(g.max, 0, 12, min)), atOnce: whole(g.atOnce, 1, 2, NEW_AREA.atOnce), villagePerDay: whole(g.villagePerDay, 1, 6, NEW_AREA.villagePerDay) };
+    const campers = whole(g.campers, 0, 200, 0);
+    out.areas[clean] = { min, max: Math.max(min, whole(g.max, 0, 12, min)), atOnce: whole(g.atOnce, 1, 2, NEW_AREA.atOnce), villagePerDay: whole(g.villagePerDay, 1, 6, NEW_AREA.villagePerDay), ...(campers > 0 ? { campers } : {}) };
     out.custom = [...(out.custom ?? []), clean];
   }
   const sharing = normalizeSharing((raw as { sharing?: unknown }).sharing);
@@ -457,7 +479,7 @@ export function normalizeSettings(raw: unknown): Settings {
     if (!g || typeof g !== 'object') continue;
     const d = out.areas[area];
     // saved under the app's old numbers for this area: they follow the app to the new ones
-    const old = saved < 4 ? OLD_NUMBERS[area] : undefined;
+    const old = saved < 4 ? OLD_NUMBERS[area] : saved < 5 ? OLD_NUMBERS_4[area] : undefined;
     if (!(old && Number(g.min) === old.min && Number(g.max) === old.max)) {
       d.min = whole(g.min, 0, 12, d.min);
       d.max = Math.max(d.min, whole(g.max, 0, 12, d.max));
@@ -467,6 +489,14 @@ export function normalizeSettings(raw: unknown): Settings {
     // saved before two bunks could be at Judaics or Yoga together: the old one and one become the new two and two
     if (older && OPENED_UP.includes(area) && d.atOnce === 1 && d.villagePerDay === 1) Object.assign(d, { atOnce: 2, villagePerDay: 2 });
     if (saved < 4 && d.villagePerDay < 3) d.villagePerDay = 3; // the app's old 2 (1 for Ceramics) follows the app to 3
+    // a camper limit: one that is saved is kept (0 is "none"); a file from before there were any takes the app's
+    if (g.campers !== undefined && saved >= 5) {
+      // 0 is "no limit in campers", and is kept as a 0 where the app starts with a limit
+      const campers = whole(g.campers, 0, 200, d.campers ?? 0);
+      if (campers > 0 || d.campers !== undefined) d.campers = campers;
+    }
+    const sameAsOld = (v: unknown): boolean => JSON.stringify(Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, n]) => [k.trim().charAt(0).toUpperCase(), Number(n)]).sort())) === OLD_CERAMICS_4;
+    if (saved < 5 && area === 'Ceramics' && g.villages && typeof g.villages === 'object' && sameAsOld(g.villages)) continue; // the app's old numbers follow the app
     if (d.villages && g.villages && typeof g.villages === 'object') {
       const villages: Record<string, number> = {};
       for (const [letter, n] of Object.entries(g.villages)) {
@@ -516,6 +546,7 @@ export function applySettings(settings?: Settings | null): void {
   const filler: Record<string, number> = {};
   const hardMax: Record<string, number> = {};
   const byVillage: Record<string, Record<string, number>> = {};
+  const campersNow: Record<string, number> = {};
   // the added areas: each is an activity of its own, planned as single periods like the rarer areas that come with the app
   const custom = s.custom ?? [];
   for (const old of inForce) {
@@ -548,10 +579,12 @@ export function applySettings(settings?: Settings | null): void {
       if (a.max > a.min) filler[area] = a.max;
       hardMax[area] = a.max;
     }
+    if (a.campers) campersNow[area] = a.campers;
     // an area that goes by campers is not held to a number of bunks
     SLOT_CAP[area] = CAMPER_CAP[area] !== undefined ? BY_CAMPERS_SLOT_CAP : a.atOnce;
     DAY_CAP[area] = CAMPER_CAP[area] !== undefined ? BY_CAMPERS_DAY_CAP : a.villagePerDay;
   }
+  replace(AREA_CAMPERS, campersNow);
   replace(SESSION_FILLER_MAX, filler);
   replace(SESSION_HARD_MAX, hardMax);
   // Waterfront, league, the pool, Music, Time with UH, Athletics and A&C

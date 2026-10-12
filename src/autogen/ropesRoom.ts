@@ -1,6 +1,6 @@
 import { isGuest, villageOf } from '../autofill';
 import type { Schedule } from '../types';
-import { DEFAULT_CAMPERS, ROPES_BUNKS_ALWAYS, ROPES_MAX_CAMPERS, TRIP_LABELS, hobbiesInWeek } from './config';
+import { DEFAULT_CAMPERS, ROPES_BUNKS_ALWAYS, ROPES_MAX_CAMPERS, TRIP_LABELS, hobbiesInWeek, ropesIfRoom } from './config';
 import { sessionTargetOf } from './planner';
 
 /**
@@ -69,6 +69,7 @@ export function ropesOutlook(weeks: (Schedule | null)[], sessionWeeks: number, l
   const villages = [...new Set(bunks.map((b) => villageOf(b.name)))];
   const count = (cap: number): number =>
     villages.reduce((sum, v) => {
+      if (ropesIfRoom(v)) return sum; // it goes only when there is room: not counted
       const campers = bunks.filter((b) => villageOf(b.name) === v).map((b) => {
         const n = parseInt(b.count, 10);
         return Number.isFinite(n) && n > 0 ? n : DEFAULT_CAMPERS;

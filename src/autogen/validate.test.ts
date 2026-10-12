@@ -255,8 +255,8 @@ describe('validateWeek', () => {
     ['O1', 'O2', 'O3', 'O4'].forEach((name, k) => put(day, [name], [S(1, k)], 'Teva')); // four O bunks at Teva in one day, and the most is 3
     expect(has(state(day), 1, 'H15')).toBe(true);
     const uh = sampleSchedule();
-    for (const d of [0, 1, 2, 3]) put(uh, ['O1'], [S(d, 0)], 'Time with UH');
-    expect(validateWeek(state(uh), 1, 4).some((v) => v.rule === 'H15' && v.message.includes('Time with UH 4 times'))).toBe(true);
+    for (const d of [0, 1, 2, 3, 4]) put(uh, ['O1'], [S(d, 0)], 'Time with UH'); // four a session is the most
+    expect(validateWeek(state(uh), 1, 4).some((v) => v.rule === 'H15' && v.message.includes('Time with UH 5 times'))).toBe(true);
     const week = sampleSchedule();
     for (const d of [0, 1, 2]) put(week, ['O1'], [S(d, 0)], 'A&C');
     expect(has(state(week), 1, 'H15')).toBe(false); // three single periods a week is the most

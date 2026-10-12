@@ -1,6 +1,6 @@
 import { isGuest, villageName, villageOf } from '../autofill';
 import type { Schedule } from '../types';
-import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, SHABBAT_PREP_STAFF, TIYUL_WEEKS, TRIP_LABELS, hobbyWeeks, shabbatFor, type SessionWeeks } from './config';
+import { MUSIC_LIGHT_PER_SESSION, MUSIC_LIGHT_VILLAGES, PAIR_FROM_VISIT, SHABBAT_PREP_STAFF, TIYUL_WEEKS, TRIP_LABELS, hobbyWeeks, shabbatFor, type SessionWeeks } from './config';
 import { CAMP, type CalendarEvent } from './sessionCalendar';
 import { ropesOutlook } from './ropesRoom';
 import { coreOf, settingAreas, type Settings } from './settings';
@@ -82,10 +82,34 @@ export function checkSettings(settings: Settings, weeks: (Schedule | null)[], se
   }
   const atOnceFor = (area: string): number => {
     const limit = camperLimit[area];
-    if (limit === undefined) return settings.areas[area].atOnce;
-    return 1 + (neighbours.length ? neighbours.filter((n) => n <= limit).length / neighbours.length : 0);
+    const a = settings.areas[area];
+    const fit = (most: number): number => (neighbours.length ? neighbours.filter((n) => n <= most).length / neighbours.length : 0);
+    // a limit in campers on top of the bunks: a second bunk only where two of them fit under it
+    if (limit === undefined) return a.campers && a.atOnce > 1 ? 1 + (a.atOnce - 1) * fit(a.campers) : a.atOnce;
+    return 1 + fit(limit);
   };
   for (const area of areas) {
+    // Ceramics: a first visit is one group under the camper limit, and two bunks may go together from their second on
+    const pairFrom = PAIR_FROM_VISIT[area];
+    if (pairFrom !== undefined && calendar) {
+      const alone = 1 / atOnceFor(area); // periods a first visit takes for each bunk
+      let need = 0;
+      let visits = 0;
+      for (const v of villages) {
+        const times = timesFor(area, v);
+        visits += membersOf(v) * times;
+        need += membersOf(v) * Math.min(times, pairFrom - 1) * alone + Math.ceil((membersOf(v) * Math.max(0, times - (pairFrom - 1))) / 2);
+      }
+      const usable = Math.floor(periods * ONE_AT_A_TIME_SHARE);
+      if (need > usable) {
+        out.push({
+          level: 'short',
+          text: `${nameOf(area)} is set to ${visits} visits in the session. Even with two bunks together on a second visit that takes about ${Math.ceil(need)} periods, and ${nameOf(area)} has about ${usable} it can really use, so some bunks will get one visit, or none.`,
+          fix: `This one is yours to decide. A piece is made on one visit and glazed on the next, so a bunk with one visit has half of it: you may want fewer villages to have ${nameOf(area)} (set a village to 0) so that the ones that go can go twice. Smaller bunks, or more campers at once, also make room.`,
+        });
+      }
+      continue;
+    }
     const byCampers = camperLimit[area] !== undefined;
     const a = { ...settings.areas[area], atOnce: atOnceFor(area) };
     const visits = villages.reduce((sum, v) => sum + membersOf(v) * timesFor(area, v), 0);

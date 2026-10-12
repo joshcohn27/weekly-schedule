@@ -59,7 +59,7 @@ export interface SessionTemplate {
   /** Where this session's numbers differ from the app's own: times a session for an area, or for each village (Dance). */
   numbers?: Record<string, { min?: number; max?: number; villages?: Record<string, number> }>;
   /** Where this session's main numbers differ: ropes a session, league a week. */
-  core?: { ropesPerSession?: number; leaguePerWeek?: number; ropesBunksAlways?: number };
+  core?: { ropesPerSession?: number; leaguePerWeek?: number; ropesBunksAlways?: number; uhMin?: number; uhMax?: number; leagueByVillage?: Record<string, number> };
 }
 
 /** The date of a day of a session: the Sunday of the week opening day falls in is day 0 of week 1. */
@@ -149,18 +149,19 @@ export const SESSION_2: SessionTemplate = {
     camp('Color War', 3, TUE, ALL_DAY),
     camp('Tusc Triathlon', 3, THU, PM),
   ],
-  // a shorter session: Yoga once (twice at the most) and Dance one fewer for everybody
-  // Tusc is the same campers as Session 1: Ceramics once is plenty, and one more ropes, High (three in the summer)
-  // A shorter session with Color War in it: the numbers are the ones that fit. Ceramics once for the older villages and
-  // not at all for Onondaga and Cayuga, Judaics and Israel once (twice at the most), ropes once, league twice a week.
+  // A shorter session with Color War in it, so some numbers are a little lower than Session 1's: Judaics and Israel once
+  // (twice at the most), Teva and Time with UH once (three at the most), Dance one fewer for most villages. Ceramics stays
+  // twice for everybody: whether that fits depends on how big the bunks are, and the Settings tab says when it does not.
   numbers: {
-    Yoga: { min: 1, max: 2 },
     Judaics: { min: 1, max: 2 },
     'Israel Education': { min: 1, max: 2 },
+    Teva: { min: 1, max: 3 },
     Dance: { min: 1, villages: { O: 2, S: 2, C: 1, T: 1, M: 1 } },
   },
-  // ropes is twice here too (Tusc once, High), and three bunks may go together to make the half-days stretch
-  core: { ropesBunksAlways: 3 },
+  // Ropes is twice here too, and three bunks may go together to make the half-days stretch. Tusc is the same campers as
+  // Session 1 and has had Low and High there: it gets one more, High, and only when a half-day is going spare.
+  // Mohawk's league is double periods: twice a week here, where Session 1 has three
+  core: { ropesBunksAlways: 3, uhMin: 1, uhMax: 3, leagueByVillage: {} },
   villageTargets: { Ropes: { T: 1 } },
   ropesStartHigh: ['T'],
   // 3 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL (4) for week 1: its cabins are Onondaga's and Cayuga's

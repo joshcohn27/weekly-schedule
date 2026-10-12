@@ -179,6 +179,14 @@ with which weeks and how many empty periods (a week with every period filled is 
 them and the ones built after) and generates them again. So a run always ends one of two ways: every week complete, or
 a plain statement of which are not. Which rule stood in the way is in the browser console only.
 
+**When a week runs out of time, it goes one over and says so.** A limit on how many are at an area at once, or on bunks
+of one village there in a day, may be passed by one (`BEND` in `src/autogen/config.ts`, switched on only inside the
+clean-up in `src/autogen/tidy.ts`), and only for bunks of one village who may all share: who may share is never
+overridden. Every such place is kept on the bunk (`over`), outlined in orange on the Schedule and Build tabs, listed over
+the Schedule grid and counted in the line after a run. A fourth bunk at Athletics, a first visit to Ceramics and the
+pool's camper limit never bend. On the Tracking tab a count under what the settings ask for is light red once the week
+or the session is filled in (`src/expected.ts`).
+
 **The areas with the fewest places go first.** Ceramics, Judaics and Israel (`PLACED_FIRST` in `src/autogen/config.ts`)
 are given their periods before the search: every visit planned for the week is matched to a period it can really have,
 all at once, and a visit with no period is put off to a later week (`placeFirst` in `src/autogen/fill.ts`). The pool is

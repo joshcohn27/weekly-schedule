@@ -124,7 +124,8 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
         <th scope="row">Ropes</th>
         <td>exactly {number('Ropes times a session', core.ropesPerSession, 0, 2, (n) => set({ ropesPerSession: n }))} a session</td>
         <td colSpan={3}>
-          At most {number('Ropes most campers at once', core.ropesMaxCampers, 5, 200, (n) => set({ ropesMaxCampers: n }))} campers at once{' '}
+          At most {number('Ropes most campers at once', core.ropesMaxCampers, 5, 200, (n) => set({ ropesMaxCampers: n }))} campers at once, or{' '}
+          {number('Ropes bunks always together', core.ropesBunksAlways, 1, 4, (n) => set({ ropesBunksAlways: n }))} bunks whatever their campers{' '}
           <Info text="Ropes goes by people, not by bunks: bunks that are next to each other in a village go together as long as their campers add up to no more than this. A bunk bigger than the number goes alone. Low ropes first, then high ropes, each a double period." />
         </td>
       </tr>

@@ -915,3 +915,33 @@ td.filled.over {
     background: #fff;
   }
 }
+
+/* Tracking: a bunk that has fewer of something than the settings ask for */
+table.tracking-grid td.owed {
+  background: #fde0dd;
+  box-shadow: inset 0 0 0 1px #d9837b;
+  color: #8a1f15;
+  font-weight: bold;
+}
+table.tracking-grid td.owed.pair-here {
+  background: #f9c5bf;
+}
+.owed-key {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #45543f;
+}
+.owed-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  background: #fde0dd;
+  box-shadow: inset 0 0 0 1px #d9837b;
+}
+.and-campers {
+  white-space: nowrap;
+  font-size: 12px;
+  color: #45543f;
+}

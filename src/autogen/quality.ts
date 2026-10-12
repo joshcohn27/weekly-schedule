@@ -20,6 +20,7 @@ import {
   TRI_AWAY_PERIODS,
   TRIP_LABELS,
   type SessionWeeks,
+  ropesIfRoom,
 } from './config';
 import { blocksOf, type BunkHistory } from './history';
 import { musicDue, sessionTargetOf } from './planner';
@@ -149,7 +150,7 @@ export function weekQuality(input: QualityInput): WeekQuality {
       else if (by > 0) minor.push(`${roster.names[b]} is short ${by} on Pool.`);
     }
     // Ropes: two per session
-    if (lastOfSession && total(b, 'Ropes') < sessionTargetOf(roster.village[b], sessionWeeks, 'Ropes')) (squeezed(b) ? minor : major).push(`${roster.names[b]} is short on Ropes.`);
+    if (lastOfSession && total(b, 'Ropes') < sessionTargetOf(roster.village[b], sessionWeeks, 'Ropes')) (squeezed(b) || ropesIfRoom(roster.village[b]) ? minor : major).push(`${roster.names[b]} is short on Ropes.`);
   }
 
   // Shabbat Prep: the Friday double is a rule (checked above); the earlier single periods must be there too

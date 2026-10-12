@@ -5,6 +5,30 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.11.0 (October 12, 2026)
+
+The numbers and limits from the camp's own study of each program area are what the app starts with.
+
+- **How many at once.** A&C takes two bunks, never three. Ropes takes 25 campers, or two bunks whatever their campers
+  (three in Session 2). The pool takes 75. Yoga and Ceramics take 16. Judaics takes 25 campers, Israel and Teva 32 and
+  Dance 40, on top of two bunks: there is a "campers" box beside "bunks at once" for every such area, and 0 means no
+  limit in campers.
+- **How often.** League is twice a week, and three for Mohawk. Teva and Time with UH aim for twice a session and stop at
+  four. Yoga is once to twice. Music is once a week where it fits, every other week at the least, and never more than
+  four a session. Ceramics is twice for every village: a piece is made on one visit and glazed on the next, and two
+  bunks of a village may glaze together.
+- **Going one over, and saying so.** When a week runs out of time, a limit on how many are somewhere at once may be
+  passed by one bunk so that the period is not left empty. It is only ever bunks of one village who may share with each
+  other; who may share is never overridden. Each place is outlined in orange on the Schedule and Build tabs, listed over
+  the Schedule grid with the day, the period and what is over, and counted in the line after a run. Never passed: a
+  fourth bunk at Athletics, a first visit to Ceramics, the pool's limit, and nothing twice in a day or two days running.
+- **Tracking shows what a bunk is short of.** Once a week, or the whole session, is filled in, a count that is under what
+  the Settings tab asks for is light red, and pointing at it says the numbers.
+- **Session 2.** Ropes is twice again. Tusc, who has had Low and High in Session 1, gets one more High only when a
+  half-day is going spare. Ceramics stays twice for everybody; when that cannot fit, the Settings tab says so and says
+  the choice of who goes without is yours.
+- Settings saved with the old starting numbers follow the app to these. Numbers you changed yourself are kept.
+
 ## 1.10.1 (October 6, 2026)
 
 - The "?" how-to says where Download, Upload and the specialists' file are now.

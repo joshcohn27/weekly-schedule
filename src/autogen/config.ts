@@ -36,6 +36,12 @@ export const AREA_BY_VILLAGE: Record<string, Record<string, number>> = { Ceramic
 /** Villages whose first ropes of this session is High Ropes: they did Low Ropes in the session before. */
 export const ROPES_START_HIGH: string[] = [];
 /**
+ * Those villages have had their ropes already, so in this session they go only when there is a half-day nobody else needs
+ * (the user, 2026-10-12: "no session 2 ropes for tusc unless theres room"). They are not counted when working out whether
+ * ropes fits, they are the first to wait, and going without is not held against the week.
+ */
+export const ropesIfRoom = (village: string): boolean => ROPES_START_HIGH.includes(village);
+/**
  * Areas a bunk may have once more than its target, to fill a period that would otherwise be Athletics or A&C: the most
  * per session. They are one bunk at a time, so asking every bunk for a third would use up nearly every period they have.
  */
@@ -229,15 +235,16 @@ export function setRopesMax(campers: number, bunksAlways: number = ROPES_BUNKS_A
  * is a schedule generating. if you have to go slightly over any limit set okay. just highlight that on the sheet"). So when
  * a week runs out of time, the limits on how many are at an area at once, and how many bunks of a village go there in a
  * day, may each be passed by one bunk, and the page marks every place it happened. BEND.on is switched on only while that
- * last clean-up looks at the week; the search itself always works to the limits as they are set. BEND.share goes one
- * step further, for a period that would otherwise be left empty: bunks may be together there that the sharing choices
- * keep apart, or that are on different visits. That is marked too.
+ * last clean-up looks at the week; the search itself always works to the limits as they are set. It is only ever for
+ * bunks of one village who may all share with each other: who may share (the choices and the grid on the Settings tab)
+ * is never overridden (the user, 2026-10-12: "should only bend if the bunks are from the same village ... abide by the
+ * grid in the settings hard").
  *
  * What never bends, whatever BEND says: Athletics never has a fourth bunk; a first visit to Ceramics keeps its camper
  * limit; the pool keeps its camper limit unless it is one whole village; nothing twice in a day, on two days running, or
  * in period 4 and again in period 1 the next morning.
  */
-export const BEND = { on: false, share: false };
+export const BEND = { on: false };
 /** Areas whose limit on bunks at once never bends. */
 export const NEVER_OVER: string[] = ['Athletics'];
 /** One more bunk than the limit, when bending. */

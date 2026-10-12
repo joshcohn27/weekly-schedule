@@ -37,12 +37,14 @@ describe('settings', () => {
   it('start as the numbers the generator has always used', () => {
     const s = defaultSettings();
     expect(Object.keys(s.areas)).toEqual(SETTING_AREAS);
-    expect(s.areas.Judaics).toEqual({ min: 2, max: 3, atOnce: 2, villagePerDay: 3 });
-    expect(s.areas.Yoga).toEqual({ min: 2, max: 3, atOnce: 2, villagePerDay: 3 });
-    expect(s.areas['Israel Education']).toEqual({ min: 2, max: 2, atOnce: 2, villagePerDay: 3 });
-    expect(s.areas.Teva).toEqual({ min: 1, max: 3, atOnce: 2, villagePerDay: 3 });
-    // Ceramics is set village by village: once for the younger villages, twice for the older ones
-    expect(s.areas.Ceramics).toEqual({ min: 2, max: 2, atOnce: 2, villagePerDay: 3, villages: { O: 1, C: 1, S: 2, M: 2, T: 2 } });
+    // the user's program-area study (2026-10-12): how often, and a limit in campers on top of two bunks
+    expect(s.areas.Judaics).toEqual({ min: 2, max: 3, atOnce: 2, villagePerDay: 3, campers: 25 });
+    expect(s.areas.Yoga).toEqual({ min: 1, max: 2, atOnce: 2, villagePerDay: 3 });
+    expect(s.areas['Israel Education']).toEqual({ min: 2, max: 2, atOnce: 2, villagePerDay: 3, campers: 32 });
+    expect(s.areas.Teva).toEqual({ min: 2, max: 4, atOnce: 2, villagePerDay: 3, campers: 32 });
+    expect(s.areas.Dance.campers).toBe(40);
+    // Ceramics is set village by village, and is twice for every one of them
+    expect(s.areas.Ceramics).toEqual({ min: 2, max: 2, atOnce: 2, villagePerDay: 3, villages: { O: 2, C: 2, S: 2, M: 2, T: 2 } });
     expect(s.areas.Dance.villages).toEqual({ O: 3, S: 3, C: 2, T: 2, M: 1 });
     expect(isDefaultSettings(s)).toBe(true);
     expect(isDefaultSettings(null)).toBe(true);
@@ -69,8 +71,8 @@ describe('settings', () => {
     expect(SESSION_FILLER_MAX.Teva).toBe(4);
     expect(DANCE_TARGETS).toEqual({ O: 1, M: 2, '*': 2 });
     applySettings();
-    expect(SESSION_TARGETS.Yoga).toBe(2);
-    expect(SESSION_FILLER_MAX).toEqual({ Yoga: 3, Teva: 3, Judaics: 3 });
+    expect(SESSION_TARGETS.Yoga).toBe(1);
+    expect(SESSION_FILLER_MAX).toEqual({ Yoga: 2, Teva: 4, Judaics: 3 });
     expect(DANCE_TARGETS.O).toBe(3);
   });
 
@@ -82,7 +84,7 @@ describe('settings', () => {
     expect(old.areas.Judaics).toMatchObject({ atOnce: 2, villagePerDay: 3 });
     expect(old.areas.Yoga).toMatchObject({ atOnce: 2, villagePerDay: 3 });
     // Ceramics: the old "2 to 3" was the app's number, so it follows the app to exactly 2, village by village
-    expect(old.areas.Ceramics).toMatchObject({ min: 2, max: 2, villages: { O: 1, C: 1, S: 2, M: 2, T: 2 } });
+    expect(old.areas.Ceramics).toMatchObject({ min: 2, max: 2, villages: { O: 2, C: 2, S: 2, M: 2, T: 2 } });
     expect(old.areas.Teva.min).toBe(4);
     // chosen since then: one at a time stays one at a time
     const chosen = normalizeSettings({ ...old, areas: { ...old.areas, Yoga: one } });
@@ -95,7 +97,7 @@ describe('settings', () => {
     applySettings(back);
     expect(CAMPER_CAP.Yoga).toBe(26);
     applySettings();
-    expect(CAMPER_CAP.Yoga).toBe(20);
+    expect(CAMPER_CAP.Yoga).toBe(16);
   });
 
   it('repairs whatever it is given: missing areas, text, numbers out of range, a maximum under the minimum', () => {
@@ -175,14 +177,14 @@ describe('the arithmetic check on the settings', () => {
 
   it('flags an area that is asked for more visits than it has places', () => {
     // one bunk at a time, 22 bunks three times: 66 of the session's 74 periods, which did not generate when it was tried
-    const tight = checkSettings(withArea('Teva', { min: 3, max: 3, atOnce: 1 }), weeks);
+    const tight = checkSettings(withArea('Teva', { min: 3, max: 3, atOnce: 1 }), weeks).filter((p) => p.text.startsWith('Teva'));
     expect(tight.map((p) => p.level)).toEqual(['unlikely']);
     expect(tight[0].text).toContain('Teva is set to 66 visits in the session out of 74 places');
     expect(tight[0].fix).toBe('Try at most 2 per bunk, or 2 bunks at once.');
     const over = checkSettings(withArea('Teva', { min: 4, max: 4, atOnce: 1 }), weeks);
     expect(over.some((p) => p.level === 'no' && p.text.includes('there are only 74 places'))).toBe(true);
     // two at a time has the room
-    expect(checkSettings(withArea('Teva', { min: 3, max: 3, atOnce: 2 }), weeks)).toEqual([]);
+    expect(checkSettings(withArea('Teva', { min: 3, max: 3, atOnce: 2 }), weeks).filter((p) => p.text.startsWith('Teva'))).toEqual([]);
   });
 
   it('flags a village that cannot send enough bunks in a day', () => {
@@ -440,21 +442,22 @@ describe('the main areas and the visit numbers', () => {
       shabbatPrepExtra: 1,
       shabbatWeeks: null,
       ropesPerSession: 2,
-      ropesMaxCampers: 30,
-      yogaMaxCampers: 20,
+      ropesMaxCampers: 25,
+      ropesBunksAlways: 2,
+      yogaMaxCampers: 16,
       ceramicsMaxCampers: 16,
       poolPerWeek: 1,
       poolLessons: 2,
-      poolMaxCampers: 80,
+      poolMaxCampers: 75,
       waterfrontPerWeek: 2,
-      leaguePerWeek: 3,
-      leagueByVillage: {},
+      leaguePerWeek: 2,
+      leagueByVillage: { M: 3 },
       poolMaxPerWeek: 2,
       musicPerWeek: 1,
-      uhMin: 1,
-      uhMax: 3,
+      uhMin: 2,
+      uhMax: 4,
       athletics: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 },
-      ac: { atOnce: 3, villagePerDay: 3, maxPerWeek: 3 },
+      ac: { atOnce: 2, villagePerDay: 3, maxPerWeek: 3 },
       music: { atOnce: 2, villagePerDay: 3, maxPerWeek: 2 },
       uh: { atOnce: 2, villagePerDay: 3, maxPerWeek: 0 },
     });
@@ -472,8 +475,8 @@ describe('the main areas and the visit numbers', () => {
     expect(weekly()).toEqual({ waterfront: 1, league: 2, music: 0, poolMax: 1, uhMax: 2 });
     expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH']]).toEqual([3, 3, 2, 2]);
     applySettings();
-    expect(weekly()).toEqual({ waterfront: 2, league: 3, music: 1, poolMax: 2, uhMax: 3 });
-    expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH']]).toEqual([3, 3, 3, 1]);
+    expect(weekly()).toEqual({ waterfront: 2, league: 2, music: 1, poolMax: 2, uhMax: 4 });
+    expect([SLOT_CAP.Athletics, DAY_CAP.Athletics, WEEK_BLOCK_MAX.Athletics, SESSION_TARGETS['TW UH'], SLOT_CAP['A&C']]).toEqual([3, 3, 3, 2, 2]);
     expect(withCore(defaultSettings(), defaultCore()).core).toBeUndefined();
     expect(isDefaultSettings(withCore(defaultSettings(), defaultCore()))).toBe(true);
   });
@@ -501,7 +504,7 @@ describe('the main areas and the visit numbers', () => {
       expect(planCalendar({ weekIndex: 1, sessionWeeks: 4, lastWeek: false }, mulberry32(seed)).hobbies).toHaveLength(2); // the swim tests are on that Sunday
     }
     applySettings();
-    expect([CALENDAR.hobbySessions, CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([7, true, 3, 2, 2, 80]);
+    expect([CALENDAR.hobbySessions, CALENDAR.shabbatPrep, shabbatPrepPeriods(), SESSION_TARGETS.Ropes, POOL_LESSONS, POOL_MAX_CAMPERS]).toEqual([7, true, 3, 2, 2, 75]);
     expect(POOL_TARGETS.O).toEqual({ perWeek: 1 });
     expect(POOL_TARGETS.S).toEqual({ perSession: 4 });
   });
@@ -563,16 +566,16 @@ describe('the main areas and the visit numbers', () => {
   });
 
   it('sets league village by village, and keeps only the villages that differ from the usual number', () => {
-    const s = withCore(defaultSettings(), { ...defaultCore(), leagueByVillage: { m: 2, O: 3, C: 9, ' ': 1 } });
-    expect(s.core?.leagueByVillage).toEqual({ M: 2 }); // O is on the usual three, and C's nine is cut back to three
-    expect(leagueOf(s, 'M')).toBe(2);
-    expect(leagueOf(s, 'S')).toBe(3);
+    const s = withCore(defaultSettings(), { ...defaultCore(), leagueByVillage: { m: 3, O: 2, C: 9, ' ': 1 } });
+    expect(s.core?.leagueByVillage).toEqual({ M: 3, C: 3 }); // O is on the usual two, and C's nine is cut back to three
+    expect(leagueOf(s, 'M')).toBe(3);
+    expect(leagueOf(s, 'S')).toBe(2);
     applySettings(s);
-    expect([leagueFor('M'), leagueFor('O'), leagueMinFor('M'), leagueMinFor('O')]).toEqual([2, 3, 2, 2]);
+    expect([leagueFor('M'), leagueFor('O'), leagueMinFor('M'), leagueMinFor('O')]).toEqual([3, 2, 2, 2]);
     applySettings(withCore(defaultSettings(), { ...defaultCore(), leagueByVillage: { T: 2, S: 1 } }));
     expect([leagueFor('T'), triathlonPeriodsAWeek(), leagueFor('S'), leagueMinFor('S')]).toEqual([2, 3, 1, 1]); // Tusc: a double and a single
     applySettings();
-    expect([leagueFor('M'), leagueFor('T'), triathlonPeriodsAWeek()]).toEqual([3, 3, 4]);
+    expect([leagueFor('M'), leagueFor('T'), triathlonPeriodsAWeek()]).toEqual([3, 2, 3]);
     // it travels in the Excel file
     const wb = XLSX.read(XLSX.write(buildWeekWorkbook(sampleSchedule(), 1, s), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
     expect(parseSettingsSheet(wb)).toEqual(s);
@@ -597,7 +600,7 @@ describe('the main areas and the visit numbers', () => {
       const league = (name: string): number => blocksOf((w as Schedule).bunks.find((b) => b.name === name)!.slots).filter((k) => k.area === 'League').length;
       expect(league('M1')).toBeLessThanOrEqual(3); // two are planned, and one more goes in where a half-day is open
       expect(league('M1')).toBeGreaterThanOrEqual(1);
-      expect(league('O1')).toBeGreaterThanOrEqual(2); // the others are as they were
+      expect(league('O1')).toBeGreaterThanOrEqual(1); // the others are as they were: twice a week, once in the short last week
     }
   }, 900_000);
 

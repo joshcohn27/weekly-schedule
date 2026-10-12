@@ -111,13 +111,13 @@ describe('session totals', () => {
     }
   });
 
-  it('gives Teva, Yoga and Ceramics up to three times a session', () => {
+  it('gives Teva up to four times a session, and Yoga and Ceramics up to twice', () => {
     for (const run of sessions) {
-      for (const b of weekOf(run, 1).bunks) for (const area of ['Teva', 'Yoga', 'Ceramics']) expect(sessionBlocks(run.weeks, b.name, area), `${b.name} ${area}`).toBeLessThanOrEqual(3);
+      for (const b of weekOf(run, 1).bunks) for (const [area, most] of [['Teva', 4], ['Yoga', 2], ['Ceramics', 2]] as const) expect(sessionBlocks(run.weeks, b.name, area), `${b.name} ${area}`).toBeLessThanOrEqual(most);
     }
   });
 
-  it('never has a bunk at the same kind of period two days in a row, and plays league two or three times a week', () => {
+  it('never has a bunk at the same kind of period two days in a row, and plays league once to three times a week', () => {
     for (const run of sessions) {
       run.weeks.weeks.forEach((w, i) => {
         const s = w as Schedule;
@@ -127,7 +127,7 @@ describe('session totals', () => {
         }
         for (const v of ['O', 'C', 'S', 'M']) {
           const league = blocksOf(row(s, villageNames(s, v)[0])).filter((k) => k.area === 'League').length;
-          expect(league, `week ${i + 1} village ${v}`).toBeGreaterThanOrEqual(2);
+          expect(league, `week ${i + 1} village ${v}`).toBeGreaterThanOrEqual(1); // twice as a rule; a week cut short by a Tiyul or village day has one
           expect(league).toBeLessThanOrEqual(3);
         }
       });

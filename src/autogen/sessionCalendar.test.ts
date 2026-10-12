@@ -120,7 +120,7 @@ describe('the session calendar', () => {
     const two = templateSettings(SESSION_2);
     expect(two.areas.Yoga).toMatchObject({ min: 1, max: 2 });
     expect(two.areas.Dance.villages).toEqual({ O: 2, S: 2, C: 1, T: 1, M: 1 });
-    expect(two.areas.Teva).toEqual(defaultSettings().areas.Teva);
+    expect(two.areas.Teva).toMatchObject({ min: 1, max: 3 }); // a little lower than Session 1's 2 to 4
     expect(templateSettings(SESSION_1)).toEqual(defaultSettings());
     expect(validateWeek({ current: 0, weeks: run?.weeks ?? [] }, 1, 3).filter((v) => v.bunk && isGuest(v.bunk))).toEqual([]);
   }, 120_000);

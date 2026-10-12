@@ -123,7 +123,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
   c.dayMask = buildDayMasks(c.grid);
   // In a week with Shabbat Prep the Music specialists lose those periods, so a bunk whose Music did not fit goes without
   // it this week and it is not held against the week.
-  for (let b = 0; b < n; b++) if ((tok[b].Music ?? 0) > 0 && search.musicIsOptional && !c.grid[b].includes('Music')) c.excused.push(b);
+  for (let b = 0; b < n; b++) if ((tok[b].Music ?? 0) > 0 && (search.musicIsOptional || search.musicSpare[b]) && !c.grid[b].includes('Music')) c.excused.push(b);
   return clean;
 }
 
@@ -446,6 +446,8 @@ class FillSearch {
   private readonly base: { ath: number; ac: number; uh: number; music: number }[];
   /** The weekly Music each bunk still has coming in the weeks after this one: room is kept for it under the session's most. */
   private readonly musicOwedLater: number[];
+  /** May this bunk go without Music this week? Yes when it has had it in at least half the weeks so far. */
+  readonly musicSpare: boolean[];
   /** Periods in which some village is at Shabbat Prep: the Music and Judaics specialists run it, so neither area has a bunk then. */
   private readonly prep: boolean[];
   /** Each bunk's neighbour in its village (the first with the second, the third with the fourth, ...), or -1. They share A&C, so they are kept level. */
@@ -484,6 +486,7 @@ class FillSearch {
     this.prep = ALL_SLOTS.map((s) => c.grid.some((row) => row[s] === 'Shabbat Prep'));
     const unbuilt = remainingWeeks(c).filter((w) => w > c.weekIndex);
     this.musicOwedLater = c.grid.map((_, b) => unbuilt.filter((w) => musicDue(c.roster.village[b], c.roster.pos[b], w)).length);
+    this.musicSpare = c.grid.map((_, b) => (c.hist[b].earlier.Music ?? 0) >= Math.ceil(c.weekIndex / 2));
     this.buddy = c.roster.village.map((v, b) => {
       const members = c.roster.byVillage[v];
       const at = c.roster.pos[b];
@@ -589,6 +592,8 @@ class FillSearch {
     }
     if (area === 'Athletics' || area === 'A&C') {
       if (g.length === 3) cost += WEIGHTS.thirdBunk;
+      // two bunks glazing at Ceramics want the art room's people: ideally nobody is at A&C then
+      if (area === 'A&C' && this.ga.reduce((k, row) => k + (row[s] === 'Ceramics' ? 1 : 0), 0) >= 2) cost += WEIGHTS.thirdBunk * g.length;
       if (area === 'Athletics' && g.some((x) => this.ord[x][s] !== this.ord[g[0]][s])) cost += WEIGHTS.athleticsUnequal;
     } else cost += WEIGHTS.sharedPreferredOne;
     if (far) cost += WEIGHTS.pairFarAge;
@@ -700,7 +705,8 @@ class FillSearch {
     if (this.flexible[b] && ac === 0 && (athWeek > 0 || uh > 0)) cost += WEIGHTS.noAcWeek;
     // no bunk goes without A&C: one that has had none yet gets it before any leftover period goes to Athletics or Time with UH
     if (this.base[b].ac + ac === 0 && (athWeek > 0 || uhOwn > 0)) cost += WEIGHTS.gapOver;
-    if (this.musicPlanned[b] && music === 0) cost += this.musicIsOptional ? WEIGHTS.musicSkipped : HARD; // the week's own Music is never given up, except to Shabbat Prep
+    // the week's own Music may be given up when it will not fit, as long as the bunk still has it every other week (the user: "music whatever works for the schedule .5-1 times a week is fine")
+    if (this.musicPlanned[b] && music === 0) cost += this.musicIsOptional || this.musicSpare[b] ? WEIGHTS.musicSkipped : HARD;
     for (let k = 0; k < this.fillers.length; k++) {
       // a planned Yoga or Ceramics stays; one more may fill a period, up to the most a session allows
       cost += HARD * Math.max(0, this.fillerPlanned[b][k] - fillers[k]);
