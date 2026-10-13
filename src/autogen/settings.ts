@@ -10,6 +10,12 @@ import {
   SLOT_CAP,
   CALENDAR,
   LEAGUE_BY_VILLAGE,
+  LEAGUE_MAX_BY_VILLAGE,
+  LEAGUE_MAX_PER_WEEK,
+  WATERFRONT_MAX_PER_WEEK,
+  WEEK_BLOCK_MIN,
+  VILLAGE_FILLER_MAX,
+  setWeeklyMost,
   POOL_LESSONS,
   POOL_MAX_CAMPERS,
   POOL_TARGETS,
@@ -51,6 +57,8 @@ export interface AreaSettings {
   villagePerDay: number;
   /** Times in a session for one village, by its letter, in place of `min` and `max` (Dance is different for each village). */
   villages?: Record<string, number>;
+  /** For an area set village by village: the most a bunk of a village may have, where that is more than its number. The visits above the number only fill a period. */
+  villagesMax?: Record<string, number>;
   /** The most campers there at once, on top of the limit in bunks. Left out: no limit in campers. */
   campers?: number;
 }
@@ -96,6 +104,8 @@ const OLD_NUMBERS: Record<string, { min: number; max: number }> = { Ceramics: { 
 /** What Teva and Yoga started at in settings version 4, and Ceramics village by village. */
 const OLD_NUMBERS_4: Record<string, { min: number; max: number }> = { Teva: { min: 1, max: 3 }, Yoga: { min: 2, max: 3 } };
 const OLD_CERAMICS_4 = JSON.stringify({ C: 1, M: 2, O: 1, S: 2, T: 2 });
+/** What Ceramics started at in Session 2 in settings version 4. */
+const OLD_CERAMICS_4_SECOND = JSON.stringify({ C: 0, M: 1, O: 0, S: 1, T: 1 });
 
 /** An area that bunks may share: how many at once, how many of one village in a day, and (Athletics, A&C) how many times a bunk may have it in a week. */
 export interface SharedNumbers {
@@ -133,9 +143,17 @@ export interface CoreSettings {
   poolLessons: number;
   poolMaxCampers: number;
   waterfrontPerWeek: number;
+  /** The most Waterfront a village may have in a week: above `waterfrontPerWeek`, only when it has periods to spare. */
+  waterfrontMaxPerWeek: number;
   /** League periods a week, and any village that has its own number (for Tusc: triathlon sessions). */
   leaguePerWeek: number;
   leagueByVillage: Record<string, number>;
+  /** The most league a village may have in a week (above its number, only when it has periods to spare), and any village with its own most. */
+  leagueMaxPerWeek: number;
+  leagueMaxByVillage: Record<string, number>;
+  /** The fewest Athletics and A&C a bunk should have in a week. They are aimed for: both are whatever periods are left. */
+  athleticsMinPerWeek: number;
+  acMinPerWeek: number;
   poolMaxPerWeek: number;
   musicPerWeek: number;
   uhMin: number;
@@ -166,8 +184,12 @@ const CORE_LIMITS = {
   poolLessons: [0, 4],
   poolMaxCampers: [10, 500],
   waterfrontPerWeek: [0, 3],
+  waterfrontMaxPerWeek: [0, 3],
   leaguePerWeek: [0, 3],
-  poolMaxPerWeek: [1, 2],
+  leagueMaxPerWeek: [0, 3],
+  athleticsMinPerWeek: [0, 3],
+  acMinPerWeek: [0, 3],
+  poolMaxPerWeek: [0, 2],
   musicPerWeek: [0, 1],
   uhMin: [0, 6],
   uhMax: [0, 6],
@@ -176,7 +198,7 @@ const CORE_LIMITS = {
 const SHARED_LIMITS: Record<'athletics' | 'ac' | 'music' | 'uh', { atOnce: [number, number]; maxPerWeek: [number, number] }> = {
   athletics: { atOnce: [1, 3], maxPerWeek: [0, 3] }, // never four bunks at once, at Athletics or at A&C
   ac: { atOnce: [1, 3], maxPerWeek: [0, 3] },
-  music: { atOnce: [1, 2], maxPerWeek: [1, 2] },
+  music: { atOnce: [1, 2], maxPerWeek: [0, 3] }, // 3 stands for no weekly limit: nothing is two days running
   uh: { atOnce: [1, 2], maxPerWeek: [0, 0] },
 };
 /** Weeks the Shabbat setting covers. */
@@ -213,8 +235,13 @@ function readCore(): CoreSettings {
     poolLessons: POOL_LESSONS,
     poolMaxCampers: POOL_MAX_CAMPERS,
     waterfrontPerWeek: w.waterfront,
+    waterfrontMaxPerWeek: WATERFRONT_MAX_PER_WEEK,
     leaguePerWeek: w.league,
     leagueByVillage: { ...LEAGUE_BY_VILLAGE },
+    leagueMaxPerWeek: LEAGUE_MAX_PER_WEEK,
+    leagueMaxByVillage: { ...LEAGUE_MAX_BY_VILLAGE },
+    athleticsMinPerWeek: WEEK_BLOCK_MIN.Athletics ?? 0,
+    acMinPerWeek: WEEK_BLOCK_MIN['A&C'] ?? 0,
     poolMaxPerWeek: w.poolMax,
     musicPerWeek: w.music,
     uhMin: SESSION_TARGETS['TW UH'],
@@ -261,7 +288,17 @@ export function normalizeCore(raw: unknown): CoreSettings | null {
   }
   // an older file with Shabbat Prep switched off: nobody has Shabbat in any week
   if (g.shabbatPrep === false) out.shabbatWeeks = Array.from({ length: SHABBAT_WEEKS }, () => []);
-  out.poolMaxPerWeek = Math.max(out.poolMaxPerWeek, out.poolPerWeek, 1);
+  out.poolMaxPerWeek = Math.max(out.poolMaxPerWeek, out.poolPerWeek);
+  out.waterfrontMaxPerWeek = Math.max(out.waterfrontMaxPerWeek, out.waterfrontPerWeek);
+  // a village's own most league: never under its number, and not listed when it is what the village would have anyway
+  const leagueOfVillage = (v: string): number => out.leagueByVillage[v] ?? out.leaguePerWeek;
+  const given = g.leagueMaxByVillage && typeof g.leagueMaxByVillage === 'object' ? g.leagueMaxByVillage : out.leagueMaxByVillage;
+  out.leagueMaxByVillage = {};
+  for (const [letter, n] of Object.entries(given)) {
+    const v = letter.trim().charAt(0).toUpperCase();
+    const most = Math.max(leagueOfVillage(v), wholeIn(n, CORE_LIMITS.leagueMaxPerWeek, out.leagueMaxPerWeek));
+    if (v && most !== Math.max(leagueOfVillage(v), out.leagueMaxPerWeek)) out.leagueMaxByVillage[v] = most;
+  }
   for (const key of Object.keys(SHARED_LIMITS) as (keyof typeof SHARED_LIMITS)[]) {
     const given = g[key];
     if (!given || typeof given !== 'object') continue;
@@ -272,6 +309,8 @@ export function normalizeCore(raw: unknown): CoreSettings | null {
     };
   }
   out.music.maxPerWeek = Math.max(out.music.maxPerWeek, out.musicPerWeek);
+  out.athleticsMinPerWeek = Math.min(out.athleticsMinPerWeek, out.athletics.maxPerWeek);
+  out.acMinPerWeek = Math.min(out.acMinPerWeek, out.ac.maxPerWeek);
   return JSON.stringify(out) === JSON.stringify(STARTING_CORE) ? null : out;
 }
 
@@ -287,6 +326,8 @@ export function normalizeVisits(raw: unknown): VisitSettings | null {
   return same ? null : out;
 }
 
+/** The most league periods a week for one village under these settings. */
+export const leagueMostOf = (s: Settings, v: string): number => Math.max(leagueOf(s, v), coreOf(s).leagueMaxByVillage[v] ?? coreOf(s).leagueMaxPerWeek);
 /** League periods a week for one village under these settings. */
 export const leagueOf = (s: Settings, v: string): number => coreOf(s).leagueByVillage[v] ?? coreOf(s).leaguePerWeek;
 
@@ -401,14 +442,16 @@ const whole = (v: unknown, least: number, most: number, fallback: number): numbe
 };
 
 /** Core numbers saved before settings version 4: the app's old 2 bunks of a village a day follow the app to 3. */
-function broughtUp(core: unknown, saved: number): unknown {
+function broughtUp(core: unknown, saved: number, oldSecond = false): unknown {
   if (saved >= 5 || !core || typeof core !== 'object') return core;
   const five = JSON.parse(JSON.stringify(core)) as Record<string, unknown> & { ac?: Partial<SharedNumbers>; leagueByVillage?: Record<string, number> };
   // version 5: the app's old starting numbers follow the app to the ones from the study
   const move = (key: string, was: number, now: number) => {
     if (Number(five[key]) === was) five[key] = now;
   };
-  if (Number(five.uhMin) === 1 && Number(five.uhMax) === 3) Object.assign(five, { uhMin: 2, uhMax: 4 });
+  // Session 2 as it started before version 5 had ropes once: it is twice now, with three bunks together. Its Time with UH stays 1 to 3.
+  if (oldSecond) Object.assign(five, { ropesPerSession: 2, ropesBunksAlways: 3 });
+  else if (Number(five.uhMin) === 1 && Number(five.uhMax) === 3) Object.assign(five, { uhMin: 2, uhMax: 4 });
   move('ropesMaxCampers', 30, 25);
   move('yogaMaxCampers', 20, 16);
   move('poolMaxCampers', 80, 75);
@@ -445,9 +488,12 @@ export function normalizeSettings(raw: unknown): Settings {
   }
   const sharing = normalizeSharing((raw as { sharing?: unknown }).sharing);
   if (sharing) out.sharing = sharing;
-  const givenCore = (raw as { core?: { yogaMaxCampers?: unknown } | null }).core;
+  const givenCore = (raw as { core?: { yogaMaxCampers?: unknown; ropesPerSession?: unknown } | null }).core;
+  // Session 2's own starting settings from before version 5: ropes once, and Tusc starting on High Ropes
+  const startHigh = (raw as { ropesStartHigh?: unknown }).ropesStartHigh;
+  const oldSecond = saved < 5 && !!givenCore && Number(givenCore.ropesPerSession) === 1 && Array.isArray(startHigh) && startHigh.map(String).includes('T');
   // saved while Yoga started at 22 campers: that was the app's number, not a choice, so it follows the app to 20
-  const core = normalizeCore(broughtUp(saved < 3 && givenCore && Number(givenCore.yogaMaxCampers) === OLD_YOGA_CAMPERS ? { ...givenCore, yogaMaxCampers: defaultCore().yogaMaxCampers } : givenCore, saved));
+  const core = normalizeCore(broughtUp(saved < 3 && givenCore && Number(givenCore.yogaMaxCampers) === OLD_YOGA_CAMPERS ? { ...givenCore, yogaMaxCampers: defaultCore().yogaMaxCampers } : givenCore, saved, oldSecond));
   if (core) out.core = core;
   const visits = normalizeVisits((raw as { visits?: unknown }).visits);
   if (visits) out.visits = visits;
@@ -479,7 +525,7 @@ export function normalizeSettings(raw: unknown): Settings {
     if (!g || typeof g !== 'object') continue;
     const d = out.areas[area];
     // saved under the app's old numbers for this area: they follow the app to the new ones
-    const old = saved < 4 ? OLD_NUMBERS[area] : saved < 5 ? OLD_NUMBERS_4[area] : undefined;
+    const old = saved < 4 ? OLD_NUMBERS[area] : saved < 5 && !(oldSecond && area === 'Teva') ? OLD_NUMBERS_4[area] : undefined; // Session 2's Teva is 1 to 3 still
     if (!(old && Number(g.min) === old.min && Number(g.max) === old.max)) {
       d.min = whole(g.min, 0, 12, d.min);
       d.max = Math.max(d.min, whole(g.max, 0, 12, d.max));
@@ -495,7 +541,7 @@ export function normalizeSettings(raw: unknown): Settings {
       const campers = whole(g.campers, 0, 200, d.campers ?? 0);
       if (campers > 0 || d.campers !== undefined) d.campers = campers;
     }
-    const sameAsOld = (v: unknown): boolean => JSON.stringify(Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, n]) => [k.trim().charAt(0).toUpperCase(), Number(n)]).sort())) === OLD_CERAMICS_4;
+    const sameAsOld = (v: unknown): boolean => JSON.stringify(Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, n]) => [k.trim().charAt(0).toUpperCase(), Number(n)]).sort())) === (oldSecond ? OLD_CERAMICS_4_SECOND : OLD_CERAMICS_4);
     if (saved < 5 && area === 'Ceramics' && g.villages && typeof g.villages === 'object' && sameAsOld(g.villages)) continue; // the app's old numbers follow the app
     if (d.villages && g.villages && typeof g.villages === 'object') {
       const villages: Record<string, number> = {};
@@ -504,6 +550,16 @@ export function normalizeSettings(raw: unknown): Settings {
         if (key) villages[key] = whole(n, 0, 12, d.villages[key] ?? d.min);
       }
       d.villages = villages;
+    }
+    if (d.villages && g.villagesMax && typeof g.villagesMax === 'object') {
+      const most: Record<string, number> = {};
+      for (const [letter, n] of Object.entries(g.villagesMax)) {
+        const key = letter.trim().charAt(0).toUpperCase();
+        const own = d.villages[key] ?? d.min;
+        const top = whole(n, 0, 12, own);
+        if (key && top > own) most[key] = top;
+      }
+      if (Object.keys(most).length) d.villagesMax = most;
     }
   }
   return out;
@@ -547,6 +603,7 @@ export function applySettings(settings?: Settings | null): void {
   const hardMax: Record<string, number> = {};
   const byVillage: Record<string, Record<string, number>> = {};
   const campersNow: Record<string, number> = {};
+  const villageMost: Record<string, Record<string, number>> = {};
   // the added areas: each is an activity of its own, planned as single periods like the rarer areas that come with the app
   const custom = s.custom ?? [];
   for (const old of inForce) {
@@ -568,29 +625,35 @@ export function applySettings(settings?: Settings | null): void {
     const a = s.areas[area];
     if (a.villages && area === 'Dance') {
       replace(DANCE_TARGETS, { ...a.villages, [OTHER]: a.min });
-      hardMax[area] = Math.max(a.min, ...Object.values(a.villages));
+      hardMax[area] = Math.max(a.min, ...Object.values(a.villages), ...Object.values(a.villagesMax ?? {}));
     } else if (a.villages) {
       // set village by village, exactly: a village not listed gets the plain number
       SESSION_TARGETS[area] = a.min;
       byVillage[area] = { ...a.villages };
-      hardMax[area] = Math.max(a.min, ...Object.values(a.villages));
+      hardMax[area] = Math.max(a.min, ...Object.values(a.villages), ...Object.values(a.villagesMax ?? {}));
     } else {
       SESSION_TARGETS[area] = a.min;
       if (a.max > a.min) filler[area] = a.max;
       hardMax[area] = a.max;
     }
+    if (a.villagesMax) villageMost[area] = { ...a.villagesMax };
     if (a.campers) campersNow[area] = a.campers;
     // an area that goes by campers is not held to a number of bunks
     SLOT_CAP[area] = CAMPER_CAP[area] !== undefined ? BY_CAMPERS_SLOT_CAP : a.atOnce;
     DAY_CAP[area] = CAMPER_CAP[area] !== undefined ? BY_CAMPERS_DAY_CAP : a.villagePerDay;
   }
   replace(AREA_CAMPERS, campersNow);
+  for (const key of Object.keys(VILLAGE_FILLER_MAX)) delete VILLAGE_FILLER_MAX[key];
+  Object.assign(VILLAGE_FILLER_MAX, villageMost);
   replace(SESSION_FILLER_MAX, filler);
   replace(SESSION_HARD_MAX, hardMax);
   // Waterfront, league, the pool, Music, Time with UH, Athletics and A&C
   const core = coreOf(s);
   setWeekly({ waterfront: core.waterfrontPerWeek, league: core.leaguePerWeek, music: core.musicPerWeek, poolMax: core.poolMaxPerWeek, uhMax: core.uhMax });
   replace(LEAGUE_BY_VILLAGE, core.leagueByVillage);
+  setWeeklyMost(core.waterfrontMaxPerWeek, core.leagueMaxPerWeek);
+  replace(LEAGUE_MAX_BY_VILLAGE, core.leagueMaxByVillage);
+  replace(WEEK_BLOCK_MIN, { Athletics: core.athleticsMinPerWeek, 'A&C': core.acMinPerWeek });
   SESSION_TARGETS['TW UH'] = core.uhMin;
   SESSION_TARGETS.Ropes = core.ropesPerSession;
   setRopesMax(core.ropesMaxCampers, core.ropesBunksAlways);

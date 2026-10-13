@@ -1,5 +1,5 @@
 import { areaOf } from '../config';
-import { ROPES_START_HIGH, AGE_ALLOWED, EXTRA_BLOCK_KEEP, EXTRA_BLOCK_KEEP_SHORT, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_NOISE, LEAGUE_DAY_PAIRS, LEAGUE_DAY_PATTERNS, leagueFor, leagueMinFor, triathlonPeriodsAWeek, TRI_AWAY_PERIODS, TRIP_LABELS, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, leagueLabelFor } from './config';
+import { ROPES_START_HIGH, AGE_ALLOWED, EXTRA_BLOCK_KEEP, EXTRA_BLOCK_KEEP_SHORT, EXTRA_POOL_MIN_SPARE, LEAGUE_DAY_NOISE, LEAGUE_DAY_PAIRS, LEAGUE_DAY_PATTERNS, leagueFor, leagueMinFor, triathlonPeriodsAWeek, TRI_AWAY_PERIODS, TRIP_LABELS, POOL_MAX_PER_WEEK, POOL_TARGETS, WATERFRONT_HALF_DAY_OFF, FLEXIBLE_VILLAGES, POOL_LESSONS, POOL_MAX_CAMPERS, WATERFRONT_PER_WEEK, WATERFRONT_MAX_PER_WEEK, leagueMaxFor, leagueLabelFor } from './config';
 import { ropeGroups } from './groups';
 import { blocksOf, halfSlots, slotAt } from './history';
 import { TOKEN_AREAS, inWeekCount, type Plan } from './planner';
@@ -665,11 +665,13 @@ export function placeExtraPool(c: Ctx, plan: Plan): void {
   const tokens = (b: number): number => TOKEN_AREAS.reduce((sum, a) => sum + plan[a][b], 0);
   const spare = (b: number): number => ALL_SLOTS.filter((s) => fillable(c, s) && isFree(c, b, s)).length - tokens(b);
   const swims = (v: string): number => Math.max(...idx(c, v).map((b) => (c.hist[b].earlier.Pool ?? 0) + (c.hist[b].later.Pool ?? 0) + inWeekCount(c, b, 'Pool')));
+  const own = (v: string): number => ((POOL_TARGETS[v]?.perWeek ?? POOL_TARGETS[v]?.perSession ?? 1) > 0 ? 1 : 0);
   const tried = new Set<string>();
   for (;;) {
     const least = Math.min(...c.roster.villages.map(swims));
+    // a village whose week has a swim of its own takes one more only once that swim is down
     const able = c.roster.villages.filter(
-      (v) => !tried.has(v) && swims(v) <= least && idx(c, v).every((b) => inWeekCount(c, b, 'Pool') === 1 && spare(b) >= EXTRA_POOL_MIN_SPARE),
+      (v) => !tried.has(v) && swims(v) <= least && idx(c, v).every((b) => inWeekCount(c, b, 'Pool') === own(v) && own(v) < POOL_MAX_PER_WEEK && spare(b) >= EXTRA_POOL_MIN_SPARE),
     );
     if (able.length === 0) return;
     const v = shuffle(c.rng, able)[0];
@@ -678,7 +680,7 @@ export function placeExtraPool(c: Ctx, plan: Plan): void {
     const saved = members.map((b) => [...c.grid[b]]);
     const before = { unmet: c.unmet, carried: c.carried.length, warnings: c.warnings.length };
     placePoolUnits(c, splitPoolUnits(c, poolUnits(c, new Set(members))), true);
-    if (members.every((b) => inWeekCount(c, b, 'Pool') === POOL_MAX_PER_WEEK)) continue;
+    if (members.every((b) => inWeekCount(c, b, 'Pool') === own(v) + 1)) continue;
     // it did not fit for everyone: nobody in the village gets it
     members.forEach((b, i) => {
       saved[i].forEach((label, s) => (c.grid[b][s] = label));
@@ -704,6 +706,7 @@ export function placeExtraVillageBlocks(c: Ctx, plan: Plan): void {
   // a week the calendar has cut short has few periods for the whole camp at once, so a village gives up more of its own to get out of the way
   const keep = (v: string): number => (isShortWeek(open(c, v), c.lastWeek) ? EXTRA_BLOCK_KEEP_SHORT : EXTRA_BLOCK_KEEP);
   const waterfronts = (v: string): number => Math.max(...idx(c, v).map((b) => (c.hist[b].earlier.Waterfront ?? 0) + (c.hist[b].later.Waterfront ?? 0) + inWeekCount(c, b, 'Waterfront')));
+  const inWeek = (v: string, area: string): number => Math.max(...idx(c, v).map((b) => inWeekCount(c, b, area)));
   const best = (v: string, options: number[][]): number[] | null => {
     let pick: { slots: number[]; score: number } | null = null;
     for (const slots of options) {
@@ -716,7 +719,7 @@ export function placeExtraVillageBlocks(c: Ctx, plan: Plan): void {
   for (let guard = 0; guard < 12; guard++) {
     const least = Math.min(...c.roster.villages.map(waterfronts));
     let placed = false;
-    for (const v of shuffle(c.rng, c.roster.villages.filter((x) => waterfronts(x) === least && spare(x) - 2 >= keep(x)))) {
+    for (const v of shuffle(c.rng, c.roster.villages.filter((x) => waterfronts(x) === least && inWeek(x, 'Waterfront') < WATERFRONT_MAX_PER_WEEK && spare(x) - 2 >= keep(x)))) {
       const options: number[][] = [];
       for (const day of c.days) {
         if (villageAreaOnDay(c, v, day, 'Waterfront') || villageOnNextDay(c, v, day, 'Waterfront')) continue;
@@ -739,7 +742,7 @@ export function placeExtraVillageBlocks(c: Ctx, plan: Plan): void {
   for (const v of shuffle(c.rng, c.roster.villages)) {
     if (v === 'T' || leagueFor(v) === 0) continue;
     const len = v === 'M' ? 2 : 1;
-    while (spare(v) - len >= keep(v)) {
+    while (inWeek(v, 'League') < leagueMaxFor(v) && spare(v) - len >= keep(v)) {
       const options: number[][] = [];
       for (const day of c.days) {
         if (villageAreaOnDay(c, v, day, 'League') || villageOnNextDay(c, v, day, 'League')) continue;

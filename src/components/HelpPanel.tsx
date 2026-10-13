@@ -138,7 +138,7 @@ export default function HelpPanel({ onClose }: Props) {
         <h3>Settings</h3>
         <ul>
           <li>
-            Every program area is in one table: how often each bunk has it (a week or a session; for most areas a menu of exactly, at least, no more than, between or leftover), how many bunks at
+            Every program area is in one table: how often each bunk has it (a week or a session; on every row a menu of exactly, at least, no more than, between or leftover, with a choice greyed out where that row cannot keep it), how many bunks at
             once, how many bunks of one village in a day, and whether bunks that share must be on the same visit number. Hobbies, Shabbat
             Prep, the pool's lessons and camper limit, and how many campers ropes takes at once are there too. League is set village by
             village, and hobbies is an exact number of sessions for the whole session.

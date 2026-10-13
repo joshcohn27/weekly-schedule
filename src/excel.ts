@@ -77,17 +77,17 @@ function trackingSheetFromResult(result: TrackingResult): XLSX.WorkSheet {
 }
 
 const SETTINGS_SHEET = 'Settings';
-const SETTINGS_HEADER = ['Program area', 'Times per session: at least', 'At most', 'Bunks at once', 'Bunks of one village in a day', 'By village', 'Most campers at once (0 is no limit)'];
+const SETTINGS_HEADER = ['Program area', 'Times per session: at least', 'At most', 'Bunks at once', 'Bunks of one village in a day', 'By village', 'Most campers at once (0 is no limit)', 'By village, at most (where it is more)'];
 
 /** The Settings tab: one row per program area. "By village" reads "O 3, S 3, C 2" for an area that is set village by village. */
 function buildSettingsSheet(settings: Settings): XLSX.WorkSheet {
   const rows = settingAreas(settings).map((area) => {
     const a = settings.areas[area];
     const byVillage = a.villages ? Object.entries(a.villages).map(([v, n]) => `${v} ${n}`).join(', ') : '';
-    return [area, a.min, a.max, a.atOnce, a.villagePerDay, byVillage, a.campers ?? 0];
+    return [area, a.min, a.max, a.atOnce, a.villagePerDay, byVillage, a.campers ?? 0, Object.entries(a.villagesMax ?? {}).map(([v, n]) => `${v} ${n}`).join(', ')];
   });
   const sheet = XLSX.utils.aoa_to_sheet([SETTINGS_HEADER, ...rows]);
-  sheet['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 9 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 34 }];
+  sheet['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 9 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 34 }, { wch: 36 }];
   return sheet;
 }
 
@@ -98,12 +98,17 @@ export function parseSettingsSheet(wb: XLSX.WorkBook): Settings | null {
   const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
   const areas: Record<string, unknown> = {};
   for (const row of rows.slice(1)) {
-    const villages: Record<string, number> = {};
-    for (const part of String(row[5] ?? '').split(',')) {
-      const match = part.trim().match(/^(\S+)\s+(\d+)$/);
-      if (match) villages[match[1]] = Number(match[2]);
-    }
-    areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}), ...(row[6] !== undefined && row[6] !== '' ? { campers: row[6] } : {}) };
+    const byLetter = (cell: unknown): Record<string, number> => {
+      const out: Record<string, number> = {};
+      for (const part of String(cell ?? '').split(',')) {
+        const match = part.trim().match(/^(\S+)\s+(\d+)$/);
+        if (match) out[match[1]] = Number(match[2]);
+      }
+      return out;
+    };
+    const villages = byLetter(row[5]);
+    const villagesMax = byLetter(row[7]);
+    areas[String(row[0] ?? '')] = { min: row[1], max: row[2], atOnce: row[3], villagePerDay: row[4], ...(Object.keys(villages).length ? { villages } : {}), ...(Object.keys(villagesMax).length ? { villagesMax } : {}), ...(row[6] !== undefined && row[6] !== '' ? { campers: row[6] } : {}) };
   }
   return normalizeSettings({ areas, sharing: parseSharingSheet(wb), calendar: parseCalendarSheet(wb), ...parseMainSheet(wb) });
 }
@@ -142,6 +147,7 @@ function parseSharingSheet(wb: XLSX.WorkBook): unknown {
 const MAIN_SHEET = 'Main areas';
 const ANY_VISIT = 'Any visit number will do at';
 const LEAGUE_BY = 'League, villages with their own number of times a week';
+const LEAGUE_MOST_BY = 'League, villages with their own most a week';
 const LAST_WEEK = 'One visit apart in the last week';
 const VERSION_ROW = 'Settings version';
 const SESSION_ROW = 'Session';
@@ -169,6 +175,10 @@ const MAIN_ROWS: { label: string; get: (c: CoreSettings) => number; set: (c: Cor
   { label: 'Pool, most campers at once', get: (c) => c.poolMaxCampers, set: (c, n) => (c.poolMaxCampers = n as number) },
   { label: 'Waterfront, times a week', get: (c) => c.waterfrontPerWeek, set: (c, n) => (c.waterfrontPerWeek = n as number) },
   { label: 'League, times a week', get: (c) => c.leaguePerWeek, set: (c, n) => (c.leaguePerWeek = n as number) },
+  { label: 'Waterfront, at most a week', get: (c) => c.waterfrontMaxPerWeek, set: (c, n) => (c.waterfrontMaxPerWeek = n as number) },
+  { label: 'League, at most a week', get: (c) => c.leagueMaxPerWeek, set: (c, n) => (c.leagueMaxPerWeek = n as number) },
+  { label: 'Athletics, at least a week', get: (c) => c.athleticsMinPerWeek, set: (c, n) => (c.athleticsMinPerWeek = n as number) },
+  { label: 'A&C, at least a week', get: (c) => c.acMinPerWeek, set: (c, n) => (c.acMinPerWeek = n as number) },
   { label: 'Pool, at most a week', get: (c) => c.poolMaxPerWeek, set: (c, n) => (c.poolMaxPerWeek = n as number) },
   { label: 'Music, times a week', get: (c) => c.musicPerWeek, set: (c, n) => (c.musicPerWeek = n as number) },
   { label: 'Time with UH, at least a session', get: (c) => c.uhMin, set: (c, n) => (c.uhMin = n as number) },
@@ -188,6 +198,7 @@ function buildMainSheet(settings: Settings, session = ''): XLSX.WorkSheet {
     ['Setting', 'Value'],
     ...MAIN_ROWS.map((r) => [r.label, r.get(core)]),
     [LEAGUE_BY, Object.entries(core.leagueByVillage).map(([v, n]) => `${v} ${n}`).join(', ')],
+    [LEAGUE_MOST_BY, Object.entries(core.leagueMaxByVillage).map(([v, n]) => `${v} ${n}`).join(', ')],
     [ANY_VISIT, visits.free.join(', ')],
     [LAST_WEEK, visits.lastWeekSlack ? 'yes' : 'no'],
     [VERSION_ROW, SETTINGS_VERSION],
@@ -208,6 +219,10 @@ function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown; 
   for (const part of String(value.get(LEAGUE_BY) ?? '').split(',')) {
     const match = part.trim().match(/^(\S+)\s+(\d+)$/);
     if (match) core.leagueByVillage[match[1]] = Number(match[2]);
+  }
+  for (const part of String(value.get(LEAGUE_MOST_BY) ?? '').split(',')) {
+    const match = part.trim().match(/^(\S+)\s+(\d+)$/);
+    if (match) core.leagueMaxByVillage[match[1]] = Number(match[2]);
   }
   const shabbat = String(value.get(SHABBAT_BY) ?? '').trim();
   if (shabbat) {

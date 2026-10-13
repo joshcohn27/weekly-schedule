@@ -276,6 +276,15 @@ table.settings td.by-village label {
   display: inline-block;
   margin: 2px 6px;
 }
+table.settings td.by-village.stacked label {
+  display: block;
+  margin: 3px 0;
+  white-space: nowrap;
+}
+table.settings td.by-village.stacked .village {
+  display: inline-block;
+  min-width: 84px;
+}
 table.settings .shabbat-weeks {
   margin-top: 6px;
 }

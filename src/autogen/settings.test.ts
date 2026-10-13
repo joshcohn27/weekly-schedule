@@ -12,11 +12,11 @@ import { normalizeWeeksState } from '../storage';
 import type { Schedule, WeeksState } from '../types';
 import { planCalendar } from './calendar';
 import { blocksOf } from './history';
-import { CALENDAR, CAMPER_CAP, hobbyMost, hobbyWeeks, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, SHABBAT_ROTATION, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
+import { CALENDAR, CAMPER_CAP, hobbyMost, hobbyWeeks, leagueFor, leagueMinFor, triathlonPeriodsAWeek, DANCE_TARGETS, DAY_CAP, POOL_LESSONS, POOL_MAX_CAMPERS, POOL_TARGETS, SESSION_FILLER_MAX, SESSION_HARD_MAX, SESSION_TARGETS, SLOT_CAP, WEEK_BLOCK_MAX, WEEK_BLOCK_MIN, VILLAGE_FILLER_MAX, WATERFRONT_MAX_PER_WEEK, leagueMaxFor, SHABBAT_ROTATION, setVisitWeek, shabbatPrepPeriods, weekly, type Sharing } from './config';
 import { mulberry32 } from './rng';
 import { checkSettings } from './feasibility';
 import { generateRun } from './session';
-import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, coreOf, defaultCore, defaultVisits, leagueOf, sameVisitIn, visitsOf, withCore, withSameVisit, withShabbatWeek, shabbatWeeksOf, withVisits, type Settings } from './settings';
+import { SETTING_AREAS, addArea, applySettings, cleanAreaName, defaultSettings, defaultSharing, isDefaultSettings, normalizeSettings, normalizeSharing, removeArea, settingAreas, whyNotAdd, withPair, withSharing, coreOf, defaultCore, defaultVisits, leagueOf, leagueMostOf, sameVisitIn, visitsOf, withCore, withSameVisit, withShabbatWeek, shabbatWeeksOf, withVisits, type Settings } from './settings';
 import { TOKEN_AREAS } from './planner';
 import { buildRoster, isSameAgeGroup, pairKey, shareLevel, sharingLevel } from './roster';
 import { groupBreaks, slotGroupProblems } from './share';
@@ -138,7 +138,7 @@ describe('settings', () => {
     for (const name of ['Judaics', 'Israel', 'Teva', 'Ceramics', 'Yoga', 'Dance']) expect(html).toContain(`>${name}</th>`);
     expect(html).toContain('aria-label="Yoga at least"');
     expect(html).toContain('aria-label="Yoga at most"');
-    expect(html).toContain('aria-label="Dance times for village M"');
+    expect(html).toContain('aria-label="Dance for village M exactly"');
     expect(html).not.toContain('aria-label="Dance at least"');
     expect(html).toMatch(/<button[^>]*disabled[^>]*>Reset to the default settings/); // nothing to reset yet
     // the rules that are always kept are not shown on this page for now
@@ -450,8 +450,13 @@ describe('the main areas and the visit numbers', () => {
       poolLessons: 2,
       poolMaxCampers: 75,
       waterfrontPerWeek: 2,
+      waterfrontMaxPerWeek: 3,
       leaguePerWeek: 2,
       leagueByVillage: { M: 3 },
+      leagueMaxPerWeek: 2,
+      leagueMaxByVillage: {},
+      athleticsMinPerWeek: 0,
+      acMinPerWeek: 0,
       poolMaxPerWeek: 2,
       musicPerWeek: 1,
       uhMin: 2,
@@ -647,21 +652,20 @@ describe('the main areas and the visit numbers', () => {
   it('shows on the page: a row for each main area with its own numbers, the same-visit boxes and the last-week switch', () => {
     const html = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O'], onChange: noop, onReset: noop }));
     for (const label of [
-      'Waterfront times a week',
-      'League times a week for village O',
-      'Pool times a week',
-      'Pool at most a week',
+      'Waterfront at least a week',
+      'League for village O exactly a week',
+      'Pool at least a week',
       'Pool lessons alone',
       'Pool most campers at once',
-      'Ropes times a session',
-      'Hobbies sessions in the whole session',
+      'Ropes exactly',
+      'Hobbies exactly',
       'Ropes most campers at once',
-      'Shabbat Prep extra periods',
+      'Shabbat Prep exactly',
       'Shabbat week 2 village O',
       'Shabbat week 4 no Shabbat',
-      'Athletics at most a week',
-      'A&amp;C at most a week',
-      'Music times a week',
+      'Athletics how often',
+      'A&amp;C how often',
+      'Music at least a week',
       'Music at most a week',
       'Time with UH at least a session',
       'Time with UH at most a session',
@@ -677,6 +681,77 @@ describe('the main areas and the visit numbers', () => {
     expect(ticked('Athletics same visit number')).toBe(false);
     expect(ticked('Time with UH same visit number')).toBe(false);
     expect(ticked('One visit apart in the last week')).toBe(false);
+  });
+
+  it('says how often the same way on every row, and greys out what a row cannot keep', async () => {
+    const { kindsThatFit, asKind, kindOf } = await import('../components/HowOften');
+    const html = renderToStaticMarkup(createElement(SettingsView, { settings: defaultSettings(), villages: ['O', 'M', 'T'], onChange: noop, onReset: noop }));
+    for (const row of ['Waterfront', 'League for village O', 'League for village T', 'Pool', 'Ropes', 'Hobbies', 'Shabbat Prep', 'Athletics', 'A&amp;C', 'Music', 'Time with UH', 'Judaics', 'Israel', 'Teva', 'Yoga', 'Ceramics for village O', 'Dance for village M', 'New program area']) {
+      expect(html, row).toContain(`aria-label="${row} how often"`);
+    }
+    // every menu lists the same five ways
+    expect((html.match(/>Leftover<\/option>/g) ?? []).length).toBe((html.match(/how often"/g) ?? []).length);
+    // what each row starts as
+    const picked = (row: string): string => (html.match(new RegExp(`aria-label="${row} how often"[^>]*>.*?<option value="(\\w+)"[^>]*selected`)) ?? [])[1];
+    expect(['Waterfront', 'League for village O', 'League for village M', 'Pool', 'Ropes', 'Athletics', 'A&amp;C', 'Music', 'Ceramics for village O'].map(picked)).toEqual(['atLeast', 'exactly', 'exactly', 'atLeast', 'exactly', 'leftover', 'leftover', 'between', 'exactly']);
+    // a week holds three of anything at the most; the pool two, and one of them given; Music is given once at the most
+    expect(kindsThatFit(3)).toEqual(['exactly', 'atLeast', 'noMore', 'between', 'leftover']);
+    expect(kindsThatFit(2, 1)).toEqual(['exactly', 'atLeast', 'noMore', 'leftover']);
+    expect(asKind('exactly', { min: 0, max: 3 }, 3, 1)).toEqual({ min: 1, max: 1 });
+    expect(asKind('atLeast', { min: 1, max: 2 }, 3, 1)).toEqual({ min: 1, max: 3 });
+    expect(kindOf({ min: 0, max: 3 }, 3)).toBe('leftover');
+    // ropes is a set number: the other ways are there, greyed out
+    const ropes = html.slice(html.indexOf('aria-label="Ropes how often"'));
+    expect(ropes.slice(0, ropes.indexOf('</select>'))).toMatch(/<option value="between" disabled=""/);
+  });
+
+  it('keeps a least and a most for Waterfront, league, Athletics, A&C, and the areas set village by village', () => {
+    const core = { ...defaultCore(), waterfrontPerWeek: 1, waterfrontMaxPerWeek: 2, leagueMaxByVillage: { O: 3, C: 2 }, athleticsMinPerWeek: 1, acMinPerWeek: 5 };
+    const s = withCore(defaultSettings(), core);
+    expect(coreOf(s).leagueMaxByVillage).toEqual({ O: 3 }); // Cayuga's 2 is what it would have anyway
+    expect(leagueMostOf(s, 'O')).toBe(3);
+    expect(leagueMostOf(s, 'C')).toBe(2);
+    expect(leagueMostOf(s, 'M')).toBe(3); // never under the village's own number
+    expect(coreOf(s).acMinPerWeek).toBe(3);
+    // a most under the least is brought up to it
+    expect(coreOf(withCore(defaultSettings(), { ...defaultCore(), waterfrontPerWeek: 3, waterfrontMaxPerWeek: 1 })).waterfrontMaxPerWeek).toBe(3);
+    const dance = withArea('Dance', { villagesMax: { O: 5, M: 1, S: 2 } });
+    const read = normalizeSettings({ ...s, areas: dance.areas });
+    expect(read.areas.Dance.villagesMax).toEqual({ O: 5 }); // only where it is more than the village's number
+    applySettings(read);
+    expect(WATERFRONT_MAX_PER_WEEK).toBe(2);
+    expect(leagueMaxFor('O')).toBe(3);
+    expect(leagueMaxFor('S')).toBe(2);
+    expect(WEEK_BLOCK_MIN).toEqual({ Athletics: 1, 'A&C': 3 });
+    expect(VILLAGE_FILLER_MAX).toEqual({ Dance: { O: 5 } });
+    expect(SESSION_HARD_MAX.Dance).toBe(5);
+    applySettings();
+    expect(VILLAGE_FILLER_MAX).toEqual({});
+    expect(WATERFRONT_MAX_PER_WEEK).toBe(3);
+    expect(leagueMaxFor('O')).toBe(2);
+    // and they come back from the Excel file
+    const back = parseSettingsSheet(buildAllWeeksWorkbook([sampleSchedule(), null, null, null], read));
+    expect(back?.areas.Dance.villagesMax).toEqual({ O: 5 });
+    expect(coreOf(back as Settings)).toEqual(coreOf(read));
+  });
+
+  it('brings a Session 2 saved with the old starting numbers up to ropes twice, and keeps its own lower numbers', () => {
+    const old = defaultSettings();
+    Object.assign(old.areas.Teva, { min: 1, max: 3 });
+    old.areas.Ceramics.villages = { O: 0, C: 0, S: 1, M: 1, T: 1 };
+    const saved = { ...old, v: 4, core: { ...defaultCore(), ropesPerSession: 1, ropesMaxCampers: 30, uhMin: 1, uhMax: 3, leaguePerWeek: 2, leagueByVillage: {} }, villageTargets: { Ropes: { T: 1 } }, ropesStartHigh: ['T'] };
+    const now = normalizeSettings(saved);
+    expect(coreOf(now).ropesPerSession).toBe(2);
+    expect(coreOf(now).ropesBunksAlways).toBe(3);
+    expect(coreOf(now).ropesMaxCampers).toBe(25);
+    expect([coreOf(now).uhMin, coreOf(now).uhMax]).toEqual([1, 3]);
+    expect(now.areas.Teva).toMatchObject({ min: 1, max: 3 });
+    expect(now.areas.Ceramics.villages).toEqual({ O: 2, C: 2, S: 2, M: 2, T: 2 });
+    expect(now.villageTargets).toEqual({ Ropes: { T: 1 } });
+    // a Session 1 saved under the same version is not touched by this
+    const first = normalizeSettings({ ...old, v: 4, core: { ...defaultCore(), ropesPerSession: 1 } });
+    expect(coreOf(first).ropesPerSession).toBe(1);
+    expect(coreOf(first).ropesBunksAlways).toBe(2);
   });
 
   it('is told by the arithmetic check when a main number leaves too much for Athletics and A&C', () => {

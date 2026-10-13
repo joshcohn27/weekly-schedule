@@ -5,6 +5,25 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.12.0 (October 12, 2026)
+
+How often is said the same way on every row of the Settings tab.
+
+- **The same menu everywhere.** Waterfront, league, the pool, ropes, hobbies, Shabbat Prep, Athletics, A&C, Music, Dance
+  and Ceramics now have the menu the other areas had: exactly, at least, no more than, between, or leftover. League,
+  Dance and Ceramics have one for each village.
+- **What the new choices do.** Waterfront and league: the first number is what a village is given in a week, and anything
+  up to the second is only added when its bunks have periods to spare. Athletics and A&C: a most is kept, and a least is
+  aimed for without ever being a reason to leave a week unfinished. Dance and Ceramics: a village may be given a most
+  above its number, and the visits above the number only fill a period.
+- **Greyed out where a row cannot keep it.** Ropes, hobbies, Shabbat Prep and Tusc's triathlon are set numbers, so only
+  "exactly" is offered. The pool has two swims a week at the most, so it has no "between".
+- **League starts as exactly 2 a week, and exactly 3 for Mohawk.** Before, a village with periods to spare could be given
+  a third. In eight test sessions no village was, so the schedules that come out are the same.
+- **A Session 2 saved before 1.11.0** follows the app to ropes twice with three bunks together, and Ceramics twice. Its
+  own lower numbers for Teva and Time with UH are kept.
+- The new numbers go into the Excel file and come back from it.
+
 ## 1.11.1 (October 12, 2026)
 
 - Going one over a limit is for any bunks the sharing choices and the grid let be together, so Onondaga with Cayuga and

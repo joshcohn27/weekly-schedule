@@ -51,6 +51,11 @@ export const SESSION_HARD_MAX: Record<string, number> = { Judaics: 3, 'Israel Ed
 /** Dance blocks per session for each village letter. '*' is a village not listed. */
 export const DANCE_TARGETS: Record<string, number> = { O: 3, S: 3, C: 2, T: 2, M: 1, '*': 2 };
 /**
+ * For an area that is set village by village (Dance, Ceramics): the most a bunk of a village may have in a session, when
+ * that is more than the village's number. The visits above the number only fill a period, like SESSION_FILLER_MAX.
+ */
+export const VILLAGE_FILLER_MAX: Record<string, Record<string, number>> = {};
+/**
  * Every village swims about once a week, so the villages end the session with very nearly the same number of swims.
  * perWeek is a swim that must be there every week; perSession is a total (never more than one for each week of the session)
  * that may be made up in another week when a week has no room.
@@ -208,6 +213,8 @@ export const ONE_VILLAGE_AREAS = ['TW UH', 'Judaics'];
 export const SINGLE_PERIOD_AREAS = ['Athletics', 'A&C'];
 /** H15: most blocks of this area one bunk may have in a week. */
 export const WEEK_BLOCK_MAX: Record<string, number> = { Athletics: 3, 'A&C': 3, Music: 2 };
+/** The fewest blocks of Athletics or A&C a bunk should have in a week, when the settings ask for some. It is aimed for, not required. */
+export const WEEK_BLOCK_MIN: Record<string, number> = {};
 
 // ---- Pool (H16) ---------------------------------------------------------------------------------
 
@@ -466,6 +473,18 @@ export let LEAGUE_MIN_PER_WEEK = 2;
  */
 export const LEAGUE_BY_VILLAGE: Record<string, number> = { M: 3 };
 export const leagueFor = (v: string): number => LEAGUE_BY_VILLAGE[v] ?? LEAGUE_PER_WEEK;
+/**
+ * The most Waterfront and league a village may have in a week. Above the week's own number, a block is only given to a
+ * village with periods to spare (placeExtraVillageBlocks). Nothing is two days running, so three is the most there can be.
+ */
+export let WATERFRONT_MAX_PER_WEEK = 3;
+export let LEAGUE_MAX_PER_WEEK = 2; // the study: league is twice a week at the most for everyone but Mohawk
+export const LEAGUE_MAX_BY_VILLAGE: Record<string, number> = {};
+export const leagueMaxFor = (v: string): number => Math.max(leagueFor(v), LEAGUE_MAX_BY_VILLAGE[v] ?? LEAGUE_MAX_PER_WEEK);
+export function setWeeklyMost(waterfront: number, league: number): void {
+  WATERFRONT_MAX_PER_WEEK = waterfront;
+  LEAGUE_MAX_PER_WEEK = league;
+}
 /** The fewest a village may have in a week and still be fine: a short week has one fewer than usual, never more than its number. */
 export const leagueMinFor = (v: string): number => Math.min(LEAGUE_MIN_PER_WEEK, leagueFor(v));
 /** Periods Tusc's triathlon training takes in a week it is in camp. */

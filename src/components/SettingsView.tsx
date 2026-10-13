@@ -31,6 +31,13 @@ const NAME: Record<string, string> = { 'Israel Education': 'Israel' };
 /** The biggest number of times a session an area can be set to: it stands for "no limit". */
 const AREA_MOST = 12;
 const nameOf = (area: string): string => NAME[area] ?? area;
+/** One village's numbers changed, for an area that is set village by village. A most is only kept where it is above the village's number. */
+function byVillage(a: AreaSettings, v: string, next: { min: number; max: number }): Partial<AreaSettings> {
+  const villages = { ...a.villages, [v]: next.min };
+  const most: Record<string, number> = {};
+  for (const [key, n] of Object.entries({ ...a.villagesMax, [v]: next.max })) if (n > (villages[key] ?? a.min)) most[key] = n;
+  return { villages, villagesMax: Object.keys(most).length ? most : undefined };
+}
 
 /** The rules that are always kept and cannot be changed here. */
 export const FIXED_RULES = [
@@ -152,13 +159,23 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                     )}
                   </th>
                   {a.villages ? (
-                    <td className="by-village">
-                      {villages.map((v) => (
-                        <label key={v}>
-                          {villageName(v)} {number(area, `times for village ${v}`, a.villages?.[v] ?? a.min, 0, 12, (n) => set(area, { villages: { ...a.villages, [v]: n } }))}
-                        </label>
-                      ))}{' '}
-                      a session, exactly
+                    <td className="by-village stacked">
+                      {villages.map((v) => {
+                        const own = a.villages?.[v] ?? a.min;
+                        return (
+                          <label key={v}>
+                            <span className="village">{villageName(v)}</span>
+                            <HowOften
+                              label={`${nameOf(area)} for village ${v}`}
+                              plain
+                              most={AREA_MOST}
+                              value={{ min: own, max: Math.max(own, a.villagesMax?.[v] ?? own) }}
+                              disabled={disabled}
+                              onChange={(next) => set(area, byVillage(a, v, next))}
+                            />
+                          </label>
+                        );
+                      })}
                     </td>
                   ) : (
                     <td>
@@ -243,14 +260,15 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
         gives it to every bunk as single periods. To stop using an area that comes with the app, set it to exactly 0.
       </p>
       <p className="hint">
-        How many times a session is said the same way for Time with UH, Judaics, Israel, Teva, Yoga and any area you add.{' '}
+        How many times is said the same way on every row.{' '}
         <strong>Exactly</strong> gives every bunk that many. <strong>At least</strong> gives every bunk that many, and more when there
         are periods to fill. <strong>No more than</strong> gives nobody a set number: the area only fills periods that would otherwise be
         Athletics or A&C, up to that many. <strong>Between</strong> gives every bunk the first number and fills periods up to the second.{' '}
         <strong>Leftover</strong> is whatever periods are left, with no number at all. When the calendar leaves a bunk too few periods for
-        everything, it ends short of something either way. "A week" is the average over the session: a
-        short week, or one with a trip in it, gets fewer. Dance is set village by village. Athletics and A&C are whatever periods the
-        other areas leave, up to their weekly number, so raising another area means less of them and lowering one means more.
+        everything, it ends short of something either way. A way that is greyed out is one that row cannot keep: ropes, hobbies and
+        Shabbat Prep are set numbers, and the pool has two swims a week at the most. "A week" is the average over the session: a
+        short week, or one with a trip in it, gets fewer. League, Dance and Ceramics are set village by village. Athletics and A&C
+        are whatever periods the other areas leave, so raising another area means less of them and lowering one means more.
       </p>
       <p className="hint">
         "Same visit number" ticked means bunks that share a period there must be on the same visit; unticked, any visit will do.

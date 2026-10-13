@@ -11,6 +11,7 @@ import {
   type Settings,
   type SharedNumbers,
   leagueOf,
+  leagueMostOf,
 } from '../autogen/settings';
 import { villageName } from '../autofill';
 import HowOften from './HowOften';
@@ -29,6 +30,14 @@ interface Props {
 type SharedKey = 'athletics' | 'ac' | 'music' | 'uh';
 /** The most Time with UH can be set to in a session: it stands for "no limit". */
 const UH_MOST = 6;
+/** The most of anything a bunk can have in a week: nothing is two days running. It stands for "no limit". */
+const WEEK_MOST = 3;
+/** Why a way of saying it is greyed out on a row that cannot keep it. */
+const WHY = {
+  set: 'This one is a set number, so it can only be said as "exactly".',
+  pool: 'The pool has two swims a week at the most, so there is no room for a range.',
+  tusc: 'For Tusc the number is triathlon sessions, which are a set number.',
+};
 /** The shared areas: the name on the page, the program area, and how many bunks at once it can be set to. */
 const SHARED: { key: SharedKey; name: string; area: string; atOnce: number[] }[] = [
   { key: 'athletics', name: 'Athletics', area: 'Athletics', atOnce: [1, 2, 3] },
@@ -63,8 +72,18 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
     if (key === 'music') {
       return (
         <>
-          at least {number('Music times a week', core.musicPerWeek, 0, 1, (n) => set({ musicPerWeek: n }))} a week <Info text={HINT.aWeek} />, at most{' '}
-          {number('Music at most a week', core.music.maxPerWeek, 1, 2, (n) => setShared('music', { maxPerWeek: n }))} <Info text={HINT.atMost} />
+          <HowOften
+            label="Music"
+            labelEnd=" a week"
+            unit="a week"
+            plain
+            most={WEEK_MOST}
+            minTop={1}
+            value={{ min: core.musicPerWeek, max: core.music.maxPerWeek }}
+            disabled={disabled}
+            onChange={(next) => set({ musicPerWeek: next.min, music: { ...core.music, maxPerWeek: next.max } })}
+          />{' '}
+          <Info text={HINT.musicWeek} />
         </>
       );
     }
@@ -72,9 +91,20 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
       return <HowOften label="Time with UH" labelEnd=" a session" value={{ min: core.uhMin, max: core.uhMax }} most={UH_MOST} disabled={disabled} onChange={(next) => set({ uhMin: next.min, uhMax: next.max })} />;
     }
     const name = key === 'ac' ? 'A&C' : 'Athletics';
+    const least = key === 'ac' ? core.acMinPerWeek : core.athleticsMinPerWeek;
     return (
       <>
-        at most {number(`${name} at most a week`, core[key].maxPerWeek, 0, 3, (n) => setShared(key, { maxPerWeek: n }))} a week <Info text={HINT.leftover} />
+        <HowOften
+          label={name}
+          labelEnd=" a week"
+          unit="a week"
+          plain
+          most={WEEK_MOST}
+          value={{ min: least, max: core[key].maxPerWeek }}
+          disabled={disabled}
+          onChange={(next) => set({ [key === 'ac' ? 'acMinPerWeek' : 'athleticsMinPerWeek']: next.min, [key]: { ...core[key], maxPerWeek: next.max } } as Partial<Core>)}
+        />{' '}
+        <Info text={HINT.leftover} />
       </>
     );
   };
@@ -84,7 +114,17 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
       <tr>
         <th scope="row">Waterfront</th>
         <td>
-          about {number('Waterfront times a week', core.waterfrontPerWeek, 0, 3, (n) => set({ waterfrontPerWeek: n }))} a week <Info text={HINT.aWeek} />
+          <HowOften
+            label="Waterfront"
+            labelEnd=" a week"
+            unit="a week"
+            plain
+            most={WEEK_MOST}
+            value={{ min: core.waterfrontPerWeek, max: core.waterfrontMaxPerWeek }}
+            disabled={disabled}
+            onChange={(next) => set({ waterfrontPerWeek: next.min, waterfrontMaxPerWeek: next.max })}
+          />{' '}
+          <Info text={HINT.villageWeek} />
         </td>
         <td colSpan={3} className="fixed">
           A whole village, one village at a time
@@ -92,17 +132,38 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
       </tr>
       <tr>
         <th scope="row">League</th>
-        <td className="by-village">
-          about{' '}
-          {villages.length === 0
-            ? number('League times a week', core.leaguePerWeek, 0, 3, (n) => set({ leaguePerWeek: n }))
-            : villages.map((v) => (
-                <label key={v}>
-                  {villageName(v)}{' '}
-                  {number(`League times a week for village ${v}`, leagueOf(settings, v), 0, 3, (n) => set({ leagueByVillage: { ...core.leagueByVillage, [v]: n } }))}
-                </label>
-              ))}{' '}
-          a week <Info text={HINT.aWeek} />
+        <td className="by-village stacked">
+          {villages.length === 0 ? (
+            <HowOften
+              label="League"
+              labelEnd=" a week"
+              unit="a week"
+              plain
+              most={WEEK_MOST}
+              value={{ min: core.leaguePerWeek, max: Math.max(core.leaguePerWeek, core.leagueMaxPerWeek) }}
+              disabled={disabled}
+              onChange={(next) => set({ leaguePerWeek: next.min, leagueMaxPerWeek: next.max })}
+            />
+          ) : (
+            villages.map((v) => (
+              <label key={v}>
+                <span className="village">{villageName(v)}</span>
+                <HowOften
+                  label={`League for village ${v}`}
+                  labelEnd=" a week"
+                  unit="a week"
+                  plain
+                  most={WEEK_MOST}
+                  can={v === 'T' ? ['exactly'] : undefined}
+                  why={WHY.tusc}
+                  value={{ min: leagueOf(settings, v), max: leagueMostOf(settings, v) }}
+                  disabled={disabled}
+                  onChange={(next) => set({ leagueByVillage: { ...core.leagueByVillage, [v]: next.min }, leagueMaxByVillage: { ...core.leagueMaxByVillage, [v]: next.max } })}
+                />
+              </label>
+            ))
+          )}{' '}
+          <Info text={HINT.villageWeek} />
         </td>
         <td colSpan={3} className="fixed">
           A whole village, set village by village. Mohawk's are double periods. For Tusc the number is triathlon sessions.
@@ -111,9 +172,19 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
       <tr>
         <th scope="row">Pool</th>
         <td>
-          at least {number('Pool times a week', core.poolPerWeek, 0, 1, (n) => set({ poolPerWeek: n, poolMaxPerWeek: Math.max(1, n, core.poolMaxPerWeek) }))} a
-          week <Info text={HINT.aWeek} />, at most {number('Pool at most a week', core.poolMaxPerWeek, 1, 2, (n) => set({ poolMaxPerWeek: n }))}{' '}
-          <Info text="A second swim in a week is given a whole village at a time, to the village that has swum least, when it fits." />
+          <HowOften
+            label="Pool"
+            labelEnd=" a week"
+            unit="a week"
+            plain
+            most={2}
+            minTop={1}
+            why={WHY.pool}
+            value={{ min: core.poolPerWeek, max: core.poolMaxPerWeek }}
+            disabled={disabled}
+            onChange={(next) => set({ poolPerWeek: next.min, poolMaxPerWeek: next.max })}
+          />{' '}
+          <Info text="A swim above the week's own is given a whole village at a time, to the village that has swum least, when it fits. A short week, or one with a trip in it, gets fewer." />
         </td>
         <td colSpan={3}>
           Lessons alone for an O or C bunk: the first {number('Pool lessons alone', core.poolLessons, 0, 4, (n) => set({ poolLessons: n }))} swims. Most campers
@@ -122,7 +193,9 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
       </tr>
       <tr>
         <th scope="row">Ropes</th>
-        <td>exactly {number('Ropes times a session', core.ropesPerSession, 0, 2, (n) => set({ ropesPerSession: n }))} a session</td>
+        <td>
+          <HowOften label="Ropes" plain most={2} can={['exactly']} why={WHY.set} value={{ min: core.ropesPerSession, max: core.ropesPerSession }} disabled={disabled} onChange={(next) => set({ ropesPerSession: next.min })} />
+        </td>
         <td colSpan={3}>
           At most {number('Ropes most campers at once', core.ropesMaxCampers, 5, 200, (n) => set({ ropesMaxCampers: n }))} campers at once, or{' '}
           {number('Ropes bunks always together', core.ropesBunksAlways, 1, 4, (n) => set({ ropesBunksAlways: n }))} bunks whatever their campers{' '}
@@ -132,8 +205,17 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
       <tr>
         <th scope="row">Hobbies</th>
         <td>
-          exactly {number('Hobbies sessions in the whole session', core.hobbySessions, 0, 9, (n) => set({ hobbySessions: n }))} sessions in the whole
-          session{' '}
+          <HowOften
+            label="Hobbies"
+            unit="sessions in the whole session"
+            plain
+            most={9}
+            can={['exactly']}
+            why={WHY.set}
+            value={{ min: core.hobbySessions, max: core.hobbySessions }}
+            disabled={disabled}
+            onChange={(next) => set({ hobbySessions: next.min })}
+          />{' '}
           <Info text="A hobby session is a half-day for the whole camp. This is the total for the entire session, not a number a week. They are shared out like this: every week gets its Friday morning first (the last week of a 4-week session gets Monday morning instead, and that is all it can have); then a midweek one each week, Wednesday afternoon or Tuesday morning; then Sunday mornings from week 2 on. So 4 is one a week, 7 is two a week and one in the last week, and 9 is the most a 4-week session holds (8 for a 3-week one)." />
         </td>
         <td colSpan={3} className="fixed">
@@ -143,9 +225,18 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
       <tr>
         <th scope="row">Shabbat Prep</th>
         <td colSpan={4}>
-          In a village's Shabbat week: the Friday afternoon double always, and exactly{' '}
-          {number('Shabbat Prep extra periods', core.shabbatPrepExtra, 0, 2, (n) => set({ shabbatPrepExtra: n }))} more single periods earlier that
-          week{' '}
+          In a village's Shabbat week: the Friday afternoon double always, and{' '}
+          <HowOften
+            label="Shabbat Prep"
+            unit="more single periods earlier that week"
+            plain
+            most={2}
+            can={['exactly']}
+            why={WHY.set}
+            value={{ min: core.shabbatPrepExtra, max: core.shabbatPrepExtra }}
+            disabled={disabled}
+            onChange={(next) => set({ shabbatPrepExtra: next.min })}
+          />{' '}
           <Info text="The Friday afternoon double is always there in a village's Shabbat week. The number is how many single periods it gets on top, earlier in the week (0 to 2; two are never on days next to each other). Shabbat Prep is run by the Music and Judaics specialists, so no bunk has Music or Judaics while a village is at Shabbat Prep. Villages that share a week prepare together." />
           <div className="shabbat-weeks">
             Who has Shabbat each week:

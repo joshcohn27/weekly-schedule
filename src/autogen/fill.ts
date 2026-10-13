@@ -15,6 +15,8 @@ import {
   MUSIC_SESSION_MAX,
   RARE_AREAS,
   SESSION_FILLER_MAX,
+  VILLAGE_FILLER_MAX,
+  WEEK_BLOCK_MIN,
   SHABBAT_PREP_STAFF,
   PLACED_FIRST,
   SLOT_CAP,
@@ -429,6 +431,7 @@ class FillSearch {
   private fillerPlanned: number[][] = [];
   /** How many of each filler area each bunk has in the other weeks. */
   private readonly fillerBase: number[][];
+  private readonly fillerMost: number[][];
   /** The areas that may fill a leftover period this run (they come from the settings), and every label a leftover period may be. */
   private readonly fillers: string[];
   private readonly leftover: string[];
@@ -479,8 +482,10 @@ class FillSearch {
     });
     this.allowedGap = c.roster.village.map((v) => (FLEXIBLE_VILLAGES.includes(v) ? GAP_MAX_MT : GAP_MAX_OCS) + slack + c.stretch);
     const other = (b: number, area: string): number => (c.hist[b].earlier[area] ?? 0) + (c.hist[b].later[area] ?? 0);
-    this.fillers = Object.keys(SESSION_FILLER_MAX).filter((a) => TOKEN_AREAS.includes(a) && a !== 'Music' && a !== 'TW UH');
+    this.fillers = [...new Set([...Object.keys(SESSION_FILLER_MAX), ...Object.keys(VILLAGE_FILLER_MAX)])].filter((a) => TOKEN_AREAS.includes(a) && a !== 'Music' && a !== 'TW UH');
     this.leftover = [...LEFTOVER_ALWAYS, ...this.fillers.map(labelOf)];
+    // the most of each a bunk may end the session with: its village's own most, else its village's number, else the area's most
+    this.fillerMost = c.roster.village.map((v) => this.fillers.map((a) => VILLAGE_FILLER_MAX[a]?.[v] ?? VILLAGE_TARGETS[a]?.[v] ?? SESSION_FILLER_MAX[a] ?? sessionTargetOf(v, c.sessionWeeks, a)));
     this.fillerBase = c.grid.map((_, b) => this.fillers.map((a) => other(b, a)));
     this.base = c.grid.map((_, b) => ({ ath: other(b, 'Athletics'), ac: other(b, 'A&C'), uh: other(b, 'TW UH'), music: other(b, 'Music') }));
     this.prep = ALL_SLOTS.map((s) => c.grid.some((row) => row[s] === 'Shabbat Prep'));
@@ -702,6 +707,8 @@ class FillSearch {
     const musicMax = Math.max(this.musicPlanned[b] ? 1 : 0, Math.min(musicWeek, MUSIC_SESSION_MAX - this.base[b].music - this.musicOwedLater[b]));
     cost += HARD * (Math.max(0, athWeek - WEEK_BLOCK_MAX.Athletics) + Math.max(0, acWeek - WEEK_BLOCK_MAX['A&C']) + Math.min(music, Math.max(0, musicAll - musicMax)));
     // Mohawk and Tusc have few periods left over, and those should not all go to Athletics and Time with UH
+    // a least number of Athletics or A&C a week, when the settings ask for one: aimed for, never a reason to fail the week
+    cost += WEIGHTS.gapOver * (Math.max(0, (WEEK_BLOCK_MIN.Athletics ?? 0) - ath) + Math.max(0, (WEEK_BLOCK_MIN['A&C'] ?? 0) - ac));
     if (this.flexible[b] && ac === 0 && (athWeek > 0 || uh > 0)) cost += WEIGHTS.noAcWeek;
     // no bunk goes without A&C: one that has had none yet gets it before any leftover period goes to Athletics or Time with UH
     if (this.base[b].ac + ac === 0 && (athWeek > 0 || uhOwn > 0)) cost += WEIGHTS.gapOver;
@@ -710,7 +717,7 @@ class FillSearch {
     for (let k = 0; k < this.fillers.length; k++) {
       // a planned Yoga or Ceramics stays; one more may fill a period, up to the most a session allows
       cost += HARD * Math.max(0, this.fillerPlanned[b][k] - fillers[k]);
-      cost += HARD * Math.min(fillersOwn[k], Math.max(0, this.fillerBase[b][k] + fillers[k] - (VILLAGE_TARGETS[this.fillers[k]]?.[c.roster.village[b]] ?? SESSION_FILLER_MAX[this.fillers[k]])));
+      cost += HARD * Math.min(fillersOwn[k], Math.max(0, this.fillerBase[b][k] + fillers[k] - this.fillerMost[b][k]));
       cost += WEIGHTS.fillerExtra * Math.max(0, fillers[k] - this.fillerPlanned[b][k]);
     }
     cost += WEIGHTS.musicExtra * Math.max(0, music - 1);

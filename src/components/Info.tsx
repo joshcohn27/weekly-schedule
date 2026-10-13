@@ -57,12 +57,14 @@ export default function Info({ text }: Props) {
 /** What the "i" says in the places it is used more than once. */
 export const HINT = {
   aWeek: 'A rough number: the average over the whole session. A short week, or one with a trip in it, gets fewer.',
+  villageWeek: 'A whole village goes at a time. The first number is what the village is given in a week; anything up to the second is only added when its bunks have periods to spare. These are averages over the session: a short week, or one with a trip in it, gets fewer. Nothing is two days running, so three in a week is the most there can be.',
+  musicWeek: 'The first number is the weekly Music, and anything above it only fills a period. A bunk may go without in a week where it will not fit, as long as it has Music every other week, and it never has more than four in a session.',
   exactly: 'Every bunk is given this many, no more.',
   atLeast: 'Every bunk is given this many. More may be added to fill a period that would otherwise be Athletics or A&C.',
   noMore: 'Nobody is given a set number. The area only fills periods that would otherwise be Athletics or A&C, up to this many for a bunk.',
   leftoverKind: 'No number at all: the area fills whatever periods the others leave, like Athletics and A&C.',
   atMost: 'The most a bunk may have. Anything above the first number is only used to fill a period that would otherwise be Athletics or A&C, so not every bunk gets it.',
-  leftover: 'Athletics and A&C are whatever periods the other areas leave. This is the most of them a bunk may have in a week, not a number it is given.',
+  leftover: 'Athletics and A&C are whatever periods the other areas leave. A most is kept. A least is aimed for, and is never a reason to leave a week unfinished: when the other areas have used the periods, a bunk gets fewer.',
   atOnce: 'How many bunks may be in this area in the same period.',
   andCampers: 'The most campers there at once, on top of the number of bunks: two bunks only go together when they have no more campers between them than this. 0 means no limit in campers.',
   perDay: 'How many bunks of one village may go to this area on the same day.',
