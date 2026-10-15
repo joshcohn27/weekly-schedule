@@ -219,12 +219,13 @@ in memory only, and goes away when you edit a cell or upload a file.
 The **Settings** tab holds the numbers Auto generate works with, one row per program area (Judaics, Israel, Teva,
 Ceramics, Yoga, Dance):
 
-- **Times per bunk per session**, said the same way for Judaics, Israel, Teva, Yoga, Time with UH and any area you add:
-  a menu of **Exactly**, **At least**, **No more than**, **Between** and **Leftover**. "Exactly 2" gives every bunk two.
+- **How often**, said the same way on every row of the table (one menu for each village at League, Dance and
+  Ceramics): a menu of **Exactly**, **At least**, **No more than**, **Between** and **Leftover**. "Exactly 2" gives every bunk two.
   "At least 2" gives every bunk two and more when there are periods to fill. "Between 2 and 3" gives every bunk two, and a
   third only fills a period that would otherwise be Athletics or A&C. "No more than 3" and "Leftover" give nobody a set
   number: the area only fills such periods. Underneath each is two numbers, the least and the most (12 stands for no
-  limit; `src/components/HowOften.tsx`). Dance and Ceramics are set village by village.
+  limit; `src/components/HowOften.tsx`). A choice a row cannot keep is greyed out: ropes, hobbies, Shabbat Prep and
+  Tusc's triathlon are exactly only, and the pool (two swims a week at the most) has no "between".
 - **Bunks at once** (1 or 2) and **bunks of one village in a day.**
 
 Whatever periods these areas do not use become Athletics, A&C or Time with UH. So raising a number means less of
@@ -239,15 +240,18 @@ cut to 1 and no third Ceramics, for example, a run tried for its full time and d
   session gets Monday morning, and that is all it can have), then a midweek one each week (Wednesday afternoon or
   Tuesday morning), then Sunday mornings from week 2 on. So 4 is one a week, 7 is what a 4-week session has always
   had, and 9 is the most that fits (8 in a 3-week session). There is no chance in it.
-- **Waterfront:** about how many times a week. **League:** about how many times a week, set village by village
-  (Mohawk's are double periods; for Tusc the number is triathlon sessions).
+- **Waterfront:** times a week, a whole village at a time. **League:** times a week, set village by village (Mohawk's
+  are double periods; for Tusc the number is triathlon sessions). For both, the first number is what a village is given
+  and anything up to the second is only added when its bunks have periods to spare (`placeExtraVillageBlocks`); three a
+  week is the most there can be. League starts as exactly 2, and exactly 3 for Mohawk.
 - **Pool:** swims a week and the most a week, how many of an O or C bunk's first swims are lessons alone, and the most
   campers in the water at once.
 - **Ropes:** times a session (low ropes first, then high), and the most campers at ropes at once. Ropes goes by
   people, not by bunks.
 - **Shabbat Prep:** which village or villages have Shabbat in each week (or No Shabbat), and how many single periods (0 to 2) a village gets earlier in its Shabbat week on top of the Friday afternoon double, which is always there. Music and Judaics never have a period while a village is at Shabbat Prep, because their specialists run it; villages that share a week prepare together. The extra periods go where the fewest other bunks are free, and in a week with Shabbat Prep a bunk whose Music cannot fit goes without it that week.
-- **Athletics and A&C:** the most a week, bunks at once, bunks of one village in a day.
-- **Music:** times a week and the most. **Time with UH:** the same menu as the areas above.
+- **Athletics and A&C:** the menu a week (a most is kept; a least is only aimed for, `WEEK_BLOCK_MIN`), bunks at once,
+  bunks of one village in a day.
+- **Music:** the menu a week; it can be given once a week at the most, and anything above that only fills a period. **Time with UH:** the same menu as the areas above.
 - **Trips** have no numbers: a Tiyul or a bike trip is entered by hand.
 
 "A week" is a rough number, the average over the session; a short week gets fewer. Each number on the page is

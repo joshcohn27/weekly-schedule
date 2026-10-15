@@ -281,7 +281,7 @@ table.settings td.by-village.stacked label {
   margin: 3px 0;
   white-space: nowrap;
 }
-table.settings td.by-village.stacked .village {
+table.settings td.by-village.stacked .village-name {
   display: inline-block;
   min-width: 84px;
 }

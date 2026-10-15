@@ -164,7 +164,7 @@ export default function SettingsView({ settings, villages, onChange, onReset, di
                         const own = a.villages?.[v] ?? a.min;
                         return (
                           <label key={v}>
-                            <span className="village">{villageName(v)}</span>
+                            <span className="village-name">{villageName(v)}</span>
                             <HowOften
                               label={`${nameOf(area)} for village ${v}`}
                               plain

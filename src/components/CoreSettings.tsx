@@ -147,7 +147,7 @@ export default function CoreRows({ settings, onChange, disabled, villages = [], 
           ) : (
             villages.map((v) => (
               <label key={v}>
-                <span className="village">{villageName(v)}</span>
+                <span className="village-name">{villageName(v)}</span>
                 <HowOften
                   label={`League for village ${v}`}
                   labelEnd=" a week"

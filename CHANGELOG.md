@@ -5,6 +5,15 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.12.1 (October 14, 2026)
+
+- The village names beside the menus on the Settings tab are plain text again; they had picked up the look of the
+  village boxes on the Setup tab.
+- The manual and README describe the menu on every row. The manual has new pictures, two of them new: light red on the
+  Tracking tab, and places over a limit outlined in orange.
+- Measured in the app on this version: Session 1 and Session 2 as they start complete in 8 to 11 seconds (two runs each).
+  The full Session 1 left 3 empty periods in one run and none in the other; the full Session 2 none in one run.
+
 ## 1.12.0 (October 12, 2026)
 
 How often is said the same way on every row of the Settings tab.
