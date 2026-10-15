@@ -6,7 +6,7 @@ import { fillFlexible } from './fill';
 import { blocksOf, buildHistory, halfSlots, isFilledWeek, type BunkHistory } from './history';
 import { placeExtraPool, placeExtraVillageBlocks, placeLeague, placePool, placeRopes, placeTri, placeWaterfront, relabelRopes } from './place';
 import { TOKEN_AREAS, TOKEN_LABEL, planWeek, sessionTargetOf } from './planner';
-import { compareQuality, isBad, weekQuality, type WeekQuality } from './quality';
+import { compareQuality, isBad, isDone, weekQuality, type WeekQuality } from './quality';
 import { mulberry32 } from './rng';
 import { ROPES_FIRST, ROPES_SHARE_WHEN_TIGHT, setRopesFirst, setRopesShare, setRopesTight } from './weekRoom';
 import { ropesOutlook } from './ropesRoom';
@@ -146,7 +146,7 @@ class WeekSearch {
     const found = this.runRound(this.rounds++);
     if (!this.best || compareQuality(found.quality, this.best.quality) < 0) this.best = found;
     const { maxRounds } = this.opts;
-    if (!isBad(this.best.quality) || (maxRounds !== undefined && this.rounds >= maxRounds) || performance.now() - this.started >= this.maxMs) this.done = true;
+    if (isDone(this.best.quality) || (maxRounds !== undefined && this.rounds >= maxRounds) || performance.now() - this.started >= this.maxMs) this.done = true;
   }
 
   private runRound(round: number): Found {

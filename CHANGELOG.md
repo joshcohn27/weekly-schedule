@@ -5,6 +5,30 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.13.0 (October 14, 2026)
+
+Every bunk hitting its number for every area, worked on. Not finished: see the end of this entry.
+
+- **Session 2 has six hobby sessions**, two a week, as the 2026 calendar had them. It had seven, the 4-week session's
+  number, which took two periods from every bunk.
+- **Ceramics uses the periods it has.** It takes one group a period, and the week's plan left periods empty while bunks
+  still owed visits for the session. A Ceramics period still open after the week's own visits now goes to a bunk that
+  owes one and has periods to spare: one that has not been yet first, then two on their second visit together. In
+  Session 2, Ceramics went from 23 or 24 of its 37 periods to 33 to 37.
+- **Time with UH reaches each bunk's number.** The search counted any Time with UH above one in a session against it (a
+  rule from when the number was one), and planned ones could be turned into Athletics. Now only those above the bunk's
+  number count against it, a planned one is held, and a bunk that would otherwise run out of weeks for it is given one.
+- **Mohawk's league is 2 a week with a third when there is room** (it was exactly 3; the study says 2 to 3). With three
+  every week Mohawk had no period left for its Time with UH and second Ceramics.
+- **The last week of a session keeps trying while a bunk is short.** A week that breaks no rule but leaves a bunk short of
+  a number for the session is no longer taken at once: the app keeps looking for one with nobody short while it has
+  time, and keeps the best.
+- Settings saved under the old starting numbers follow: Mohawk's 3, and Session 2's seven hobby sessions (settings
+  version 6). Reading an Excel file no longer adds Mohawk's starting most to a file that has its own league numbers.
+- Measured outside the browser, visits short across all bunks: Session 1 as it starts 14 to 18 before, 0 now (five
+  runs); Session 2 as it starts 18 to 20 before, 2 to 6 now. Waterfront left at most 2 half-days a week unused in every
+  week measured. The full Session 1 still leaves about 5 empty periods in week 1, as before.
+
 ## 1.12.2 (October 14, 2026)
 
 - **Waterfront comes out much more often.** Ropes is placed before Waterfront, and the check for whether a village had

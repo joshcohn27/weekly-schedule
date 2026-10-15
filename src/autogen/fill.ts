@@ -15,6 +15,9 @@ import {
   MUSIC_SESSION_MAX,
   RARE_AREAS,
   SESSION_FILLER_MAX,
+  STATION_KEEP_SPARE,
+  STATION_TOP_UP,
+  STATION_TOP_UP_SPARE,
   VILLAGE_FILLER_MAX,
   WEEK_BLOCK_MIN,
   SHABBAT_PREP_STAFF,
@@ -115,6 +118,7 @@ export function fillFlexible(c: Ctx, plan: Plan): boolean {
 
   trimToWeek(c, tok, free);
   topUp(c, tok, free, total);
+  owedTimeWithUh(c, tok, free, total);
   fitToVillageDays(c, tok, free);
   if (BUDDY_PLANNING) matchBuddies(c, tok, free, total);
   placeFirst(c, tok, free, total);
@@ -172,7 +176,7 @@ function placeFirst(c: Ctx, tok: Record<string, number>[], free: number[][], tot
       if (taken(s) || !unit.every((b) => fits(b, s)) || villageOnDay(r.village[unit[0]], dayOf(s)) + unit.length > dayCap) return false;
       for (const b of unit) {
         put(c, b, [s], label);
-        tok[b][area]--;
+        if ((tok[b][area] ?? 0) > 0) tok[b][area]--; // a visit brought forward (below) was not planned for this week
         free[b] = free[b].filter((x) => x !== s);
       }
       return true;
@@ -220,6 +224,38 @@ function placeFirst(c: Ctx, tok: Record<string, number>[], free: number[][], tot
       // a pair that found no period it can both have: each on its own
       const alone = left.filter((u) => u.length > 1).flat().map((b) => [b]);
       if (alone.length > 0) match(alone);
+    }
+    // The area takes one group a period, so over a session it needs nearly every period it has (Ceramics in Session 2:
+    // about 32 of 37). A period it still has open this week goes to a bunk that owes a visit for the session and has a
+    // period to spare: one that has not been yet first, then two on their second visit together, then one alone.
+    if (STATION_TOP_UP.includes(area)) {
+      const tokens = (b: number): number => Object.values(tok[b]).reduce((sum, k) => sum + Math.max(0, k), 0);
+      const spare = (b: number): number => free[b].filter((x) => isFree(c, b, x)).length - tokens(b);
+      const owes = (b: number): boolean => sessionTargetOf(r.village[b], c.sessionWeeks, area) - total(b, area) > 0 && spare(b) >= STATION_TOP_UP_SPARE;
+      for (let round = 0; round < 3; round++) {
+        const want = Array.from({ length: r.n }, (_, b) => b).filter(owes);
+        if (want.length === 0) break;
+        const fresh = want.filter((b) => total(b, area) === 0).map((b) => [b]);
+        const again = want.filter((b) => total(b, area) > 0);
+        const pairs: number[][] = [];
+        const paired = new Set<number>();
+        if ((SLOT_CAP[area] ?? 1) > 1) {
+          for (const x of again) {
+            if (paired.has(x)) continue;
+            const y = again.find((b) => b !== x && !paired.has(b) && r.village[b] === r.village[x] && slotGroupProblems(r, area, [x, b], (k) => total(k, area) + 1, c.relax).length === 0);
+            if (y === undefined) continue;
+            paired.add(x);
+            paired.add(y);
+            pairs.push([x, y]);
+          }
+        }
+        const before = ALL_SLOTS.filter(taken).length;
+        if (fresh.length) match(fresh);
+        if (pairs.length) match(pairs);
+        const alone = again.filter((b) => !paired.has(b) && owes(b)).map((b) => [b]);
+        if (alone.length) match(alone);
+        if (ALL_SLOTS.filter(taken).length === before) break;
+      }
     }
     // no period this week: put off, not forced in
     for (let b = 0; b < r.n; b++) {
@@ -373,6 +409,24 @@ function topUp(c: Ctx, tok: Record<string, number>[], free: number[][], total: (
 }
 
 /**
+ * Time with UH is the first thing a tight week puts off, and a later week may have no room for it either, so a bunk could
+ * end the session short of its number while it had Athletics and A&C to spare. A bunk that still owes Time with UH for the
+ * session, and has periods to spare this week beyond everything planned, takes one now (the user: everyone hits their
+ * number for every area).
+ */
+function owedTimeWithUh(c: Ctx, tok: Record<string, number>[], free: number[][], total: (b: number, area: string) => number): void {
+  if (!TOKEN_AREAS.includes('TW UH')) return;
+  for (let b = 0; b < c.roster.n; b++) {
+    const owed = sessionTargetOf(c.roster.village[b], c.sessionWeeks, 'TW UH') - total(b, 'TW UH') - (tok[b]['TW UH'] ?? 0);
+    const spare = free[b].length - Object.values(tok[b]).reduce((sum, k) => sum + Math.max(0, k), 0);
+    // only when the weeks left, this one among them, would not hold it otherwise: early weeks keep their room (a full camp
+    // left more periods empty when every week took one, measured)
+    const weeksLeft = remainingWeeks(c).length;
+    if (owed > 0 && owed >= weeksLeft && spare >= STATION_KEEP_SPARE) tok[b]['TW UH'] = (tok[b]['TW UH'] ?? 0) + 1;
+  }
+}
+
+/**
  * A village may only have so many bunks at an area in one day. When its bunks are free on too few days for all of them
  * (Mohawk around its Tiyul, Tusc back from the bike trip), the blocks that cannot fit are put off instead of being forced in.
  * Music that cannot fit is excused for the week.
@@ -429,6 +483,9 @@ class FillSearch {
   private musicPlanned: boolean[] = [];
   /** How many of each filler area (Yoga, Ceramics) is planned for each bunk this week: the search may add one, never take a planned one away. */
   private fillerPlanned: number[][] = [];
+  /** Time with UH planned for the week, and the bunk's number for the session. */
+  private uhPlanned: number[] = [];
+  private uhTarget: number[] = [];
   /** How many of each filler area each bunk has in the other weeks. */
   private readonly fillerBase: number[][];
   private readonly fillerMost: number[][];
@@ -507,6 +564,8 @@ class FillSearch {
     const c = this.c;
     this.musicPlanned = tok.map((t) => (t.Music ?? 0) > 0);
     this.fillerPlanned = tok.map((t) => this.fillers.map((a) => t[a] ?? 0));
+    this.uhPlanned = tok.map((t) => t['TW UH'] ?? 0);
+    this.uhTarget = tok.map((_, b) => sessionTargetOf(c.roster.village[b], c.sessionWeeks, 'TW UH'));
     const at = (s: number, label: string): number => this.grid.reduce((k, row) => k + (row[s] === label ? 1 : 0), 0);
     for (const b of shuffle(c.rng, Array.from({ length: this.n }, (_, i) => i))) {
       const row = this.grid[b];
@@ -722,7 +781,9 @@ class FillSearch {
     }
     cost += WEIGHTS.musicExtra * Math.max(0, music - 1);
     // only what the search itself put down can be taken back
-    cost += HARD * Math.min(uhOwn, Math.max(0, this.base[b].uh + uh - this.uhLimit[b])) + WEIGHTS.uhExtra * Math.max(0, this.base[b].uh + uh - 1);
+    cost += HARD * Math.min(uhOwn, Math.max(0, this.base[b].uh + uh - this.uhLimit[b])) + WEIGHTS.uhExtra * Math.max(0, this.base[b].uh + uh - Math.max(1, this.uhTarget[b]));
+    // a planned Time with UH stays (the bunk owes it for the session): never a rule break, but not given up for Athletics or A&C
+    cost += WEIGHTS.uhDropped * Math.max(0, this.uhPlanned[b] - uh);
     // Bunks at A&C together must be on the same visit, so neighbours who drift apart can no longer go together and half
     // of A&C's places are lost. A bunk is nudged to end the week level with its neighbour.
     const mate = this.buddy[b];

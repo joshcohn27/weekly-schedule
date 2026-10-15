@@ -251,6 +251,16 @@ export function setRopesMax(campers: number, bunksAlways: number = ROPES_BUNKS_A
  * limit; the pool keeps its camper limit unless it is one whole village; nothing twice in a day, on two days running, or
  * in period 4 and again in period 1 the next morning.
  */
+/**
+ * Ceramics takes one group a period, so a period left open in one week is gone for good (Session 2 needs about 32 of its
+ * 37). A Ceramics period still open after the week's own visits goes to a bunk that owes a visit for the session, as long
+ * as the bunk keeps STATION_TOP_UP_SPARE periods to spare. Judaics and Israel were tried too: in a tight last week the
+ * extra visits left the search no way to place the rest without breaking a rule (measured).
+ */
+export const STATION_TOP_UP: string[] = ['Ceramics'];
+export const STATION_TOP_UP_SPARE = 2;
+/** An owed Time with UH is only added for a bunk with this many periods to spare. */
+export const STATION_KEEP_SPARE = 2;
 export const BEND = { on: false };
 /** Areas whose limit on bunks at once never bends. */
 export const NEVER_OVER: string[] = ['Athletics'];
@@ -471,7 +481,7 @@ export let LEAGUE_MIN_PER_WEEK = 2;
  * League is set village by village: a village letter here has its own number of league periods a week, and one that is
  * not here has LEAGUE_PER_WEEK. For Tusc the number is triathlon sessions: the first is a double period, the rest single.
  */
-export const LEAGUE_BY_VILLAGE: Record<string, number> = { M: 3 };
+export const LEAGUE_BY_VILLAGE: Record<string, number> = {};
 export const leagueFor = (v: string): number => LEAGUE_BY_VILLAGE[v] ?? LEAGUE_PER_WEEK;
 /**
  * The most Waterfront and league a village may have in a week. Above the week's own number, a block is only given to a
@@ -479,7 +489,9 @@ export const leagueFor = (v: string): number => LEAGUE_BY_VILLAGE[v] ?? LEAGUE_P
  */
 export let WATERFRONT_MAX_PER_WEEK = 3;
 export let LEAGUE_MAX_PER_WEEK = 2; // the study: league is twice a week at the most for everyone but Mohawk
-export const LEAGUE_MAX_BY_VILLAGE: Record<string, number> = {};
+// Mohawk: two double periods a week and a third when it has room (the study: Mohawk 2 to 3 a week). With three every
+// week Mohawk had no period left for its Time with UH and second Ceramics (measured, 2026-10-14).
+export const LEAGUE_MAX_BY_VILLAGE: Record<string, number> = { M: 3 };
 export const leagueMaxFor = (v: string): number => Math.max(leagueFor(v), LEAGUE_MAX_BY_VILLAGE[v] ?? LEAGUE_MAX_PER_WEEK);
 export function setWeeklyMost(waterfront: number, league: number): void {
   WATERFRONT_MAX_PER_WEEK = waterfront;
@@ -599,8 +611,10 @@ export const WEIGHTS = {
   musicSkipped: 120,
   /** A second Music in a week: allowed when it fits, but it is there to fill a period, not a target. */
   musicExtra: 6,
-  /** Each Time with UH beyond a bunk's first: it is there to fill a period nothing else can, so it is saved for when it is needed. */
+  /** Each Time with UH beyond a bunk's number for the session: it is there to fill a period nothing else can, so it is saved for when it is needed. */
   uhExtra: 15,
+  /** Each planned Time with UH the search turns into something else: the bunk owes it for the session. */
+  uhDropped: 120,
   /** Each block Athletics and A&C are more than one apart, even where that is still allowed: closer is better. */
   gapWide: 25,
   /** A Yoga, Ceramics or Judaics beyond what was planned for the week: there to fill a period, not a target. */

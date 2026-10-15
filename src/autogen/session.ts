@@ -5,7 +5,7 @@ import { APP_BACK_UP_AFTER, APP_MAX_MS, LAST_WEEK_TIME_SHARE, runBudgetMs, type 
 import { tidyWeek } from './tidy';
 import { isFilledWeek } from './history';
 import { generateWeekAsync, isBad, type AutoGenOptions, type AutoGenResult } from './index';
-import { compareQuality } from './quality';
+import { compareQuality, isDone } from './quality';
 import { applyCalendar, calendarFor, templateFor } from './sessionCalendar';
 import { applySettings, isDefaultSettings, templateSettings, type Settings } from './settings';
 
@@ -154,13 +154,21 @@ export async function generateRun(opts: RunOptions): Promise<RunResult | null> {
       fails[n] = 0;
       n++;
     };
-    if (!isBad(result.quality)) {
+    if (isDone(result.quality)) {
       lastGood[n] = result;
       keep(result);
       continue;
     }
     const soFar = best[n];
     if (!soFar || compareQuality(result.quality, soFar.quality) < 0) best[n] = result;
+    if (!isBad(result.quality)) {
+      // a good week with a bunk still short of a number for the session: try again while there is time, and keep the
+      // best of them when the time is up
+      const top = best[n] as AutoGenResult;
+      lastGood[n] = !lastGood[n] || compareQuality(top.quality, lastGood[n]!.quality) <= 0 ? top : lastGood[n];
+      if (spent[n] >= budgets[n] - 100) keep(lastGood[n] as AutoGenResult);
+      continue;
+    }
     fails[n]++;
     if (spent[n] >= budgets[n] - 100) {
       // out of time for this week. A good week it made earlier (before it was redone for the sake of the next one) comes

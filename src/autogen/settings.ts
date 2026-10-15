@@ -95,8 +95,10 @@ export interface Settings {
  * 5: the user's program-area study (2026-10-12). Settings saved with the old starting numbers follow the app: Teva 2 to 4,
  *    Yoga 1 to 2 with 16 campers, Ceramics twice for every village, Time with UH 2 to 4, ropes 25 campers, the pool 75,
  *    league twice a week with Mohawk 3, A&C two bunks at once, and the camper limits at Judaics, Israel, Teva and Dance.
+ * 6: Mohawk's league is 2 a week with a third when there is room (it was exactly 3), and Session 2 has six hobby sessions
+ *    (it had seven). Settings saved with the old starting numbers follow the app.
  */
-export const SETTINGS_VERSION = 5;
+export const SETTINGS_VERSION = 6;
 /** What Yoga's camper limit started at before settings version 3. */
 const OLD_YOGA_CAMPERS = 22;
 /** What Ceramics and Teva started at before settings version 4. */
@@ -443,19 +445,26 @@ const whole = (v: unknown, least: number, most: number, fallback: number): numbe
 
 /** Core numbers saved before settings version 4: the app's old 2 bunks of a village a day follow the app to 3. */
 function broughtUp(core: unknown, saved: number, oldSecond = false): unknown {
-  if (saved >= 5 || !core || typeof core !== 'object') return core;
+  if (saved >= 6 || !core || typeof core !== 'object') return core;
+  if (saved === 5) {
+    // version 6: Mohawk's exactly 3 league follows the app to 2 with a third when there is room, and Session 2's seven hobby sessions to six
+    const six = JSON.parse(JSON.stringify(core)) as Record<string, unknown> & { leagueByVillage?: Record<string, number>; leagueMaxByVillage?: Record<string, number> };
+    if (JSON.stringify(six.leagueByVillage ?? {}) === JSON.stringify({ M: 3 }) && Object.keys(six.leagueMaxByVillage ?? {}).length === 0) Object.assign(six, { leagueByVillage: {}, leagueMaxByVillage: { M: 3 } });
+    if (Number(six.ropesBunksAlways) === 3 && Number(six.hobbySessions) === 7) six.hobbySessions = 6;
+    return six;
+  }
   const five = JSON.parse(JSON.stringify(core)) as Record<string, unknown> & { ac?: Partial<SharedNumbers>; leagueByVillage?: Record<string, number> };
   // version 5: the app's old starting numbers follow the app to the ones from the study
   const move = (key: string, was: number, now: number) => {
     if (Number(five[key]) === was) five[key] = now;
   };
   // Session 2 as it started before version 5 had ropes once: it is twice now, with three bunks together. Its Time with UH stays 1 to 3.
-  if (oldSecond) Object.assign(five, { ropesPerSession: 2, ropesBunksAlways: 3 });
+  if (oldSecond) Object.assign(five, { ropesPerSession: 2, ropesBunksAlways: 3, ...(Number(five.hobbySessions) === 7 ? { hobbySessions: 6 } : {}) });
   else if (Number(five.uhMin) === 1 && Number(five.uhMax) === 3) Object.assign(five, { uhMin: 2, uhMax: 4 });
   move('ropesMaxCampers', 30, 25);
   move('yogaMaxCampers', 20, 16);
   move('poolMaxCampers', 80, 75);
-  if (Number(five.leaguePerWeek) === 3 && Object.keys(five.leagueByVillage ?? {}).length === 0) Object.assign(five, { leaguePerWeek: 2, leagueByVillage: { M: 3 } });
+  if (Number(five.leaguePerWeek) === 3 && Object.keys(five.leagueByVillage ?? {}).length === 0) Object.assign(five, { leaguePerWeek: 2, leagueByVillage: {}, leagueMaxByVillage: { M: 3 } });
   if (five.ac && Number(five.ac.atOnce) === 3) five.ac.atOnce = 2;
   if (saved >= 4) return five;
   const out = five as Record<string, Partial<SharedNumbers> | undefined>;

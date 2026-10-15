@@ -59,7 +59,7 @@ export interface SessionTemplate {
   /** Where this session's numbers differ from the app's own: times a session for an area, or for each village (Dance). */
   numbers?: Record<string, { min?: number; max?: number; villages?: Record<string, number> }>;
   /** Where this session's main numbers differ: ropes a session, league a week. */
-  core?: { ropesPerSession?: number; leaguePerWeek?: number; ropesBunksAlways?: number; uhMin?: number; uhMax?: number; leagueByVillage?: Record<string, number> };
+  core?: { hobbySessions?: number; ropesPerSession?: number; leaguePerWeek?: number; ropesBunksAlways?: number; uhMin?: number; uhMax?: number; leagueByVillage?: Record<string, number> };
 }
 
 /** The date of a day of a session: the Sunday of the week opening day falls in is day 0 of week 1. */
@@ -161,7 +161,8 @@ export const SESSION_2: SessionTemplate = {
   // Ropes is twice here too, and three bunks may go together to make the half-days stretch. Tusc is the same campers as
   // Session 1 and has had Low and High there: it gets one more, High, and only when a half-day is going spare.
   // Mohawk's league is double periods: twice a week here, where Session 1 has three
-  core: { ropesBunksAlways: 3, uhMin: 1, uhMax: 3, leagueByVillage: {} },
+  // Six hobby sessions, two a week, as the 2026 calendar had them (seven is the 4-week session's number)
+  core: { hobbySessions: 6, ropesBunksAlways: 3, uhMin: 1, uhMax: 3, leagueByVillage: {} },
   villageTargets: { Ropes: { T: 1 } },
   ropesStartHigh: ['T'],
   // 3 Onondaga, 4 Cayuga, 5 Seneca, 5 Mohawk, 4 Tusc, and Taste of CSL (4) for week 1: its cabins are Onondaga's and Cayuga's

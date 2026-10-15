@@ -39,6 +39,12 @@ export interface WeekQuality {
   hard: string[];
   major: string[];
   minor: string[];
+  /**
+   * In the last week of a session: visits the bunks are still short of their numbers for the session (program areas and
+   * ropes). A week with some is acceptable, but the generator keeps looking for one with none while it has time (the user:
+   * everyone hits their number for every area).
+   */
+  owed?: number;
 }
 
 export interface QualityInput {
@@ -64,10 +70,12 @@ export interface QualityInput {
 }
 
 export const isBad = (q: WeekQuality): boolean => q.hard.length > 0 || q.major.length > 0;
+/** Good, and nobody is left short of a number for the session: nothing more to look for. */
+export const isDone = (q: WeekQuality): boolean => !isBad(q) && !q.owed;
 
 /** Order two qualities: fewer hard, then fewer major, then fewer minor is better (negative when a is better). */
 export const compareQuality = (a: WeekQuality, b: WeekQuality): number =>
-  a.hard.length - b.hard.length || a.major.length - b.major.length || a.minor.length - b.minor.length;
+  a.hard.length - b.hard.length || a.major.length - b.major.length || (a.owed ?? 0) - (b.owed ?? 0) || a.minor.length - b.minor.length;
 
 const label = (area: string): string => (area === 'Israel Education' ? 'Israel' : area === 'TW UH' ? 'Time with UH' : area);
 
@@ -205,5 +213,11 @@ export function weekQuality(input: QualityInput): WeekQuality {
     else if (gap === allowed) minor.push(`${roster.names[b]} has Athletics and A&C ${gap} apart.`);
   }
 
-  return { hard, major, minor };
+  // visits still owed at the end of the session: the rare areas, and ropes where it is owed
+  let owed = 0;
+  if (lastOfSession) {
+    for (const s of short) owed += s.by;
+    for (let b = 0; b < n; b++) if (!ropesIfRoom(roster.village[b])) owed += Math.max(0, sessionTargetOf(roster.village[b], sessionWeeks, 'Ropes') - total(b, 'Ropes'));
+  }
+  return owed > 0 ? { hard, major, minor, owed } : { hard, major, minor };
 }

@@ -220,6 +220,8 @@ function parseMainSheet(wb: XLSX.WorkBook): { core?: unknown; visits?: unknown; 
     const match = part.trim().match(/^(\S+)\s+(\d+)$/);
     if (match) core.leagueByVillage[match[1]] = Number(match[2]);
   }
+  // the file's own list replaces the starting one (Mohawk's), so a village the file leaves out is not given a most it never had
+  if (value.has(LEAGUE_MOST_BY)) core.leagueMaxByVillage = {};
   for (const part of String(value.get(LEAGUE_MOST_BY) ?? '').split(',')) {
     const match = part.trim().match(/^(\S+)\s+(\d+)$/);
     if (match) core.leagueMaxByVillage[match[1]] = Number(match[2]);

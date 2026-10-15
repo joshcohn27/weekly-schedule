@@ -1,7 +1,7 @@
 import type { Schedule } from '../types';
 import { APP_MAX_WORKERS } from './config';
-import { isBad, type AutoGenOptions, type AutoGenResult } from './index';
-import { compareQuality } from './quality';
+import type { AutoGenOptions, AutoGenResult } from './index';
+import { compareQuality, isDone } from './quality';
 import { generateRun, type RunOptions, type RunResult, type RunTime } from './session';
 import type { Settings } from './settings';
 
@@ -62,7 +62,7 @@ export function startRun(request: RunRequest, handlers: RunHandlers): { stop: ()
       };
       abort.signal.addEventListener('abort', () => settle(null), { once: true });
       const finished = (result: AutoGenResult | null) => {
-        if (result && !isBad(result.quality)) return settle(result);
+        if (result && isDone(result.quality)) return settle(result);
         if (result && (!best || compareQuality(result.quality, best.quality) < 0)) best = result;
         if (--left === 0) settle(best);
       };

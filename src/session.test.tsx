@@ -472,7 +472,7 @@ describe('the program-area study: limits, what may bend, and what is marked', ()
     expect(now.areas.Yoga).toMatchObject({ min: 1, max: 2 });
     expect(now.areas.Judaics).toMatchObject({ min: 1, max: 1, campers: 25 }); // what was chosen stays
     expect(now.areas.Ceramics.villages).toEqual({ O: 2, C: 2, S: 2, M: 2, T: 2 });
-    expect(coreOf(now)).toMatchObject({ uhMin: 2, uhMax: 4, ropesMaxCampers: 25, ropesBunksAlways: 2, yogaMaxCampers: 16, poolMaxCampers: 75, leaguePerWeek: 2, leagueByVillage: { M: 3 }, hobbySessions: 5 });
+    expect(coreOf(now)).toMatchObject({ uhMin: 2, uhMax: 4, ropesMaxCampers: 25, ropesBunksAlways: 2, yogaMaxCampers: 16, poolMaxCampers: 75, leaguePerWeek: 2, leagueByVillage: {}, leagueMaxByVillage: { M: 3 }, hobbySessions: 5 });
     expect(coreOf(now).ac.atOnce).toBe(2);
     // a limit in campers that was switched off stays off, and one that was changed stays changed
     const mine = normalizeSettings({ ...defaultSettings(), areas: { ...defaultSettings().areas, Teva: { ...defaultSettings().areas.Teva, campers: 0 }, Dance: { ...defaultSettings().areas.Dance, campers: 50 } } });

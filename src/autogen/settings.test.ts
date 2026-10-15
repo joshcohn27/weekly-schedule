@@ -452,9 +452,9 @@ describe('the main areas and the visit numbers', () => {
       waterfrontPerWeek: 2,
       waterfrontMaxPerWeek: 3,
       leaguePerWeek: 2,
-      leagueByVillage: { M: 3 },
+      leagueByVillage: {},
       leagueMaxPerWeek: 2,
-      leagueMaxByVillage: {},
+      leagueMaxByVillage: { M: 3 },
       athleticsMinPerWeek: 0,
       acMinPerWeek: 0,
       poolMaxPerWeek: 2,
@@ -580,7 +580,8 @@ describe('the main areas and the visit numbers', () => {
     applySettings(withCore(defaultSettings(), { ...defaultCore(), leagueByVillage: { T: 2, S: 1 } }));
     expect([leagueFor('T'), triathlonPeriodsAWeek(), leagueFor('S'), leagueMinFor('S')]).toEqual([2, 3, 1, 1]); // Tusc: a double and a single
     applySettings();
-    expect([leagueFor('M'), leagueFor('T'), triathlonPeriodsAWeek()]).toEqual([3, 2, 3]);
+    // Mohawk is two a week with a third when it has room
+    expect([leagueFor('M'), leagueMaxFor('M'), leagueFor('T'), triathlonPeriodsAWeek()]).toEqual([2, 3, 2, 3]);
     // it travels in the Excel file
     const wb = XLSX.read(XLSX.write(buildWeekWorkbook(sampleSchedule(), 1, s), { type: 'array', bookType: 'xlsx' }), { type: 'array' });
     expect(parseSettingsSheet(wb)).toEqual(s);
@@ -693,7 +694,7 @@ describe('the main areas and the visit numbers', () => {
     expect((html.match(/>Leftover<\/option>/g) ?? []).length).toBe((html.match(/how often"/g) ?? []).length);
     // what each row starts as
     const picked = (row: string): string => (html.match(new RegExp(`aria-label="${row} how often"[^>]*>.*?<option value="(\\w+)"[^>]*selected`)) ?? [])[1];
-    expect(['Waterfront', 'League for village O', 'League for village M', 'Pool', 'Ropes', 'Athletics', 'A&amp;C', 'Music', 'Ceramics for village O'].map(picked)).toEqual(['atLeast', 'exactly', 'exactly', 'atLeast', 'exactly', 'leftover', 'leftover', 'between', 'exactly']);
+    expect(['Waterfront', 'League for village O', 'League for village M', 'Pool', 'Ropes', 'Athletics', 'A&amp;C', 'Music', 'Ceramics for village O'].map(picked)).toEqual(['atLeast', 'exactly', 'atLeast', 'atLeast', 'exactly', 'leftover', 'leftover', 'between', 'exactly']);
     // a week holds three of anything at the most; the pool two, and one of them given; Music is given once at the most
     expect(kindsThatFit(3)).toEqual(['exactly', 'atLeast', 'noMore', 'between', 'leftover']);
     expect(kindsThatFit(2, 1)).toEqual(['exactly', 'atLeast', 'noMore', 'leftover']);
@@ -711,7 +712,8 @@ describe('the main areas and the visit numbers', () => {
     expect(coreOf(s).leagueMaxByVillage).toEqual({ O: 3 }); // Cayuga's 2 is what it would have anyway
     expect(leagueMostOf(s, 'O')).toBe(3);
     expect(leagueMostOf(s, 'C')).toBe(2);
-    expect(leagueMostOf(s, 'M')).toBe(3); // never under the village's own number
+    expect(leagueMostOf(s, 'M')).toBe(2); // the list given here leaves Mohawk out, so it has the usual most
+    expect(leagueMostOf(withCore(defaultSettings(), { ...defaultCore(), leagueByVillage: { M: 3 }, leagueMaxByVillage: { M: 1 } }), 'M')).toBe(3); // never under the village's own number
     expect(coreOf(s).acMinPerWeek).toBe(3);
     // a most under the least is brought up to it
     expect(coreOf(withCore(defaultSettings(), { ...defaultCore(), waterfrontPerWeek: 3, waterfrontMaxPerWeek: 1 })).waterfrontMaxPerWeek).toBe(3);
