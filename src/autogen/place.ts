@@ -78,7 +78,8 @@ export const SPREAD_WEIGHT = 0.6;
  * week is over-subscribed.
  */
 function reservedCells(c: Ctx, plan: Plan, b: number): number {
-  let n = plan.Pool[b] + 2 * plan.Ropes[b] + plan.Music[b];
+  // ropes already on the schedule (it goes before Waterfront) has its periods out of the free count: only what is still to place is reserved
+  let n = plan.Pool[b] + 2 * Math.max(0, plan.Ropes[b] - inWeekCount(c, b, 'Ropes')) + plan.Music[b];
   // O, C and S must hit every target, so for them the rarer areas are reserved too; Mohawk and Tusc give way.
   if (!FLEXIBLE_VILLAGES.includes(c.roster.village[b])) for (const a of TOKEN_AREAS) if (a !== 'Music') n += plan[a][b];
   return n;

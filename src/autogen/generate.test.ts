@@ -309,11 +309,12 @@ describe('what the generator writes', () => {
   it('is deterministic: the same seed and input give the same week, quality and number of rounds', () => {
     const weeks: WeeksState = { current: 0, weeks: [sampleSchedule(), null, null, null] };
     for (const seed of [42, 43]) {
-      const a = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed, maxRounds: 3 });
-      const b = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed, maxRounds: 3 });
+      // no clock limit: under load a limit could stop the two runs at different rounds
+      const a = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed, maxRounds: 3, maxMs: 600_000 });
+      const b = generateWeek({ weeks, weekIndex: 1, mode: 'replace-all', seed, maxRounds: 3, maxMs: 600_000 });
       expect(b).toEqual(a);
     }
-  }, 120_000);
+  }, 300_000);
 
   it('gives noticeably different weeks for different seeds', () => {
     const fixed = /Hobbies|Swim Test|Shabbat Prep/;

@@ -5,6 +5,20 @@ What changed in each version of the Weekly Period Schedule Builder, newest first
 The version is shown at the bottom of every page. The first number is the app itself. The second goes up when something
 new is added, and the third goes up for a fix or a small change (and goes back to 0 when the second moves).
 
+## 1.12.2 (October 14, 2026)
+
+- **Waterfront comes out much more often.** Ropes is placed before Waterfront, and the check for whether a village had
+  room for Waterfront counted a bunk's ropes twice: once as periods already taken and again as still to place. Any
+  village with a bunk at ropes that week looked two periods short and went without. Only ropes still to place is counted
+  now. The live site (1.10.1) had the same fault.
+- Measured outside the browser, bunk-weeks with no Waterfront: Session 1 as it starts 22 before, 9 after (two seeds);
+  Session 2 as it starts 46 and 51 before, 9 and 8 after. In Session 2 fewer bunks went without Ceramics (6 and 6
+  before, 2 and 3 after), and fewer had Judaics or Teva a second time (Judaics 11 and 11 before, 4 and 2 after).
+- Placing Waterfront before ropes was tried too: Waterfront came out about the same, and Yoga and Ceramics came out
+  worse, so ropes still goes first.
+- The test that the same seed gives the same week no longer has a clock limit, which under a busy machine could stop
+  its two runs at different points.
+
 ## 1.12.1 (October 14, 2026)
 
 - The village names beside the menus on the Settings tab are plain text again; they had picked up the look of the
